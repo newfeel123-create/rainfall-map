@@ -7,4 +7,4 @@ GitHub Pages 업로드 방법
 - icon-192.png
 - icon-512.png
 
-GitHub 저장소 Settings > Pages에서 main / root로 설정하면 됩니다.
+이번 버전은 이동모드 ON/OFF 버튼이 추가되어 아이폰에서 수치 박스와 ▲ 아이콘을 안정적으로 움직일 수 있습니다.

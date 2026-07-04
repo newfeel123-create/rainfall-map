@@ -62,6 +62,9 @@
     font-weight:700;
   }
   button:hover { background:#f0f4f8; }
+  #moveModeBtn.move-on { background:#ffe08a; border-color:#a98200; color:#000; }
+  body.label-move-mode .amount-label-group, body.label-move-mode .mountain-icon-group { cursor: move; }
+  body.label-move-mode .amount-label-box { stroke:#000; stroke-width:2.2; }
   .mapwrap {
     position:relative;
     overflow:hidden;
@@ -268,6 +271,7 @@
 
     <div class="btns">
       <button id="pasteMatchBtn">붙여넣기 매칭</button>
+      <button id="moveModeBtn" type="button">이동모드 OFF</button>
       <button id="clearBtn">선택 색 지우기</button>
       <button id="resetBtn">지도 위치 초기화</button>
       <button id="centerLabelBtn">수치 중앙 재배치</button>
@@ -1224,6 +1228,7 @@ function addGroupAmountLabel(elements, amount) {
 }
 
 function makeDraggableLabel(g, rect, text, amount) {
+  g.dataset.labelStorage = amount;
   let draggingLabel = false;
   let start = null;
   let base = null;
@@ -1758,6 +1763,117 @@ function extractRainfallFromClipboard() {
   }
 }
 
+
+// iPhone 안정용: 이동모드 ON일 때만 수치 박스/산지 아이콘을 터치 이동합니다.
+const moveModeBtn = document.getElementById('moveModeBtn');
+let labelMoveMode = false;
+let activeMoveTarget = null;
+
+function setLabelMoveMode(on) {
+  labelMoveMode = !!on;
+  if (moveModeBtn) {
+    moveModeBtn.textContent = labelMoveMode ? '이동모드 ON' : '이동모드 OFF';
+    moveModeBtn.classList.toggle('move-on', labelMoveMode);
+  }
+  document.body.classList.toggle('label-move-mode', labelMoveMode);
+  const box = document.getElementById('matchResult');
+  if (box) {
+    box.innerHTML = labelMoveMode
+      ? '이동모드 ON: 수치 박스나 ▲ 아이콘을 손가락으로 꾹 누른 채 움직이세요.<br>이동 후 다시 OFF를 누르면 지도 이동 모드로 돌아갑니다.'
+      : '';
+  }
+}
+if (moveModeBtn) {
+  moveModeBtn.addEventListener('click', () => setLabelMoveMode(!labelMoveMode));
+}
+
+function clientFromAnyEvent(e) {
+  if (e.touches && e.touches.length) return e.touches[0];
+  if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0];
+  return e;
+}
+function getMoveTargetFromEvent(e) {
+  const c = clientFromAnyEvent(e);
+  let el = null;
+  if (e.target && e.target.closest) {
+    el = e.target.closest('.amount-label-group, .mountain-icon-group');
+  }
+  if (!el && c && Number.isFinite(c.clientX) && Number.isFinite(c.clientY)) {
+    const hit = document.elementFromPoint(c.clientX, c.clientY);
+    if (hit && hit.closest) el = hit.closest('.amount-label-group, .mountain-icon-group');
+  }
+  return el;
+}
+function currentMovePos(el) {
+  return { x: parseFloat(el.dataset.x || '0'), y: parseFloat(el.dataset.y || '0') };
+}
+function saveMoveTargetPos(el) {
+  const p = currentMovePos(el);
+  if (el.classList.contains('mountain-icon-group')) {
+    saveMountainPos(el.dataset.mountain || '', el.dataset.amount || '', p.x, p.y);
+  } else {
+    const key = el.dataset.labelStorage || (el.dataset.mountain ? (el.dataset.mountain + '_' + (el.dataset.amount || '')) : (el.dataset.amount || ''));
+    saveLabelPos(key, p.x, p.y);
+  }
+}
+function startMoveModeDrag(e) {
+  if (!labelMoveMode) return;
+  const el = getMoveTargetFromEvent(e);
+  if (!el) {
+    // 이동모드 중에는 실수로 지도가 움직이지 않게 막습니다.
+    if (e.cancelable) e.preventDefault();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    return;
+  }
+  const c = clientFromAnyEvent(e);
+  if (!c) return;
+  if (e.cancelable) e.preventDefault();
+  e.stopPropagation();
+  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+  activeMoveTarget = {
+    el,
+    start: svgPointFromClient(c),
+    base: currentMovePos(el)
+  };
+  el.classList.add('hover-focus');
+  try { if (e.pointerId != null && el.setPointerCapture) el.setPointerCapture(e.pointerId); } catch(_) {}
+}
+function moveModeDrag(e) {
+  if (!labelMoveMode || !activeMoveTarget) return;
+  const c = clientFromAnyEvent(e);
+  if (!c) return;
+  if (e.cancelable) e.preventDefault();
+  e.stopPropagation();
+  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+  const pt = svgPointFromClient(c);
+  const nx = activeMoveTarget.base.x + (pt.x - activeMoveTarget.start.x);
+  const ny = activeMoveTarget.base.y + (pt.y - activeMoveTarget.start.y);
+  activeMoveTarget.el.dataset.x = nx;
+  activeMoveTarget.el.dataset.y = ny;
+  activeMoveTarget.el.setAttribute('transform', `translate(${nx} ${ny})`);
+}
+function finishMoveModeDrag(e) {
+  if (!activeMoveTarget) return;
+  if (e && e.cancelable) e.preventDefault();
+  if (e) {
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+  }
+  saveMoveTargetPos(activeMoveTarget.el);
+  activeMoveTarget.el.classList.remove('hover-focus');
+  activeMoveTarget = null;
+}
+
+svg.addEventListener('pointerdown', startMoveModeDrag, {capture:true, passive:false});
+window.addEventListener('pointermove', moveModeDrag, {capture:true, passive:false});
+window.addEventListener('pointerup', finishMoveModeDrag, {capture:true, passive:false});
+window.addEventListener('pointercancel', finishMoveModeDrag, {capture:true, passive:false});
+svg.addEventListener('touchstart', startMoveModeDrag, {capture:true, passive:false});
+window.addEventListener('touchmove', moveModeDrag, {capture:true, passive:false});
+window.addEventListener('touchend', finishMoveModeDrag, {capture:true, passive:false});
+window.addEventListener('touchcancel', finishMoveModeDrag, {capture:true, passive:false});
+
+
 document.getElementById('pasteMatchBtn').addEventListener('click', () => {
   applyForecastMatch();
 });
@@ -1808,6 +1924,7 @@ svg.addEventListener('wheel', e => {
 
 let dragging = false, last = null;
 svg.addEventListener('mousedown', e => {
+  if (labelMoveMode) return;
   if (e.target.closest && (e.target.closest('.amount-label-group') || e.target.closest('.mountain-icon-group'))) return;
   dragging = true;
   svg.classList.add('panning');
@@ -1828,6 +1945,7 @@ let touchMode = null, touchLast = null, touchStartDist = 0, touchStartK = 1;
 function touchPoint(t){ return {x:t.clientX, y:t.clientY}; }
 function touchDistance(a,b){ return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
 svg.addEventListener('touchstart', e => {
+  if (labelMoveMode) { e.preventDefault(); return; }
   if (e.target.closest && (e.target.closest('.amount-label-group') || e.target.closest('.mountain-icon-group'))) return;
   if (e.touches.length === 1) {
     touchMode = 'pan';
