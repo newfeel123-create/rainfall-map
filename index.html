@@ -79,10 +79,15 @@
     min-height:0;
   }
   .map-legend {
-    background:#ffffff;
-    border-top:1px solid #d0d7de;
-    padding:10px 14px;
+    position:absolute;
+    right:10px;
+    bottom:10px;
+    z-index:5;
+    background:rgba(255,255,255,.96);
+    border:1px solid #888;
+    padding:6px 7px;
     box-sizing:border-box;
+    box-shadow:0 1px 3px rgba(0,0,0,.15);
   }
   svg {
     width:100%;
@@ -202,11 +207,11 @@
     background:#fff;
   }
   .rain-row {
-    display:inline-flex;
+    display:flex;
     align-items:center;
-    gap:6px;
-    margin:4px 14px 4px 0;
-    font-size:12px;
+    gap:5px;
+    margin:2px 0;
+    font-size:11px;
     white-space:nowrap;
   }
   .rain-row .chip { margin-right:0; }
@@ -299,6 +304,20 @@
     pointer-events:none;
   }
 
+  .mountain-legend-item {
+    display:flex;
+    align-items:flex-start;
+    gap:5px;
+    margin-top:5px;
+    font-size:10.5px;
+    line-height:1.25;
+    white-space:nowrap;
+  }
+  .mountain-symbol {
+    font-size:22px;
+    line-height:1;
+    color:#333;
+  }
 
 /* iPhone / mobile layout */
 @media (max-width: 768px) {
@@ -318,8 +337,8 @@
   .mapwrap {
     width: 100%;
     height: 88vw;
-    min-height: 355px;
-    max-height: 500px;
+    min-height: 360px;
+    max-height: 520px;
     flex:0 0 auto;
     overflow: hidden;
     touch-action: none;
@@ -328,11 +347,13 @@
     border-bottom:1px solid #d0d7de;
   }
   svg { width: 100%; height: 100%; }
-  .map-legend { order:2; padding:10px 8px 14px 8px; border-top:none; background:#fff; }
-  .legend { font-size: 11px; }
-  .rain-row { margin:4px 10px 4px 0; font-size:12px; }
-  .chip { width:14px; height:14px; }
+  .map-legend { right:7px; bottom:8px; padding:5px 6px; border:1px solid #777; background:rgba(255,255,255,.96); }
+  .legend { font-size: 10.5px; }
+  .rain-row { margin:2px 0; font-size:10.5px; }
+  .chip { width:13px; height:13px; }
   .small { font-size:11px; line-height:1.45; }
+  .mountain-legend-item { font-size:10px; gap:4px; margin-top:4px; }
+  .mountain-symbol { font-size:21px; }
 }
 
 
@@ -386,15 +407,13 @@
         <g id="amountLabels"></g>
       </g>
     </svg>
-  </main>
-
     <div class="map-legend">
       <div class="legend">
-      <b>기상청 예상 강수량 인덱스</b>
-      <div id="rainLegend" style="margin-top:8px;"></div>
-      <p class="small">입력 박스에 붙여넣은 예상 강수량을 매칭하면 지역은 자동 색칠되고, 산지/지리산부근은 ▲ 아이콘으로 표시됩니다.</p>
+        <div id="rainLegend" style="margin-top:0;"></div>
+        <div class="mountain-legend-item"><span class="mountain-symbol">△</span><span>산지/지리산부근<br>(아이콘)</span></div>
       </div>
     </div>
+  </main>
   </section>
 </div>
 
