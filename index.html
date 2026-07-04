@@ -194,6 +194,51 @@
     font-size:12px;
   }
   .rain-row .chip { margin-right:0; }
+
+  .kma-day-panel {
+    border:1px solid #d0d7de;
+    background:#f8fafc;
+    border-radius:10px;
+    padding:10px;
+    margin:10px 0 10px 0;
+  }
+  .kma-day-title {
+    font-weight:900;
+    font-size:13px;
+    margin-bottom:8px;
+  }
+  .kma-day-buttons {
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .kma-day-buttons button {
+    flex:1;
+    min-width:90px;
+    background:#ffffff;
+  }
+  .kma-choice-panel {
+    display:none;
+    margin-top:8px;
+    border-top:1px solid #e2e8f0;
+    padding-top:8px;
+  }
+  .kma-choice-panel.active { display:block; }
+  .kma-choice-title {
+    font-size:12px;
+    font-weight:800;
+    margin-bottom:6px;
+  }
+  .kma-choice-buttons {
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .kma-choice-buttons button {
+    font-size:12px;
+    padding:7px 8px;
+    background:#fff;
+  }
   .small {
     color:#666;
     font-size:12px;
@@ -254,29 +299,42 @@
   svg { width: 100%; height: 100%; }
 }
 
+
+  #matchResult { display:none !important; }
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1>기상청 예상 강수량 지도 - 코스트라인 기본형</h1>
-    <p>
-      기본 지도 표출용 HTML입니다.<br>
-      지역은 흰색, 시군구 경계선과 코스트라인은 검정색으로 표시됩니다.<br>
-      마우스를 올리면 지역명이 표시됩니다.<br>예상 강수량 문장을 입력 박스에 붙여넣고 “붙여넣기 매칭”을 누르면 지도에 바로 반영됩니다.
-    </p>
+
+    <div class="kma-day-panel">
+      <div class="kma-day-title">기상청 예보 불러오기</div>
+      <div class="kma-day-buttons">
+        <button id="kmaTodayBtn" type="button">오늘</button>
+        <button id="kmaTomorrowBtn" type="button">내일</button>
+      </div>
+      <div id="kmaChoicePanel" class="kma-choice-panel">
+        <div id="kmaChoiceTitle" class="kma-choice-title">선택</div>
+        <div class="kma-choice-buttons">
+          <button id="kmaChoiceRain" type="button">예상 강수량</button>
+          <button id="kmaChoiceShower" type="button">소나기</button>
+          <button id="kmaChoiceBoth" type="button">둘 다</button>
+        </div>
+      </div>
+    </div>
 
     <textarea id="forecastText" placeholder=""></textarea>
 
     <div class="btns">
       <button id="pasteMatchBtn">붙여넣기 매칭</button>
-      <button id="kmaLoadBtn" type="button">기상청 불러오기</button>
+      <button id="kmaLoadBtn" type="button">기상청 강수량 불러오기</button>
       <button id="clearBtn">선택 색 지우기</button>
       <button id="resetBtn">지도 위치 초기화</button>
       <button id="centerLabelBtn">수치 중앙 재배치</button>
     </div>
 
-    <div id="matchResult" class="small" style="margin-top:10px;line-height:1.55;"></div>
+    <div id="matchResult" class="small" style="display:none;margin-top:0;line-height:1.55;"></div>
 
     <div class="legend">
       <b>기상청 예상 강수량 인덱스</b>
@@ -1760,6 +1818,330 @@ function extractRainfallFromClipboard() {
     box.innerHTML = '붙여넣은 내용에서 예상 강수량 문장을 찾지 못했습니다.<br>기상청 예보통보문의 “예상 강수량” 부분부터 지역별 mm 문장까지 복사해 주세요.';
   }
 }
+
+
+// ===== 기상청 불러오기 안정화 버전 =====
+// 위쪽에 같은 이름 함수가 있어도 아래 함수가 최종 적용됩니다.
+function __kmaPlainText(raw) {
+  let text = String(raw || '');
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') && trimmed.includes('contents')) {
+    try {
+      const json = JSON.parse(trimmed);
+      text = json.contents || json.data || text;
+    } catch(e) {}
+  }
+  if (/<html|<body|<div|<script/i.test(text)) {
+    try { text = stripHtmlToText(text); } catch(e) {}
+  }
+  return String(text || '')
+    .replace(/\r/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*[※*]\s*(소나기에\s*의한\s*)?예상\s*강수량\s*/g, '\n* $1예상 강수량')
+    .replace(/\s*-\s*\(/g, '\n- (')
+    .replace(/\s*□\s*/g, '\n□ ')
+    .replace(/\s*○\s*/g, '\n○ ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function __extractKmaRainBlocks(raw) {
+  const text = __kmaPlainText(raw);
+  const lines = text.split(/\n+/).map(v => v.trim()).filter(Boolean);
+  const result = [];
+  let grab = false;
+  let current = [];
+
+  function isTitle(line) {
+    return /^(\*\s*)?(소나기에\s*의한\s*)?예상\s*강수량/.test(line) ||
+           /^※\s*(소나기에\s*의한\s*)?예상\s*강수량/.test(line);
+  }
+  function isArea(line) {
+    return /^-\s*\([^)]*\).*\d+\s*(~|∼|-)\s*\d+\s*mm/.test(line) ||
+           /^-\s*\([^)]*\).*\d+\s*mm/.test(line) ||
+           /^-\s*.*:\s*.*\d+\s*mm/.test(line);
+  }
+  function isStop(line) {
+    if (isTitle(line) || isArea(line)) return false;
+    return /^(\*\s*)?(예상\s*적설|최저기온|최고기온|기온|파고|해상|예보요소|현재위치|유의사항|특보|안개|폭염|열대야|너울|풍랑|□|○)/.test(line);
+  }
+  function flush() {
+    if (current.some(isArea)) result.push(current.join('\n'));
+    current = [];
+  }
+
+  for (const line of lines) {
+    if (isTitle(line)) {
+      flush();
+      grab = true;
+      current.push(line.replace(/^※\s*/, '* ').replace(/^예상/, '* 예상'));
+      continue;
+    }
+    if (grab && isArea(line)) {
+      current.push(line);
+      continue;
+    }
+    if (grab && isStop(line)) {
+      flush();
+      grab = false;
+      continue;
+    }
+  }
+  flush();
+
+  let out = result.join('\n\n').trim();
+
+  // 줄바꿈이 깨져서 전체가 한 줄로 들어온 경우를 위한 최종 보정
+  if (!out || !/mm/.test(out)) {
+    const fixed = text
+      .replace(/(\*\s*(?:소나기에\s*의한\s*)?예상\s*강수량\([^)]*\))/g, '\n$1')
+      .replace(/(-\s*\([^)]*\))/g, '\n$1');
+    const arr = fixed.split(/\n+/).map(v => v.trim()).filter(Boolean);
+    const temp = [];
+    let on = false;
+    for (const line of arr) {
+      if (isTitle(line)) { on = true; temp.push(line); continue; }
+      if (on && isArea(line)) { temp.push(line); continue; }
+      if (on && isStop(line)) on = false;
+    }
+    out = temp.join('\n').trim();
+  }
+
+  return out;
+}
+
+async function __fetchOneText(u, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs || 12000);
+  try {
+    const res = await fetch(__withNoCache(u), {
+      cache: 'no-store',
+      signal: controller.signal,
+      headers: { 'Accept': 'text/html,text/plain,application/json,*/*' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchTextWithFallback(url, onTry) {
+  const encoded = encodeURIComponent(url);
+  const urls = [
+    'https://r.jina.ai/' + url,
+    'https://api.allorigins.win/raw?url=' + encoded,
+    'https://api.allorigins.win/get?url=' + encoded,
+    'https://api.codetabs.com/v1/proxy?quest=' + encoded,
+    'https://api.codetabs.com/v1/proxy/?quest=' + encoded,
+    'https://corsproxy.io/?' + encoded,
+    'https://corsproxy.io/?url=' + encoded,
+    'https://thingproxy.freeboard.io/fetch/' + url
+  ];
+  let lastError = null;
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      if (onTry) onTry(i + 1, urls.length);
+      const raw = await __fetchOneText(urls[i], 12000);
+      const plain = __kmaPlainText(raw);
+      if (plain && plain.length > 80 && /(예상\s*강수량|소나기).*mm|mm/.test(plain)) return raw;
+      lastError = new Error('예상 강수량 문구 없음');
+    } catch(err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('불러오기 실패');
+}
+
+async function loadRainfallFromKma() {
+  const box = document.getElementById('matchResult');
+  const input = document.getElementById('forecastText');
+  const urls = [
+    'https://www.weather.go.kr/w/forecast/overall/short-term.do',
+    'https://www.weather.go.kr/w/forecast/notice.do'
+  ];
+
+  if (box) box.innerHTML = '기상청 예상 강수량/소나기 정보를 불러오는 중입니다...';
+
+  let lastMessage = '';
+  for (let pageNo = 0; pageNo < urls.length; pageNo++) {
+    try {
+      const raw = await fetchTextWithFallback(urls[pageNo], (tryNo, totalTry) => {
+        if (box) box.innerHTML = '기상청 예상 강수량/소나기 불러오는 중입니다...<br>' +
+          '페이지 ' + (pageNo + 1) + '/' + urls.length + ', 경로 ' + tryNo + '/' + totalTry + ' 시도 중';
+      });
+      const rain = __extractKmaRainBlocks(raw);
+      if (rain && /mm/.test(rain)) {
+        input.value = rain;
+        if (box) box.innerHTML = '기상청 예상 강수량/소나기 정보를 불러왔습니다.<br>지도 매칭을 실행합니다.';
+        applyForecastMatch();
+        return;
+      }
+      lastMessage = '강수량 문구를 찾지 못했습니다.';
+    } catch(err) {
+      lastMessage = err && err.message ? err.message : String(err);
+    }
+  }
+
+  if (box) {
+    box.innerHTML = '자동 불러오기에 실패했습니다.<br>' +
+      '원인: ' + (lastMessage || '브라우저에서 외부 프록시 접속이 막힘') + '<br><br>' +
+      '대체 방법: 기상청 페이지에서 예상 강수량 부분을 복사해 입력 박스에 붙여넣고 “붙여넣기 매칭”을 누르세요.';
+  }
+}
+
+
+// ===== 오늘/내일 + 예상 강수량/소나기 선택 불러오기 =====
+let __selectedKmaDayOffset = 0;
+
+function __kmaDateInfo(dayOffset) {
+  const d = new Date();
+  d.setDate(d.getDate() + Number(dayOffset || 0));
+  return {
+    date: d,
+    day: d.getDate(),
+    month: d.getMonth() + 1,
+    label: dayOffset === 1 ? '내일' : '오늘'
+  };
+}
+
+function __lineDateMatches(line, dayOffset) {
+  const info = __kmaDateInfo(dayOffset);
+  const t = String(line || '').replace(/\s+/g, '');
+  const day = info.day;
+  const month = info.month;
+
+  // 날짜가 없는 강수량 제목은 오늘/내일이 명확하지 않으므로 공통 후보로 인정합니다.
+  const hasAnyDay = /\d{1,2}일/.test(t) || /\d{1,2}월\d{1,2}일/.test(t);
+  if (!hasAnyDay) return true;
+
+  return t.includes(day + '일') || t.includes(month + '월' + day + '일');
+}
+
+function __blockKind(block) {
+  const first = String(block || '').split(/\n+/).find(Boolean) || '';
+  const all = String(block || '');
+  if (/소나기/.test(first) || /소나기에\s*의한/.test(all)) return 'shower';
+  return 'rain';
+}
+
+function __extractKmaRainBlocksDetailed(raw) {
+  const text = __kmaPlainText(raw);
+  const lines = text.split(/\n+/).map(v => v.trim()).filter(Boolean);
+  const blocks = [];
+  let current = [];
+  let grab = false;
+
+  function isTitle(line) {
+    return /^(\*\s*)?(소나기에\s*의한\s*)?예상\s*강수량/.test(line) ||
+           /^※\s*(소나기에\s*의한\s*)?예상\s*강수량/.test(line);
+  }
+  function isArea(line) {
+    return /^-\s*\([^)]*\).*\d+\s*(~|∼|-)\s*\d+\s*mm/.test(line) ||
+           /^-\s*\([^)]*\).*\d+\s*mm/.test(line) ||
+           /^-\s*.*:\s*.*\d+\s*mm/.test(line);
+  }
+  function isStop(line) {
+    if (isTitle(line) || isArea(line)) return false;
+    return /^(\*\s*)?(예상\s*적설|최저기온|최고기온|기온|파고|해상|예보요소|현재위치|유의사항|특보|안개|폭염|열대야|너울|풍랑|□|○)/.test(line);
+  }
+  function flush() {
+    if (current.some(isArea)) blocks.push(current.join('\n'));
+    current = [];
+  }
+
+  for (const line of lines) {
+    if (isTitle(line)) {
+      flush();
+      grab = true;
+      current.push(line.replace(/^※\s*/, '* ').replace(/^예상/, '* 예상'));
+      continue;
+    }
+    if (grab && isArea(line)) { current.push(line); continue; }
+    if (grab && isStop(line)) { flush(); grab = false; continue; }
+  }
+  flush();
+
+  return blocks.map(block => ({
+    text: block,
+    kind: __blockKind(block),
+    firstLine: (block.split(/\n+/).find(Boolean) || '')
+  }));
+}
+
+function __filterKmaBlocks(blocks, dayOffset, kind) {
+  let filtered = blocks.filter(b => __lineDateMatches(b.firstLine, dayOffset));
+
+  // 날짜 표기가 제목이 아니라 본문 중간에만 있거나, 날짜 표기를 추출 못한 경우 대비
+  if (!filtered.length) filtered = blocks;
+
+  if (kind === 'rain') filtered = filtered.filter(b => b.kind === 'rain');
+  else if (kind === 'shower') filtered = filtered.filter(b => b.kind === 'shower');
+  else filtered = filtered.filter(b => b.kind === 'rain' || b.kind === 'shower');
+
+  return filtered;
+}
+
+async function loadKmaByDayAndKind(dayOffset, kind) {
+  const box = document.getElementById('matchResult');
+  const input = document.getElementById('forecastText');
+  const info = __kmaDateInfo(dayOffset);
+  const kindLabel = kind === 'rain' ? '예상 강수량' : (kind === 'shower' ? '소나기' : '예상 강수량/소나기');
+  const urls = [
+    'https://www.weather.go.kr/w/forecast/overall/short-term.do',
+    'https://www.weather.go.kr/w/forecast/notice.do'
+  ];
+
+  if (box) box.innerHTML = '기상청 ' + info.label + ' ' + kindLabel + ' 정보를 불러오는 중입니다...';
+
+  let lastMessage = '';
+  for (let pageNo = 0; pageNo < urls.length; pageNo++) {
+    try {
+      const raw = await fetchTextWithFallback(urls[pageNo], (tryNo, totalTry) => {
+        if (box) box.innerHTML = '기상청 ' + info.label + ' ' + kindLabel + ' 불러오는 중입니다...<br>' +
+          '페이지 ' + (pageNo + 1) + '/' + urls.length + ', 경로 ' + tryNo + '/' + totalTry + ' 시도 중';
+      });
+      const blocks = __extractKmaRainBlocksDetailed(raw);
+      const selected = __filterKmaBlocks(blocks, dayOffset, kind);
+      const result = selected.map(b => b.text).join('\n\n').trim();
+      if (result && /mm/.test(result)) {
+        input.value = result;
+        if (box) box.innerHTML = '기상청 ' + info.label + ' ' + kindLabel + ' 정보를 불러왔습니다.<br>지도 매칭을 실행합니다.';
+        applyForecastMatch();
+        return;
+      }
+      lastMessage = info.label + ' ' + kindLabel + ' 문구를 찾지 못했습니다.';
+    } catch(err) {
+      lastMessage = err && err.message ? err.message : String(err);
+    }
+  }
+
+  if (box) box.innerHTML = '자동 불러오기에 실패했습니다.<br>원인: ' + (lastMessage || '브라우저에서 외부 프록시 접속이 막힘');
+}
+
+function showKmaChoice(dayOffset) {
+  __selectedKmaDayOffset = Number(dayOffset || 0);
+  const panel = document.getElementById('kmaChoicePanel');
+  const title = document.getElementById('kmaChoiceTitle');
+  const info = __kmaDateInfo(__selectedKmaDayOffset);
+  if (title) title.textContent = info.label + ' 불러올 항목 선택';
+  if (panel) panel.classList.add('active');
+}
+
+(function(){
+  const today = document.getElementById('kmaTodayBtn');
+  const tomorrow = document.getElementById('kmaTomorrowBtn');
+  const rain = document.getElementById('kmaChoiceRain');
+  const shower = document.getElementById('kmaChoiceShower');
+  const both = document.getElementById('kmaChoiceBoth');
+  if (today) today.addEventListener('click', () => showKmaChoice(0));
+  if (tomorrow) tomorrow.addEventListener('click', () => showKmaChoice(1));
+  if (rain) rain.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'rain'));
+  if (shower) shower.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'shower'));
+  if (both) both.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'both'));
+})();
 
 
 // 이동모드 온/오프 기능은 제거했습니다.
