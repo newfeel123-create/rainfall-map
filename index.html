@@ -133,6 +133,9 @@
   .amount-label-group {
     cursor:move;
     pointer-events:all;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
   }
   .amount-label-box {
     stroke:#111;
@@ -208,6 +211,9 @@
   .mountain-icon-group {
     cursor:move;
     vector-effect:non-scaling-stroke;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
   }
   .mountain-icon-group.hover-dim { opacity:.14; }
   .mountain-icon-group.hover-focus { opacity:1; filter:drop-shadow(0 0 5px rgba(0,0,0,.45)); }
@@ -969,24 +975,54 @@ function addMountainIcon(area, zone, amount) {
 function makeDraggableMountain(g, key, amount) {
   let draggingIcon = false, start = null, base = null;
   function currentPos() { return {x:parseFloat(g.dataset.x || '0'), y:parseFloat(g.dataset.y || '0')}; }
+  function moveMountainToClientPoint(clientEvt) {
+    if (!draggingIcon || !start || !base) return;
+    const pt = svgPointFromClient(clientEvt);
+    const nx = base.x + (pt.x - start.x);
+    const ny = base.y + (pt.y - start.y);
+    g.dataset.x = nx; g.dataset.y = ny;
+    g.setAttribute('transform', `translate(${nx} ${ny})`);
+  }
+  function finishMountainDrag() {
+    if (!draggingIcon) return;
+    draggingIcon = false;
+    const p = currentPos();
+    saveMountainPos(key, amount, p.x, p.y);
+  }
   g.addEventListener('mousedown', e => {
     e.stopPropagation();
     draggingIcon = true; start = svgPointFromClient(e); base = currentPos();
   });
   window.addEventListener('mousemove', e => {
-    if (!draggingIcon) return;
-    const pt = svgPointFromClient(e);
-    const nx = base.x + (pt.x - start.x);
-    const ny = base.y + (pt.y - start.y);
-    g.dataset.x = nx; g.dataset.y = ny;
-    g.setAttribute('transform', `translate(${nx} ${ny})`);
+    moveMountainToClientPoint(e);
   });
-  window.addEventListener('mouseup', () => {
-    if (!draggingIcon) return;
-    draggingIcon = false;
-    const p = currentPos();
-    saveMountainPos(key, amount, p.x, p.y);
-  });
+  window.addEventListener('mouseup', finishMountainDrag);
+
+  // iPhone/Safari: 산지 ▲ 아이콘도 손가락으로 바로 움직일 수 있게 처리합니다.
+  g.addEventListener('touchstart', e => {
+    if (!e.touches || e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    draggingIcon = true;
+    start = svgPointFromClient(e.touches[0]);
+    base = currentPos();
+  }, {passive:false});
+  g.addEventListener('touchmove', e => {
+    if (!draggingIcon || !e.touches || e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveMountainToClientPoint(e.touches[0]);
+  }, {passive:false});
+  g.addEventListener('touchend', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    finishMountainDrag();
+  }, {passive:false});
+  g.addEventListener('touchcancel', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    finishMountainDrag();
+  }, {passive:false});
   g.addEventListener('mouseenter', () => showOnlyAmount(amount));
   g.addEventListener('mouseleave', () => clearAmountHoverFocus());
   g.addEventListener('dblclick', e => {
@@ -1169,6 +1205,23 @@ function makeDraggableLabel(g, rect, text, amount) {
     };
   }
 
+  function moveLabelToClientPoint(clientEvt) {
+    if (!draggingLabel || !start || !base) return;
+    const pt = svgPointFromClient(clientEvt);
+    const nx = base.x + (pt.x - start.x);
+    const ny = base.y + (pt.y - start.y);
+    g.dataset.x = nx;
+    g.dataset.y = ny;
+    g.setAttribute('transform', `translate(${nx} ${ny})`);
+  }
+
+  function finishLabelDrag() {
+    if (!draggingLabel) return;
+    draggingLabel = false;
+    const p = currentPos();
+    saveLabelPos(amount, p.x, p.y);
+  }
+
   g.addEventListener('mousedown', e => {
     e.stopPropagation();
     draggingLabel = true;
@@ -1177,21 +1230,39 @@ function makeDraggableLabel(g, rect, text, amount) {
   });
 
   window.addEventListener('mousemove', e => {
-    if (!draggingLabel) return;
-    const pt = svgPointFromClient(e);
-    const nx = base.x + (pt.x - start.x);
-    const ny = base.y + (pt.y - start.y);
-    g.dataset.x = nx;
-    g.dataset.y = ny;
-    g.setAttribute('transform', `translate(${nx} ${ny})`);
+    moveLabelToClientPoint(e);
   });
 
-  window.addEventListener('mouseup', () => {
-    if (!draggingLabel) return;
-    draggingLabel = false;
-    const p = currentPos();
-    saveLabelPos(amount, p.x, p.y);
-  });
+  window.addEventListener('mouseup', finishLabelDrag);
+
+  // iPhone/Safari: 수치 박스를 한 번 누른 뒤 손가락으로 바로 움직일 수 있게 처리합니다.
+  g.addEventListener('touchstart', e => {
+    if (!e.touches || e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    draggingLabel = true;
+    start = svgPointFromClient(e.touches[0]);
+    base = currentPos();
+  }, {passive:false});
+
+  g.addEventListener('touchmove', e => {
+    if (!draggingLabel || !e.touches || e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveLabelToClientPoint(e.touches[0]);
+  }, {passive:false});
+
+  g.addEventListener('touchend', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    finishLabelDrag();
+  }, {passive:false});
+
+  g.addEventListener('touchcancel', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    finishLabelDrag();
+  }, {passive:false});
 
   g.addEventListener('mouseenter', () => showOnlyAmount(amount));
   g.addEventListener('mouseleave', () => clearAmountHoverFocus());
