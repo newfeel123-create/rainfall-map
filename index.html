@@ -64,10 +64,25 @@
   button:hover { background:#f0f4f8; }
   body.label-move-mode .amount-label-group, body.label-move-mode .mountain-icon-group { cursor: move; }
   body.label-move-mode .amount-label-box { stroke:#000; stroke-width:2.2; }
+  .mapcol {
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    min-height:0;
+    height:100vh;
+  }
   .mapwrap {
     position:relative;
     overflow:hidden;
     background:#eef2f5;
+    flex:1 1 auto;
+    min-height:0;
+  }
+  .map-legend {
+    background:#ffffff;
+    border-top:1px solid #d0d7de;
+    padding:10px 14px;
+    box-sizing:border-box;
   }
   svg {
     width:100%;
@@ -172,9 +187,9 @@
     white-space:nowrap;
   }
   .legend {
-    margin-top:12px;
-    border-top:1px solid #e0e5ea;
-    padding-top:10px;
+    margin-top:0;
+    border-top:none;
+    padding-top:0;
     font-size:11.5px;
   }
   .chip {
@@ -187,11 +202,12 @@
     background:#fff;
   }
   .rain-row {
-    display:flex;
+    display:inline-flex;
     align-items:center;
     gap:6px;
-    margin:4px 0;
+    margin:4px 14px 4px 0;
     font-size:12px;
+    white-space:nowrap;
   }
   .rain-row .chip { margin-right:0; }
 
@@ -289,13 +305,15 @@
   html, body { height: auto; overflow: auto; }
   .app { display: flex; flex-direction: column; height: auto; min-height: 100vh; }
   .side { width: 100%; border-right: none; border-bottom: 1px solid #d0d7de; padding: 10px; max-height: none; overflow: visible; }
+  .mapcol { width:100%; height:auto; display:flex; flex-direction:column; }
   .side h1 { font-size: 16px; }
   .side p { font-size: 11px; margin: 0 0 8px 0; }
   textarea { height: 135px; font-size: 12px; }
   .btns { gap: 6px; }
   button { padding: 8px 9px; font-size: 12px; }
   .legend { font-size: 11px; }
-  .mapwrap { width: 100%; height: 72vh; min-height: 560px; overflow: hidden; touch-action: none; }
+  .mapwrap { width: 100%; height: 620px; min-height: 620px; max-height: 620px; flex:0 0 620px; overflow: hidden; touch-action: none; }
+  .map-legend { order:2; padding:10px; border-top:1px solid #d0d7de; }
   svg { width: 100%; height: 100%; }
 }
 
@@ -336,13 +354,9 @@
 
     <div id="matchResult" class="small" style="display:none;margin-top:0;line-height:1.55;"></div>
 
-    <div class="legend">
-      <b>기상청 예상 강수량 인덱스</b>
-      <div id="rainLegend" style="margin-top:8px;"></div>
-      <p class="small">입력 박스에 붙여넣은 예상 강수량을 매칭하면 지역은 자동 색칠되고, 산지/지리산부근은 ▲ 아이콘으로 표시됩니다.</p>
-    </div>
   </aside>
 
+  <section class="mapcol">
   <main class="mapwrap">
     <div id="tooltip" class="tooltip"></div>
     <svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
@@ -355,6 +369,15 @@
       </g>
     </svg>
   </main>
+
+    <div class="map-legend">
+      <div class="legend">
+      <b>기상청 예상 강수량 인덱스</b>
+      <div id="rainLegend" style="margin-top:8px;"></div>
+      <p class="small">입력 박스에 붙여넣은 예상 강수량을 매칭하면 지역은 자동 색칠되고, 산지/지리산부근은 ▲ 아이콘으로 표시됩니다.</p>
+      </div>
+    </div>
+  </section>
 </div>
 
 <script src="map_data.js"></script>
