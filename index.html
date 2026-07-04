@@ -407,7 +407,7 @@
         <g id="amountLabels"></g>
       </g>
     </svg>
-    <div class="map-legend">
+    <div class="map-legend" id="mapLegendBox" style="display:none;">
       <div class="legend">
         <div id="rainLegend" style="margin-top:0;"></div>
         <div class="mountain-legend-item"><span class="mountain-symbol">△</span><span>산지/지리산부근<br>(아이콘)</span></div>
@@ -422,6 +422,13 @@
 
 function __mapAmountOnly(v) {
   return String(v ?? "").replace(/\s*m{1,3}\s*$/i, "");
+}
+function displayAmountNoMm(v) {
+  return String(v ?? "")
+    .replace(/\s*mm\s*/gi, "")
+    .replace(/\s*m\s*/gi, "")
+    .replace(/\s+/g, "")
+    .trim();
 }
 function __indexAmountWithMm(v) {
   const s = __mapAmountOnly(v);
@@ -621,13 +628,16 @@ function normalizeAmountKey(amount) {
 
 function renderRainLegend() {
   const box = document.getElementById('rainLegend');
+  const legendBox = document.getElementById('mapLegendBox') || document.querySelector('.map-legend');
   if (!box) return;
   if (!amountColorOrder.length) {
-    box.innerHTML = '<div class="small">예보 자동 매칭을 누르면 사용된 강수량별 색상이 표시됩니다.</div>';
+    box.innerHTML = '';
+    if (legendBox) legendBox.style.display = 'none';
     return;
   }
+  if (legendBox) legendBox.style.display = 'block';
   box.innerHTML = amountColorOrder.map((amount, i) =>
-    `<div class="rain-row"><span class="chip" style="background:${amountColorMap[amount]}"></span><span>${i + 1}. ${amount}</span></div>`
+    `<div class="rain-row"><span class="chip" style="background:${amountColorMap[amount]}"></span><span>${i + 1}. ${displayAmountNoMm(amount)}</span></div>`
   ).join('');
 }
 renderRainLegend();
@@ -1259,7 +1269,7 @@ function renderMountainIcons() {
       valueText.setAttribute('class','amount-label');
       valueText.setAttribute('x','0');
       valueText.setAttribute('y','0');
-      valueText.textContent = item.amount;
+      valueText.textContent = displayAmountNoMm(item.amount);
       valueG.appendChild(valueText);
 
       amountLabelsG.appendChild(valueG);
@@ -1522,7 +1532,7 @@ function renderAmountLabels(options = {}) {
     text.setAttribute('class', 'amount-label');
     text.setAttribute('x', '0');
     text.setAttribute('y', '0');
-    text.textContent = group.amount;
+    text.textContent = displayAmountNoMm(group.amount);
 
     g.appendChild(rect);
     g.appendChild(text);
