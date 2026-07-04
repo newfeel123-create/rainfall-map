@@ -998,6 +998,36 @@ function makeDraggableMountain(g, key, amount) {
   });
   window.addEventListener('mouseup', finishMountainDrag);
 
+  // iPhone/Safari: 길게 누른 상태로 움직여도 확실히 드래그되도록 Pointer Event를 추가합니다.
+  g.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+    e.preventDefault();
+    e.stopPropagation();
+    draggingIcon = true;
+    start = svgPointFromClient(e);
+    base = currentPos();
+    try { g.setPointerCapture(e.pointerId); } catch(_) {}
+  }, {passive:false});
+  g.addEventListener('pointermove', e => {
+    if (!draggingIcon) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveMountainToClientPoint(e);
+  }, {passive:false});
+  g.addEventListener('pointerup', e => {
+    if (!draggingIcon) return;
+    e.preventDefault();
+    e.stopPropagation();
+    finishMountainDrag();
+    try { g.releasePointerCapture(e.pointerId); } catch(_) {}
+  }, {passive:false});
+  g.addEventListener('pointercancel', e => {
+    if (!draggingIcon) return;
+    e.preventDefault();
+    e.stopPropagation();
+    finishMountainDrag();
+  }, {passive:false});
+
   // iPhone/Safari: 산지 ▲ 아이콘도 손가락으로 바로 움직일 수 있게 처리합니다.
   g.addEventListener('touchstart', e => {
     if (!e.touches || e.touches.length !== 1) return;
@@ -1234,6 +1264,37 @@ function makeDraggableLabel(g, rect, text, amount) {
   });
 
   window.addEventListener('mouseup', finishLabelDrag);
+
+  // iPhone/Safari: 수치 박스를 길게 누른 상태로 움직여도 확실히 드래그되도록 Pointer Event를 추가합니다.
+  g.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+    e.preventDefault();
+    e.stopPropagation();
+    draggingLabel = true;
+    start = svgPointFromClient(e);
+    base = currentPos();
+    g.classList.add('hover-focus');
+    try { g.setPointerCapture(e.pointerId); } catch(_) {}
+  }, {passive:false});
+  g.addEventListener('pointermove', e => {
+    if (!draggingLabel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveLabelToClientPoint(e);
+  }, {passive:false});
+  g.addEventListener('pointerup', e => {
+    if (!draggingLabel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    finishLabelDrag();
+    try { g.releasePointerCapture(e.pointerId); } catch(_) {}
+  }, {passive:false});
+  g.addEventListener('pointercancel', e => {
+    if (!draggingLabel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    finishLabelDrag();
+  }, {passive:false});
 
   // iPhone/Safari: 수치 박스를 한 번 누른 뒤 손가락으로 바로 움직일 수 있게 처리합니다.
   g.addEventListener('touchstart', e => {
@@ -1822,6 +1883,13 @@ window.addEventListener('touchend', () => { touchMode = null; touchLast = null; 
   };
   document.addEventListener('click', ()=>setTimeout(fixMapLabelsNoMm, 50), true);
 })();
+
+// iPhone long-press menu blocks dragging unless suppressed.
+document.addEventListener('contextmenu', e => {
+  if (e.target.closest && (e.target.closest('.amount-label-group') || e.target.closest('.mountain-icon-group'))) {
+    e.preventDefault();
+  }
+}, {passive:false});
 
 </script>
 </body>
