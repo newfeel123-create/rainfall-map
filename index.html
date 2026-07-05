@@ -2589,8 +2589,10 @@ function saveCurrentMapImage() {
     const originalSvg = document.getElementById('map');
     if (!originalSvg) throw new Error('map svg not found');
 
-    // 저장 직전에 현재 지도 위치/확대값을 확실히 SVG에 반영합니다.
+    // 저장 직전에 현재 지도 위치/확대값을 확실히 SVG에 즉시 반영합니다.
+    // 모바일은 requestAnimationFrame 적용 전 저장을 누르면 이전 위치가 저장될 수 있어 강제 반영합니다.
     try {
+      if (typeof viewRaf !== 'undefined' && viewRaf) { cancelAnimationFrame(viewRaf); viewRaf = 0; }
       const liveViewport = originalSvg.querySelector('#viewport');
       if (liveViewport && typeof view !== 'undefined') {
         liveViewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
@@ -2746,8 +2748,47 @@ function saveCurrentMapImage() {
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const dd = String(today.getDate()).padStart(2, '0');
         const fileName = '강수량지도_' + mm + dd + '.png';
-        const a = document.createElement('a');
         const pngUrl = URL.createObjectURL(blob);
+
+        // 휴대폰, 특히 iPhone Safari/PWA에서는 a.download가 제대로 동작하지 않는 경우가 있어
+        // 공유 시트로 저장할 수 있게 처리합니다. PC에서는 기존처럼 바로 다운로드됩니다.
+        const isPhone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.matchMedia('(max-width: 768px)').matches;
+
+        if (isPhone) {
+          const file = new File([blob], fileName, {type:'image/png'});
+          if (navigator.canShare && navigator.canShare({files:[file]}) && navigator.share) {
+            navigator.share({files:[file], title:fileName, text:'강수량 지도 이미지'}).catch(() => {
+              const a = document.createElement('a');
+              a.href = pngUrl;
+              a.download = fileName;
+              a.target = '_blank';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            }).finally(() => {
+              setTimeout(() => URL.revokeObjectURL(pngUrl), 2500);
+              setTimeout(() => { if (btn) btn.classList.remove('btn-active'); }, 450);
+            });
+            return;
+          }
+
+          // 공유 API가 안 되는 휴대폰은 새 창에 이미지를 열어 사용자가 길게 눌러 저장하도록 합니다.
+          const opened = window.open(pngUrl, '_blank');
+          if (!opened) {
+            const a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = fileName;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }
+          setTimeout(() => URL.revokeObjectURL(pngUrl), 10000);
+          setTimeout(() => { if (btn) btn.classList.remove('btn-active'); }, 450);
+          return;
+        }
+
+        const a = document.createElement('a');
         a.href = pngUrl;
         a.download = fileName;
         document.body.appendChild(a);
