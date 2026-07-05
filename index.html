@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -249,6 +249,7 @@
     display:flex;
     gap:8px;
     flex-wrap:wrap;
+    justify-content:center;
   }
   .kma-day-buttons button {
     flex:1 1 0;
@@ -256,7 +257,7 @@
     background:#ffffff;
   }
   .kma-choice-panel {
-    display:none;
+    display:block;
     margin-top:8px;
     border-top:1px solid #e2e8f0;
     padding-top:8px;
@@ -266,11 +267,14 @@
     font-size:12px;
     font-weight:800;
     margin-bottom:6px;
+    text-align:center;
   }
   .kma-choice-buttons {
     display:flex;
-    gap:6px;
+    gap:10px;
     flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
   }
   .kma-choice-buttons button {
     font-size:12px;
@@ -336,6 +340,53 @@
     color:#333;
   }
 
+
+  .manual-color-panel {
+    border:1px solid #d0d7de;
+    background:#f8fafc;
+    border-radius:10px;
+    padding:10px;
+    margin:10px 0;
+  }
+  .manual-color-title {
+    font-weight:900;
+    font-size:13px;
+    margin-bottom:7px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+  }
+  .manual-color-grid {
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:6px;
+  }
+  .manual-color-chip {
+    height:28px;
+    border:2px solid #777;
+    border-radius:7px;
+    cursor:pointer;
+    box-sizing:border-box;
+  }
+  .manual-color-chip.active {
+    border-color:#000;
+    box-shadow:0 0 0 3px rgba(0,0,0,.22);
+  }
+  .manual-color-off {
+    border:1px solid #b8c2cc;
+    background:#fff;
+    border-radius:7px;
+    padding:4px 7px;
+    cursor:pointer;
+    font-size:11px;
+    font-weight:800;
+    white-space:nowrap;
+  }
+
+  body.map-move-enabled .mapwrap { touch-action:none; }
+  body:not(.map-move-enabled) .mapwrap { touch-action:pan-y; }
+
 /* iPhone / mobile layout */
 @media (max-width: 768px) {
   html, body { height: auto; overflow: auto; background:#fff; }
@@ -358,7 +409,7 @@
     max-height: 520px;
     flex:0 0 auto;
     overflow: hidden;
-    touch-action: none;
+    touch-action: pan-y;
     background:#fff;
     border-top:1px solid #d0d7de;
     border-bottom:1px solid #d0d7de;
@@ -387,10 +438,10 @@
       <div class="kma-day-buttons">
         <button id="kmaTodayBtn" type="button">오늘</button>
         <button id="kmaTomorrowBtn" type="button">내일</button>
-        <button id="kmaLoadBtn" type="button">기상청 강수량 불러오기</button>
+        <button id="kmaLoadBtn" type="button">예보 통보문</button>
       </div>
-      <div id="kmaChoicePanel" class="kma-choice-panel">
-        <div id="kmaChoiceTitle" class="kma-choice-title">선택</div>
+      <div id="kmaChoicePanel" class="kma-choice-panel active">
+        <div id="kmaChoiceTitle" class="kma-choice-title">오늘 불러올 항목 선택</div>
         <div class="kma-choice-buttons">
           <button id="kmaChoiceRain" type="button">예상 강수량</button>
           <button id="kmaChoiceShower" type="button">소나기</button>
@@ -401,12 +452,20 @@
 
     <textarea id="forecastText" placeholder=""></textarea>
 
+
+    <div class="manual-color-panel" id="manualColorPanel">
+      <div class="manual-color-title">
+        <span>수동 색상</span>
+        <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
+      </div>
+      <div class="manual-color-grid" id="manualColorGrid"></div>
+      <div class="small" style="margin-top:6px;">색을 누른 뒤 지도 지역을 클릭하면 해당 색으로 칠해집니다.</div>
+    </div>
+
     <div class="btns">
       <button id="pasteMatchBtn">붙여넣기 매칭</button>
       <button id="clearBtn" type="button">초기화</button>
-      <button id="resetBtn">지도 위치 초기화</button>
       <button id="mapMoveToggle" type="button" class="map-locked">지도 이동 OFF</button>
-      <button id="centerLabelBtn">수치 중앙 재배치</button>
       <button id="saveImageBtn" type="button">이미지 저장</button>
     </div>
 
@@ -470,6 +529,12 @@ const sidoBoundariesG = document.getElementById('sidoBoundaries');
 const amountLabelsG = document.getElementById('amountLabels');
 const mountainIconsG = document.getElementById('mountainIcons');
 const tooltip = document.getElementById('tooltip');
+
+let selectedManualColor = '';
+const MANUAL_COLOR_PALETTE = [
+  '#FFD400', '#E53935', '#1E88E5', '#43A047', '#8E24AA',
+  '#FB8C00', '#00ACC1', '#6D4C41', '#D81B60', '#3949AB'
+];
 
 const WIDTH = 900;
 const HEIGHT = 1150;
@@ -613,7 +678,16 @@ function render() {
       tooltip.style.display = 'block';
     });
     p.addEventListener('mouseleave', () => tooltip.style.display = 'none');
-    p.addEventListener('click', () => p.classList.toggle('selected'));
+    p.addEventListener('click', () => {
+      if (selectedManualColor) {
+        p.classList.add('matched');
+        p.classList.remove('selected');
+        p.style.fill = selectedManualColor;
+        p.dataset.manualColor = selectedManualColor;
+        return;
+      }
+      p.classList.toggle('selected');
+    });
     frag.appendChild(p);
   });
   regionsG.appendChild(frag);
@@ -660,6 +734,38 @@ function renderRainLegend() {
   ).join('');
 }
 renderRainLegend();
+
+function renderManualColorPalette() {
+  const grid = document.getElementById('manualColorGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  MANUAL_COLOR_PALETTE.forEach(color => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'manual-color-chip';
+    chip.title = color;
+    chip.style.background = color;
+    chip.dataset.color = color;
+    chip.addEventListener('click', () => {
+      selectedManualColor = (selectedManualColor === color) ? '' : color;
+      updateManualColorPaletteState();
+    });
+    grid.appendChild(chip);
+  });
+  updateManualColorPaletteState();
+}
+function updateManualColorPaletteState() {
+  document.querySelectorAll('.manual-color-chip').forEach(chip => {
+    chip.classList.toggle('active', !!selectedManualColor && chip.dataset.color === selectedManualColor);
+  });
+}
+function clearManualColorSelection() {
+  selectedManualColor = '';
+  updateManualColorPaletteState();
+}
+renderManualColorPalette();
+const manualColorOff = document.getElementById('manualColorOff');
+if (manualColorOff) manualColorOff.addEventListener('click', clearManualColorSelection);
 
 function maxRainValue(amount) {
   const nums = String(amount || '').match(/\d+/g);
@@ -1643,6 +1749,7 @@ function clearRainMatch() {
     el.classList.remove('matched','selected');
     el.style.fill = '';
     el.dataset.amount = '';
+    el.dataset.manualColor = '';
   });
   amountLabelGroups = {};
   if (amountLabelsG) amountLabelsG.innerHTML = '';
@@ -2108,6 +2215,7 @@ async function loadRainfallFromKma() {
     'https://www.weather.go.kr/w/forecast/notice.do'
   ];
 
+  __startKmaLoadingTitle();
   if (box) box.innerHTML = '기상청 예상 강수량/소나기 정보를 불러오는 중입니다...';
 
   let lastMessage = '';
@@ -2117,6 +2225,7 @@ async function loadRainfallFromKma() {
         if (box) box.innerHTML = '기상청 예상 강수량/소나기 불러오는 중입니다...<br>' +
           '페이지 ' + (pageNo + 1) + '/' + urls.length + ', 경로 ' + tryNo + '/' + totalTry + ' 시도 중';
       });
+      __stopKmaLoadingTitle(false);
       __updateKmaForecastTimeFromRaw(raw);
       const rain = __extractKmaRainBlocks(raw);
       if (rain && /mm/.test(rain)) {
@@ -2131,6 +2240,7 @@ async function loadRainfallFromKma() {
     }
   }
 
+  __stopKmaLoadingTitle(true);
   if (box) {
     box.innerHTML = '자동 불러오기에 실패했습니다.<br>' +
       '원인: ' + (lastMessage || '브라우저에서 외부 프록시 접속이 막힘') + '<br><br>' +
@@ -2175,6 +2285,34 @@ function __formatKmaNoticeTime(raw) {
     return String(parseInt(m[1], 10)).padStart(2, '0') + ':' + m[2] + ' 발표';
   }
   return '';
+}
+
+
+let __kmaLoadingTimer = null;
+let __kmaLoadingDotCount = 0;
+
+function __startKmaLoadingTitle() {
+  const title = document.getElementById('kmaForecastTime');
+  if (!title) return;
+  __stopKmaLoadingTitle(false);
+  __kmaLoadingDotCount = 0;
+  const tick = () => {
+    __kmaLoadingDotCount = (__kmaLoadingDotCount % 3) + 1;
+    title.textContent = '예보 불러오는중' + '.'.repeat(__kmaLoadingDotCount);
+  };
+  tick();
+  __kmaLoadingTimer = setInterval(tick, 450);
+}
+
+function __stopKmaLoadingTitle(resetText) {
+  if (__kmaLoadingTimer) {
+    clearInterval(__kmaLoadingTimer);
+    __kmaLoadingTimer = null;
+  }
+  if (resetText) {
+    const title = document.getElementById('kmaForecastTime');
+    if (title) title.textContent = '예보 발표 시간 확인 중';
+  }
 }
 
 function __updateKmaForecastTimeFromRaw(raw) {
@@ -2253,6 +2391,25 @@ function __lineDateMatches(line, dayOffset) {
   const hasAnyDay = /\d{1,2}일/.test(t) || /\d{1,2}월\d{1,2}일/.test(t);
   if (!hasAnyDay) return true;
 
+  // 5~6일, 5∼6일, 5-6일처럼 기간으로 표기된 줄도 선택 날짜에 포함되면 인정합니다.
+  const rangeRe = /(\d{1,2})(?:~|∼|-|－|–|—)(\d{1,2})일/;
+  const m = t.match(rangeRe);
+  if (m) {
+    const start = Number(m[1]);
+    const end = Number(m[2]);
+    if (Number.isFinite(start) && Number.isFinite(end) && day >= start && day <= end) return true;
+  }
+
+  // 7월5~6일, 7월5일~6일 같은 월 포함 기간도 보정합니다.
+  const monthRangeRe = /(\d{1,2})월(\d{1,2})(?:일)?(?:~|∼|-|－|–|—)(\d{1,2})일/;
+  const mm = t.match(monthRangeRe);
+  if (mm) {
+    const mth = Number(mm[1]);
+    const start = Number(mm[2]);
+    const end = Number(mm[3]);
+    if (mth === month && day >= start && day <= end) return true;
+  }
+
   return t.includes(day + '일') || t.includes(month + '월' + day + '일');
 }
 
@@ -2295,6 +2452,14 @@ function __extractKmaRainBlocksDetailed(raw) {
       current.push(line.replace(/^※\s*/, '* ').replace(/^예상/, '* 예상'));
       continue;
     }
+    // 일부 기상청 문구는 제목보다 먼저 '- (제주도, 5~6일) ...' 같은 지역 줄이 나옵니다.
+    // 이 줄도 별도 강수량 블록으로 잡아야 30~80mm 일반 강수량이 누락되지 않습니다.
+    if (!grab && isArea(line)) {
+      flush();
+      current.push(line);
+      grab = true;
+      continue;
+    }
     if (grab && isArea(line)) { current.push(line); continue; }
     if (grab && isStop(line)) { flush(); grab = false; continue; }
   }
@@ -2330,6 +2495,7 @@ async function loadKmaByDayAndKind(dayOffset, kind) {
     'https://www.weather.go.kr/w/forecast/notice.do'
   ];
 
+  __startKmaLoadingTitle();
   if (box) box.innerHTML = '기상청 ' + info.label + ' ' + kindLabel + ' 정보를 불러오는 중입니다...';
 
   let lastMessage = '';
@@ -2339,6 +2505,7 @@ async function loadKmaByDayAndKind(dayOffset, kind) {
         if (box) box.innerHTML = '기상청 ' + info.label + ' ' + kindLabel + ' 불러오는 중입니다...<br>' +
           '페이지 ' + (pageNo + 1) + '/' + urls.length + ', 경로 ' + tryNo + '/' + totalTry + ' 시도 중';
       });
+      __stopKmaLoadingTitle(false);
       __updateKmaForecastTimeFromRaw(raw);
       const blocks = __extractKmaRainBlocksDetailed(raw);
       const selected = __filterKmaBlocks(blocks, dayOffset, kind);
@@ -2355,6 +2522,7 @@ async function loadKmaByDayAndKind(dayOffset, kind) {
     }
   }
 
+  __stopKmaLoadingTitle(true);
   if (box) box.innerHTML = '자동 불러오기에 실패했습니다.<br>원인: ' + (lastMessage || '브라우저에서 외부 프록시 접속이 막힘');
 }
 
@@ -2408,19 +2576,23 @@ if (kmaLoadBtn) {
   });
 }
 
-document.getElementById('centerLabelBtn').addEventListener('click', () => {
-  clearSavedLabelPositions();
-  rebuildAmountLabelGroupsFromMap();
-  renderAmountLabels({ignoreSaved:true});
-  // 일반 수치 박스를 다시 그리면 amountLabels 레이어가 비워지므로
-  // 분리된 산지 수치 박스도 다시 생성해야 사라지지 않습니다.
-  renderMountainIcons();
-});
+const centerLabelBtn = document.getElementById('centerLabelBtn');
+if (centerLabelBtn) {
+  centerLabelBtn.addEventListener('click', () => {
+    clearSavedLabelPositions();
+    rebuildAmountLabelGroupsFromMap();
+    renderAmountLabels({ignoreSaved:true});
+    // 일반 수치 박스를 다시 그리면 amountLabels 레이어가 비워지므로
+    // 분리된 산지 수치 박스도 다시 생성해야 사라지지 않습니다.
+    renderMountainIcons();
+  });
+}
 
 
 function resetMapContentsOnly() {
   // 지도 위치/확대값은 건드리지 않고, 색칠/수치/산지/버튼 선택 표시만 초기화합니다.
   clearRainMatch();
+  clearManualColorSelection();
 
   const resultBox = document.getElementById('matchResult');
   if (resultBox) resultBox.textContent = '';
@@ -2433,6 +2605,15 @@ function resetMapContentsOnly() {
   // 내부 선택 상태도 초기화
   __selectedKmaDayOffset = 0;
   __selectedKmaKind = '';
+
+  // 예보 발표 시간 문구도 처음 상태로 되돌립니다.
+  __stopKmaLoadingTitle(true);
+
+  // 불러올 항목 선택은 처음부터 계속 보이게 유지합니다.
+  const kmaChoicePanel = document.getElementById('kmaChoicePanel');
+  const kmaChoiceTitle = document.getElementById('kmaChoiceTitle');
+  if (kmaChoicePanel) kmaChoicePanel.classList.add('active');
+  if (kmaChoiceTitle) kmaChoiceTitle.textContent = '오늘 불러올 항목 선택';
 }
 
 document.getElementById('clearBtn').addEventListener('click', resetMapContentsOnly);
@@ -2494,10 +2675,12 @@ let mapMoveEnabled = false;
 const mapMoveToggle = document.getElementById('mapMoveToggle');
 
 function updateMapMoveToggle() {
-  if (!mapMoveToggle) return;
-  mapMoveToggle.textContent = mapMoveEnabled ? '지도 이동 ON' : '지도 이동 OFF';
-  mapMoveToggle.classList.toggle('map-unlocked', mapMoveEnabled);
-  mapMoveToggle.classList.toggle('map-locked', !mapMoveEnabled);
+  if (mapMoveToggle) {
+    mapMoveToggle.textContent = mapMoveEnabled ? '지도 이동 ON' : '지도 이동 OFF';
+    mapMoveToggle.classList.toggle('map-unlocked', mapMoveEnabled);
+    mapMoveToggle.classList.toggle('map-locked', !mapMoveEnabled);
+  }
+  document.body.classList.toggle('map-move-enabled', mapMoveEnabled);
   svg.style.cursor = mapMoveEnabled ? 'grab' : 'default';
 }
 
@@ -2521,11 +2704,32 @@ document.querySelectorAll('button').forEach(btn => {
   });
 });
 
-document.getElementById('resetBtn').addEventListener('click', () => {
-  clearSavedMapView();
-  view = defaultMapView();
+const resetBtn = document.getElementById('resetBtn');
+if (resetBtn) {
+  resetBtn.addEventListener('click', () => {
+    clearSavedMapView();
+    view = defaultMapView();
+    applyView();
+  });
+}
+
+
+function zoomMapAtSvgPoint(cx, cy, factor) {
+  const oldK = view.k;
+  const newK = Math.max(0.7, Math.min(12, oldK * factor));
+  if (newK === oldK) return;
+  view.x = cx - (cx - view.x) * (newK / oldK);
+  view.y = cy - (cy - view.y) * (newK / oldK);
+  view.k = newK;
   applyView();
-});
+  saveMapView();
+}
+
+// iPhone/Safari에서 손가락 확대가 페이지 전체 확대가 되지 않도록 차단합니다.
+// 지도 이동 ON 상태에서는 아래 touchmove 로직이 지도 안의 한반도만 확대/이동합니다.
+document.addEventListener('gesturestart', e => e.preventDefault(), {passive:false});
+document.addEventListener('gesturechange', e => e.preventDefault(), {passive:false});
+document.addEventListener('gestureend', e => e.preventDefault(), {passive:false});
 
 svg.addEventListener('wheel', e => {
   if (!mapMoveEnabled) return;
@@ -2561,6 +2765,23 @@ window.addEventListener('mousemove', e => {
   applyView();
 });
 window.addEventListener('mouseup', () => { if (dragging) saveMapView(); dragging = false; svg.classList.remove('panning'); });
+
+let lastTapTime = 0;
+svg.addEventListener('touchend', e => {
+  if (!mapMoveEnabled || touchMode === 'pinch') return;
+  const now = Date.now();
+  if (now - lastTapTime < 280 && e.changedTouches && e.changedTouches.length) {
+    e.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const t = e.changedTouches[0];
+    const cx = (t.clientX - rect.left) / rect.width * WIDTH;
+    const cy = (t.clientY - rect.top) / rect.height * HEIGHT;
+    zoomMapAtSvgPoint(cx, cy, 1.35);
+    lastTapTime = 0;
+  } else {
+    lastTapTime = now;
+  }
+}, {passive:false});
 
 // Mobile touch pan / pinch zoom
 let touchMode = null, touchLast = null, touchStartDist = 0, touchStartK = 1;
