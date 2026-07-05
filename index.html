@@ -405,6 +405,7 @@
       <button id="resetBtn">지도 위치 초기화</button>
       <button id="mapMoveToggle" type="button" class="map-locked">지도 이동 OFF</button>
       <button id="centerLabelBtn">수치 중앙 재배치</button>
+      <button id="saveImageBtn" type="button">이미지 저장</button>
     </div>
 
     <div id="matchResult" class="small" style="display:none;margin-top:0;line-height:1.55;"></div>
@@ -2081,44 +2082,6 @@ async function loadRainfallFromKma() {
 
 // ===== 오늘/내일 + 예상 강수량/소나기 선택 불러오기 =====
 let __selectedKmaDayOffset = 0;
-let __selectedKmaKind = '';
-
-function __kmaButton(id) {
-  return document.getElementById(id);
-}
-
-function __clearKmaKindButtons() {
-  ['kmaChoiceRain','kmaChoiceShower','kmaChoiceBoth'].forEach(id => {
-    const btn = __kmaButton(id);
-    if (btn) btn.classList.remove('btn-active');
-  });
-  __selectedKmaKind = '';
-}
-
-function __setKmaDayActive(dayOffset) {
-  const today = __kmaButton('kmaTodayBtn');
-  const tomorrow = __kmaButton('kmaTomorrowBtn');
-  if (today) today.classList.toggle('btn-active', Number(dayOffset || 0) === 0);
-  if (tomorrow) tomorrow.classList.toggle('btn-active', Number(dayOffset || 0) === 1);
-}
-
-function __setKmaKindActive(kind) {
-  __clearKmaKindButtons();
-  const id = kind === 'rain' ? 'kmaChoiceRain' : (kind === 'shower' ? 'kmaChoiceShower' : 'kmaChoiceBoth');
-  const btn = __kmaButton(id);
-  if (btn) btn.classList.add('btn-active');
-  __selectedKmaKind = kind || '';
-}
-
-function __isKmaStateButton(btn) {
-  return btn && ['kmaTodayBtn','kmaTomorrowBtn','kmaChoiceRain','kmaChoiceShower','kmaChoiceBoth'].includes(btn.id);
-}
-
-function __resetKmaChoiceForNewDay(dayOffset) {
-  __selectedKmaDayOffset = Number(dayOffset || 0);
-  __setKmaDayActive(__selectedKmaDayOffset);
-  __clearKmaKindButtons();
-}
 
 function __kmaDateInfo(dayOffset) {
   const d = new Date();
@@ -2246,7 +2209,7 @@ async function loadKmaByDayAndKind(dayOffset, kind) {
 }
 
 function showKmaChoice(dayOffset) {
-  __resetKmaChoiceForNewDay(dayOffset);
+  __selectedKmaDayOffset = Number(dayOffset || 0);
   const panel = document.getElementById('kmaChoicePanel');
   const title = document.getElementById('kmaChoiceTitle');
   const info = __kmaDateInfo(__selectedKmaDayOffset);
@@ -2260,22 +2223,11 @@ function showKmaChoice(dayOffset) {
   const rain = document.getElementById('kmaChoiceRain');
   const shower = document.getElementById('kmaChoiceShower');
   const both = document.getElementById('kmaChoiceBoth');
-
   if (today) today.addEventListener('click', () => showKmaChoice(0));
   if (tomorrow) tomorrow.addEventListener('click', () => showKmaChoice(1));
-
-  if (rain) rain.addEventListener('click', () => {
-    __setKmaKindActive('rain');
-    loadKmaByDayAndKind(__selectedKmaDayOffset, 'rain');
-  });
-  if (shower) shower.addEventListener('click', () => {
-    __setKmaKindActive('shower');
-    loadKmaByDayAndKind(__selectedKmaDayOffset, 'shower');
-  });
-  if (both) both.addEventListener('click', () => {
-    __setKmaKindActive('both');
-    loadKmaByDayAndKind(__selectedKmaDayOffset, 'both');
-  });
+  if (rain) rain.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'rain'));
+  if (shower) shower.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'shower'));
+  if (both) both.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'both'));
 })();
 
 
@@ -2386,9 +2338,7 @@ updateMapMoveToggle();
 // 지도 이동 ON/OFF 버튼은 상태 표시가 유지되고, 나머지 버튼은 짧게 점등됩니다.
 document.querySelectorAll('button').forEach(btn => {
   btn.addEventListener('click', () => {
-    // 오늘/내일/예상 강수량/소나기/둘 다 버튼은 선택 상태를 유지해야 하므로
-    // 짧게 깜빡이는 공통 점등 처리에서 제외합니다.
-    if (btn.id === 'mapMoveToggle' || __isKmaStateButton(btn)) return;
+    if (btn.id === 'mapMoveToggle') return;
     btn.classList.add('btn-active');
     setTimeout(() => btn.classList.remove('btn-active'), 550);
   });
@@ -2505,6 +2455,94 @@ document.addEventListener('contextmenu', e => {
     e.preventDefault();
   }
 }, {passive:false});
+
+
+// ===== 지도 이미지 저장 =====
+// 휴대폰에서도 버튼을 누르면 현재 지도 SVG 화면을 PNG 파일로 저장합니다.
+function saveCurrentMapImage() {
+  const btn = document.getElementById('saveImageBtn');
+  if (btn) btn.classList.add('btn-active');
+
+  try {
+    const originalSvg = document.getElementById('map');
+    if (!originalSvg) throw new Error('map svg not found');
+
+    const clonedSvg = originalSvg.cloneNode(true);
+    clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clonedSvg.setAttribute('width', WIDTH);
+    clonedSvg.setAttribute('height', HEIGHT);
+    clonedSvg.setAttribute('viewBox', '0 0 ' + WIDTH + ' ' + HEIGHT);
+
+    // 외부 CSS가 PNG 변환 시 빠지지 않도록 필요한 스타일을 SVG 안에 삽입합니다.
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    style.textContent = `
+      .region { shape-rendering:geometricPrecision; fill:#ffffff; stroke:#6F6F6F; stroke-width:0.28; vector-effect:non-scaling-stroke; }
+      .region.matched { stroke:#666666; stroke-width:0.28; }
+      .region.selected { fill:#ffe08a; }
+      .coastline { fill:none; stroke:#111111; stroke-width:0.95; vector-effect:non-scaling-stroke; opacity:0.98; stroke-linejoin:round; stroke-linecap:round; }
+      .sido-boundary { fill:none; stroke:#222222; stroke-width:0.85; vector-effect:non-scaling-stroke; opacity:0.95; stroke-linejoin:round; stroke-linecap:round; }
+      .amount-label-box { stroke:#111; stroke-width:1.1; rx:6; ry:6; vector-effect:non-scaling-stroke; }
+      .amount-label { font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:18px; font-weight:900; fill:#ffffff; stroke:#000000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; dominant-baseline:middle; }
+      .mountain-triangle { stroke:#000; stroke-width:0.8; vector-effect:non-scaling-stroke; }
+      .mountain-text { fill:#fff; stroke:#000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; font-family:'Malgun Gothic','맑은 고딕'; font-weight:900; font-size:18px; text-anchor:middle; dominant-baseline:middle; }
+    `;
+    clonedSvg.insertBefore(style, clonedSvg.firstChild);
+
+    const svgText = new XMLSerializer().serializeToString(clonedSvg);
+    const svgBlob = new Blob([svgText], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = WIDTH * 2;
+      canvas.height = HEIGHT * 2;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+
+      canvas.toBlob(function(blob) {
+        if (!blob) {
+          alert('이미지 저장에 실패했습니다.');
+          if (btn) btn.classList.remove('btn-active');
+          return;
+        }
+        const today = new Date();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const fileName = '강수량지도_' + mm + dd + '.png';
+        const a = document.createElement('a');
+        const pngUrl = URL.createObjectURL(blob);
+        a.href = pngUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
+        setTimeout(() => { if (btn) btn.classList.remove('btn-active'); }, 450);
+      }, 'image/png');
+    };
+
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      if (btn) btn.classList.remove('btn-active');
+      alert('이미지 변환에 실패했습니다. 휴대폰에서는 캡쳐를 사용해주세요.');
+    };
+
+    img.src = url;
+  } catch (err) {
+    console.error(err);
+    if (btn) btn.classList.remove('btn-active');
+    alert('이미지 저장 중 오류가 발생했습니다.');
+  }
+}
+
+const saveImageBtn = document.getElementById('saveImageBtn');
+if (saveImageBtn) {
+  saveImageBtn.addEventListener('click', saveCurrentMapImage);
+}
 
 </script>
 </body>
