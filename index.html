@@ -2589,109 +2589,40 @@ function saveCurrentMapImage() {
     const originalSvg = document.getElementById('map');
     if (!originalSvg) throw new Error('map svg not found');
 
+    // 저장 직전에 현재 지도 위치/확대값을 확실히 SVG에 반영합니다.
+    try {
+      const liveViewport = originalSvg.querySelector('#viewport');
+      if (liveViewport && typeof view !== 'undefined') {
+        liveViewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
+      }
+    } catch (_) {}
+
     const clonedSvg = originalSvg.cloneNode(true);
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-    // 저장할 때는 현재 화면 이동/확대값을 빼고 원본 지도 기준으로 저장합니다.
+    // 핵심 변경:
+    // 예전처럼 저장용으로 지도 위치를 강제 초기화/확대/이동하지 않고,
+    // 사용자가 PC/휴대폰 화면에서 옆으로 움직이고 확대해 둔 현재 상태 그대로 저장합니다.
     const clonedViewport = clonedSvg.querySelector('#viewport');
-    if (clonedViewport) {
-      clonedViewport.removeAttribute('transform');
-      clonedViewport.removeAttribute('style');
+    if (clonedViewport && typeof view !== 'undefined') {
+      clonedViewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
     }
 
-    // 수치 박스/산지 아이콘/서해5도/제주도/울릉도·독도까지 포함되는 실제 내용 범위 계산
-    let box = null;
-    try {
-      const liveViewport = originalSvg.querySelector('#viewport');
-      if (liveViewport) box = liveViewport.getBBox();
-    } catch (_) {}
-    if (!box || !Number.isFinite(box.x) || !box.width || !box.height) {
-      box = { x:0, y:0, width:WIDTH, height:HEIGHT };
-    }
+    const mapWrap = document.querySelector('.mapwrap') || originalSvg.parentElement;
+    const rect = (mapWrap || originalSvg).getBoundingClientRect();
+    const aspect = (rect && rect.width > 0 && rect.height > 0) ? (rect.width / rect.height) : (1290 / 1147);
 
-    // 예시 이미지처럼 딱 맞게 보이도록 여백을 약간만 둡니다.
-    const pad = 70;
-    let saveX = box.x - pad;
-    let saveY = box.y - pad;
-    let saveW = box.width + pad * 2;
-    let saveH = box.height + pad * 2;
-
-    // 원본 SVG 범위 밖으로 너무 나가지 않게 제한
-    saveX = Math.max(0, saveX);
-    saveY = Math.max(0, saveY);
-    saveW = Math.min(WIDTH - saveX, saveW);
-    saveH = Math.min(HEIGHT - saveY, saveH);
-
-    // 업로드한 예시와 비슷한 가로형 비율
+    // 휴대폰/PC에서 실제 보이는 지도창 비율 그대로 저장합니다.
     const outW = 1290;
-    const outH = 1147;
+    const outH = Math.max(720, Math.round(outW / aspect));
     const scaleSave = 2;
-
-    // 저장 이미지에서 지도만 살짝 오른쪽으로 이동합니다.
-    // 화면에서 보는 지도 위치와 범례 위치는 그대로 두고, 저장 PNG에서만 적용됩니다.
-    const mapRightShiftPx = 72;
-    const mapSaveZoom = 1.08;
-    if (clonedViewport) {
-      const mapRightShiftSvg = mapRightShiftPx * saveW / outW;
-      const cx = saveX + saveW / 2;
-      const cy = saveY + saveH / 2;
-      clonedViewport.setAttribute('transform', `translate(${mapRightShiftSvg} 0) translate(${cx} ${cy}) scale(${mapSaveZoom}) translate(${-cx} ${-cy})`);
-    }
-
-    // 저장 이미지에서도 수치 박스가 겹치면 자동으로 살짝 떨어뜨립니다.
-    try {
-      const labelGroups = Array.from(clonedSvg.querySelectorAll('#amountLabels .amount-label-group, #amountLabels .mountain-value-label-group'));
-      function parseTranslate(g) {
-        const tr = g.getAttribute('transform') || '';
-        const m = tr.match(/translate\(([-0-9.]+)[ ,]+([-0-9.]+)\)/);
-        return m ? {x:parseFloat(m[1]), y:parseFloat(m[2])} : {x:parseFloat(g.dataset.x || '0'), y:parseFloat(g.dataset.y || '0')};
-      }
-      function setTranslate(g, x, y) {
-        g.dataset.x = x;
-        g.dataset.y = y;
-        g.setAttribute('transform', `translate(${x} ${y})`);
-      }
-      function labelBox(g) {
-        const p = parseTranslate(g);
-        const r = g.querySelector('rect');
-        let rx = -34, ry = -17, rw = 68, rh = 34;
-        if (r) {
-          rx = parseFloat(r.getAttribute('x') || rx);
-          ry = parseFloat(r.getAttribute('y') || ry);
-          rw = parseFloat(r.getAttribute('width') || rw);
-          rh = parseFloat(r.getAttribute('height') || rh);
-        }
-        return {g, p, x:p.x + rx - 6, y:p.y + ry - 6, w:rw + 12, h:rh + 12};
-      }
-      function overlap(a, b) {
-        return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
-      }
-      for (let pass = 0; pass < 28; pass++) {
-        let moved = false;
-        const boxes = labelGroups.map(labelBox).sort((a,b)=>a.y-b.y);
-        for (let i = 0; i < boxes.length; i++) {
-          for (let j = i + 1; j < boxes.length; j++) {
-            const a = boxes[i], b = boxes[j];
-            if (!overlap(a,b)) continue;
-            const push = Math.max(14, (a.y + a.h - b.y) + 12);
-            let ny = b.p.y + push;
-            const bottomLimit = saveY + saveH - b.h - 8;
-            if (ny > bottomLimit) ny = a.p.y - push;
-            setTranslate(b.g, b.p.x, ny);
-            moved = true;
-          }
-        }
-        if (!moved) break;
-      }
-    } catch(e) {
-      console.warn('label overlap adjust failed', e);
-    }
 
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
-    clonedSvg.setAttribute('viewBox', `${saveX} ${saveY} ${saveW} ${saveH}`);
+    clonedSvg.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
     clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     clonedSvg.removeAttribute('style');
+    clonedSvg.style.background = '#ffffff';
 
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     style.textContent = `
@@ -2708,10 +2639,10 @@ function saveCurrentMapImage() {
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
     const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('x', String(saveX));
-    bgRect.setAttribute('y', String(saveY));
-    bgRect.setAttribute('width', String(saveW));
-    bgRect.setAttribute('height', String(saveH));
+    bgRect.setAttribute('x', '0');
+    bgRect.setAttribute('y', '0');
+    bgRect.setAttribute('width', String(WIDTH));
+    bgRect.setAttribute('height', String(HEIGHT));
     bgRect.setAttribute('fill', '#ffffff');
     clonedSvg.insertBefore(bgRect, clonedSvg.querySelector('#viewport') || clonedSvg.firstChild.nextSibling);
 
@@ -2731,72 +2662,76 @@ function saveCurrentMapImage() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
 
-      // 우측 하단 색상 인덱스 + 산지 아이콘 설명을 예시처럼 함께 그림
+      // 현재 화면의 인덱스를 저장 이미지에도 같이 그림.
+      // 저장할 때만 살짝 작게 표시하고 번호는 넣지 않습니다.
       try {
-        const items = (amountColorOrder || []).map((amount, i) => ({
+        const items = (amountColorOrder || []).map((amount) => ({
           amount,
           color: amountColorMap[amount] || '#ffffff',
-          text: `${i + 1}. ${displayAmountNoMm(amount)}mm`
+          text: `${displayAmountNoMm(amount)}mm`
         }));
 
-        const fontSize = 26 * S;
-        const rowH = 44 * S;
-        const chip = 34 * S;
-        const padBox = 18 * S;
-        const triangleRowH = 58 * S;
-        const triangleSize = 29 * S;
+        if (items.length || true) {
+          const legendScale = 0.88;
+          const fontSize = 24 * S * legendScale;
+          const rowH = 40 * S * legendScale;
+          const chip = 30 * S * legendScale;
+          const padBox = 16 * S * legendScale;
+          const triangleRowH = 54 * S * legendScale;
+          const triangleSize = 27 * S * legendScale;
 
-        ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
-        const maxTextW = items.length ? Math.max(...items.map(it => ctx.measureText(it.text).width)) : 0;
-        const mountainTextW = ctx.measureText('산지/지리산부근').width;
-        const boxW = Math.ceil(Math.max(maxTextW + chip + 14 * S, mountainTextW + triangleSize + 22 * S) + padBox * 2);
-        const boxH = Math.ceil(items.length * rowH + triangleRowH + padBox * 2 + 8 * S);
-        const x = canvas.width - boxW - 22 * S;
-        const y = canvas.height - boxH - 28 * S;
-
-        ctx.fillStyle = 'rgba(255,255,255,0.97)';
-        ctx.strokeStyle = '#888888';
-        ctx.lineWidth = 3 * S;
-        ctx.fillRect(x, y, boxW, boxH);
-        ctx.strokeRect(x, y, boxW, boxH);
-        ctx.shadowColor = 'rgba(0,0,0,0.18)';
-        ctx.shadowBlur = 6 * S;
-        ctx.shadowOffsetX = 3 * S;
-        ctx.shadowOffsetY = 3 * S;
-        ctx.strokeRect(x, y, boxW, boxH);
-        ctx.shadowColor = 'transparent';
-
-        ctx.textBaseline = 'middle';
-        items.forEach((it, idx) => {
-          const yy = y + padBox + idx * rowH + rowH / 2;
-          ctx.fillStyle = it.color;
-          ctx.strokeStyle = '#888888';
-          ctx.lineWidth = 2 * S;
-          ctx.fillRect(x + padBox, yy - chip / 2, chip, chip);
-          ctx.strokeRect(x + padBox, yy - chip / 2, chip, chip);
-          ctx.fillStyle = '#111111';
           ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
-          ctx.fillText(it.text, x + padBox + chip + 14 * S, yy);
-        });
+          const maxTextW = items.length ? Math.max(...items.map(it => ctx.measureText(it.text).width)) : 0;
+          const mountainTextW = ctx.measureText('산지/지리산부근').width;
+          const boxW = Math.ceil(Math.max(maxTextW + chip + 14 * S * legendScale, mountainTextW + triangleSize + 22 * S * legendScale) + padBox * 2);
+          const boxH = Math.ceil(items.length * rowH + triangleRowH + padBox * 2 + 8 * S * legendScale);
+          const x = canvas.width - boxW - 22 * S;
+          const y = canvas.height - boxH - 28 * S;
 
-        const ty = y + padBox + items.length * rowH + triangleRowH / 2 + 4 * S;
-        const tx = x + padBox + triangleSize / 2;
-        ctx.beginPath();
-        ctx.moveTo(tx, ty - triangleSize / 2);
-        ctx.lineTo(tx + triangleSize / 2, ty + triangleSize / 2);
-        ctx.lineTo(tx - triangleSize / 2, ty + triangleSize / 2);
-        ctx.closePath();
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 3 * S;
-        ctx.fill();
-        ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,0.97)';
+          ctx.strokeStyle = '#888888';
+          ctx.lineWidth = 3 * S * legendScale;
+          ctx.fillRect(x, y, boxW, boxH);
+          ctx.strokeRect(x, y, boxW, boxH);
+          ctx.shadowColor = 'rgba(0,0,0,0.18)';
+          ctx.shadowBlur = 6 * S * legendScale;
+          ctx.shadowOffsetX = 3 * S * legendScale;
+          ctx.shadowOffsetY = 3 * S * legendScale;
+          ctx.strokeRect(x, y, boxW, boxH);
+          ctx.shadowColor = 'transparent';
 
-        ctx.fillStyle = '#111111';
-        ctx.font = `900 ${24 * S}px Malgun Gothic, Arial, sans-serif`;
-        ctx.textBaseline = 'middle';
-        ctx.fillText('산지/지리산부근', x + padBox + triangleSize + 20 * S, ty - 11 * S);
-        ctx.fillText('(아이콘)', x + padBox + triangleSize + 20 * S, ty + 18 * S);
+          ctx.textBaseline = 'middle';
+          items.forEach((it, idx) => {
+            const yy = y + padBox + idx * rowH + rowH / 2;
+            ctx.fillStyle = it.color;
+            ctx.strokeStyle = '#888888';
+            ctx.lineWidth = 2 * S * legendScale;
+            ctx.fillRect(x + padBox, yy - chip / 2, chip, chip);
+            ctx.strokeRect(x + padBox, yy - chip / 2, chip, chip);
+            ctx.fillStyle = '#111111';
+            ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
+            ctx.fillText(it.text, x + padBox + chip + 14 * S * legendScale, yy);
+          });
+
+          const ty = y + padBox + items.length * rowH + triangleRowH / 2 + 4 * S * legendScale;
+          const tx = x + padBox + triangleSize / 2;
+          ctx.beginPath();
+          ctx.moveTo(tx, ty - triangleSize / 2);
+          ctx.lineTo(tx + triangleSize / 2, ty + triangleSize / 2);
+          ctx.lineTo(tx - triangleSize / 2, ty + triangleSize / 2);
+          ctx.closePath();
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#333333';
+          ctx.lineWidth = 3 * S * legendScale;
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#111111';
+          ctx.font = `900 ${22 * S * legendScale}px Malgun Gothic, Arial, sans-serif`;
+          ctx.textBaseline = 'middle';
+          ctx.fillText('산지/지리산부근', x + padBox + triangleSize + 20 * S * legendScale, ty - 10 * S * legendScale);
+          ctx.fillText('(아이콘)', x + padBox + triangleSize + 20 * S * legendScale, ty + 17 * S * legendScale);
+        }
       } catch (e) {
         console.warn('legend draw failed', e);
       }
