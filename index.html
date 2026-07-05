@@ -468,7 +468,7 @@
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-    <div class="app-version">Ver.1.0.4</div>
+    <div class="app-version">Ver.1.0.5</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -2953,8 +2953,14 @@ function saveCurrentMapImage() {
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
-    clonedSvg.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
+    // iPhone 저장 시 하단 라벨/산지 아이콘이 잘리는 문제 방지용 저장 전용 여백입니다.
+    // 화면 비율은 유지하되 SVG viewBox 바깥으로 살짝 나간 요소까지 PNG에 들어오게 합니다.
+    const EXPORT_PAD_X = 28;
+    const EXPORT_PAD_TOP = 28;
+    const EXPORT_PAD_BOTTOM = 90;
+    clonedSvg.setAttribute('viewBox', `${-EXPORT_PAD_X} ${-EXPORT_PAD_TOP} ${WIDTH + EXPORT_PAD_X * 2} ${HEIGHT + EXPORT_PAD_TOP + EXPORT_PAD_BOTTOM}`);
     clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    clonedSvg.setAttribute('overflow', 'visible');
     clonedSvg.removeAttribute('style');
     clonedSvg.style.background = '#ffffff';
 
@@ -2978,10 +2984,10 @@ function saveCurrentMapImage() {
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
     const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('x', '0');
-    bgRect.setAttribute('y', '0');
-    bgRect.setAttribute('width', String(WIDTH));
-    bgRect.setAttribute('height', String(HEIGHT));
+    bgRect.setAttribute('x', String(-EXPORT_PAD_X));
+    bgRect.setAttribute('y', String(-EXPORT_PAD_TOP));
+    bgRect.setAttribute('width', String(WIDTH + EXPORT_PAD_X * 2));
+    bgRect.setAttribute('height', String(HEIGHT + EXPORT_PAD_TOP + EXPORT_PAD_BOTTOM));
     bgRect.setAttribute('fill', '#ffffff');
     clonedSvg.insertBefore(bgRect, clonedSvg.querySelector('#viewport') || clonedSvg.firstChild.nextSibling);
 
