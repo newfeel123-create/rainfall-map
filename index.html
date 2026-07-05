@@ -468,7 +468,7 @@
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-    <div class="app-version">Ver.1.0.5</div>
+    <div class="app-version">Ver.1.0.6</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -2922,8 +2922,8 @@ document.addEventListener('contextmenu', e => {
 
 
 // ===== 지도 이미지 저장 =====
-// 사용자가 올려준 예시처럼 PC/휴대폰 모두 같은 비율의 PNG로 저장합니다.
-// 화면에 보이는 모바일 CSS 크기가 아니라 SVG 지도 전체 + 수치 + 산지 아이콘을 기준으로 저장합니다.
+// 저장은 PC/휴대폰 모두 같은 고정 구도로 저장합니다.
+// 현재 화면에서 지도를 확대/이동해도 저장 결과는 항상 같은 위치와 크기로 저장합니다.
 function saveCurrentMapImage() {
   const btn = document.getElementById('saveImageBtn');
   if (btn) btn.classList.add('btn-active');
@@ -2953,20 +2953,23 @@ function saveCurrentMapImage() {
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
-    // iPhone 저장 시 하단 라벨/산지 아이콘이 잘리는 문제 방지용 저장 전용 여백입니다.
-    // 화면 비율은 유지하되 SVG viewBox 바깥으로 살짝 나간 요소까지 PNG에 들어오게 합니다.
-    const EXPORT_PAD_X = 28;
-    const EXPORT_PAD_TOP = 28;
-    const EXPORT_PAD_BOTTOM = 90;
-    clonedSvg.setAttribute('viewBox', `${-EXPORT_PAD_X} ${-EXPORT_PAD_TOP} ${WIDTH + EXPORT_PAD_X * 2} ${HEIGHT + EXPORT_PAD_TOP + EXPORT_PAD_BOTTOM}`);
+    // 저장은 항상 고정 구도로 합니다.
+    // 사용자가 지도 이동/확대/축소를 해도 저장 PNG에는 반영하지 않습니다.
+    // 제주도까지 포함한 한반도가 중앙에 오도록 지도 전체를 살짝 위로 올린 고정 프레임입니다.
+    const EXPORT_VIEWBOX_X = 0;
+    const EXPORT_VIEWBOX_Y = 28;
+    const EXPORT_VIEWBOX_W = WIDTH;
+    const EXPORT_VIEWBOX_H = HEIGHT;
+    clonedSvg.setAttribute('viewBox', `${EXPORT_VIEWBOX_X} ${EXPORT_VIEWBOX_Y} ${EXPORT_VIEWBOX_W} ${EXPORT_VIEWBOX_H}`);
     clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     clonedSvg.setAttribute('overflow', 'visible');
     clonedSvg.removeAttribute('style');
     clonedSvg.style.background = '#ffffff';
 
     const clonedViewport = clonedSvg.querySelector('#viewport');
-    if (clonedViewport && typeof view !== 'undefined') {
-      clonedViewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
+    if (clonedViewport) {
+      // 저장 전용 고정 위치: 현재 화면의 이동/확대 상태를 무시합니다.
+      clonedViewport.setAttribute('transform', 'translate(0 0) scale(1)');
     }
 
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
@@ -2984,10 +2987,10 @@ function saveCurrentMapImage() {
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
     const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('x', String(-EXPORT_PAD_X));
-    bgRect.setAttribute('y', String(-EXPORT_PAD_TOP));
-    bgRect.setAttribute('width', String(WIDTH + EXPORT_PAD_X * 2));
-    bgRect.setAttribute('height', String(HEIGHT + EXPORT_PAD_TOP + EXPORT_PAD_BOTTOM));
+    bgRect.setAttribute('x', String(EXPORT_VIEWBOX_X));
+    bgRect.setAttribute('y', String(EXPORT_VIEWBOX_Y));
+    bgRect.setAttribute('width', String(EXPORT_VIEWBOX_W));
+    bgRect.setAttribute('height', String(EXPORT_VIEWBOX_H));
     bgRect.setAttribute('fill', '#ffffff');
     clonedSvg.insertBefore(bgRect, clonedSvg.querySelector('#viewport') || clonedSvg.firstChild.nextSibling);
 
