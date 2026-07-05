@@ -336,7 +336,7 @@
   }
 
   .mountain-legend-item {
-    display:flex;
+    display:none !important;
     align-items:flex-start;
     gap:5px;
     margin-top:5px;
@@ -468,7 +468,7 @@
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.1.3</div>
+   <div class="app-version">Ver.1.1.4</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -524,7 +524,6 @@
     <div class="map-legend" id="mapLegendBox" style="display:none;">
       <div class="legend">
         <div id="rainLegend" style="margin-top:0;"></div>
-        <div class="mountain-legend-item"><span class="mountain-symbol">△</span><span>산지/지리산부근<br>(아이콘)</span></div>
       </div>
     </div>
   </main>
@@ -766,7 +765,7 @@ function renderRainLegend() {
   }
   if (legendBox) legendBox.style.display = 'block';
   box.innerHTML = amountColorOrder.map((amount, i) =>
-    `<div class="rain-row"><span class="chip" style="background:${amountColorMap[amount]}"></span><span>${i + 1}. ${displayAmountNoMm(amount)}</span></div>`
+    `<div class="rain-row"><span class="chip" style="background:${amountColorMap[amount]}"></span><span>${displayAmountNoMm(amount)}mm</span></div>`
   ).join('');
 }
 renderRainLegend();
@@ -2948,6 +2947,12 @@ function saveCurrentMapImage() {
 
     // 아이폰에서도 화면에 보이는 비율과 위치가 그대로 나오도록 DPR은 선명도에만 사용합니다.
     const S = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const isMobileExport = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+    // Ver.1.1.4: 휴대폰 저장 때만 한반도를 1.25배로 저장합니다.
+    const EXPORT_MOBILE_ZOOM = 1.25;
+    const EXPORT_ZOOM = isMobileExport ? EXPORT_MOBILE_ZOOM : 1;
+    const EXPORT_CENTER_X = WIDTH / 2;
+    const EXPORT_CENTER_Y = HEIGHT / 2;
 
     const clonedSvg = originalSvg.cloneNode(true);
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -2966,13 +2971,9 @@ function saveCurrentMapImage() {
 
     const clonedViewport = clonedSvg.querySelector('#viewport');
     if (clonedViewport && typeof view !== 'undefined') {
-      // 휴대폰 저장 전용: 현재 위치 느낌은 유지하고 PNG 저장 시에만 약 5% 더 확대합니다.
-      // PC 저장은 기존과 동일하게 유지합니다.
-      const EXPORT_MOBILE_ZOOM = 1.25;
-      const exportZoom = (typeof isMobileMapView === 'function' && isMobileMapView()) ? EXPORT_MOBILE_ZOOM : 1;
-      const exportK = view.k * exportZoom;
-      const exportX = view.x + (WIDTH / 2) * view.k * (1 - exportZoom);
-      const exportY = view.y + (HEIGHT / 2) * view.k * (1 - exportZoom);
+      const exportK = view.k * EXPORT_ZOOM;
+      const exportX = (view.x * EXPORT_ZOOM) + ((1 - EXPORT_ZOOM) * EXPORT_CENTER_X);
+      const exportY = (view.y * EXPORT_ZOOM) + ((1 - EXPORT_ZOOM) * EXPORT_CENTER_Y);
       clonedViewport.setAttribute('transform', `translate(${exportX} ${exportY}) scale(${exportK})`);
     }
 
@@ -3106,27 +3107,11 @@ function drawVisibleMapLegend(ctx, mapWrap, outW, outH) {
     ctx.strokeStyle = '#888888';
     ctx.strokeRect(x + padX + 0.5, cy - chip / 2 + 0.5, chip - 1, chip - 1);
     ctx.fillStyle = '#111111';
-    const text = `${i + 1}. ${displayAmountNoMm(amount)}mm`;
+    const text = `${displayAmountNoMm(amount)}mm`;
     ctx.fillText(text, x + padX + chip + gap, cy + 0.5);
     cy += rowH;
   });
 
-  // 산지 아이콘 줄도 화면과 비슷한 크기로 표시합니다.
-  const triX = x + padX + chip / 2;
-  const triY = cy + 12;
-  ctx.beginPath();
-  ctx.moveTo(triX, triY - 11);
-  ctx.lineTo(triX + 11, triY + 10);
-  ctx.lineTo(triX - 11, triY + 10);
-  ctx.closePath();
-  ctx.strokeStyle = '#333333';
-  ctx.lineWidth = 1.6;
-  ctx.stroke();
-  ctx.fillStyle = '#111111';
-  ctx.font = `${isMobile ? 10 : 10.5}px Malgun Gothic, Arial, sans-serif`;
-  ctx.textBaseline = 'top';
-  ctx.fillText('산지/지리산부근', x + padX + chip + gap, cy + 1);
-  ctx.fillText('(아이콘)', x + padX + chip + gap, cy + 15);
   ctx.restore();
 }
 
