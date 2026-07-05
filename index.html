@@ -417,13 +417,7 @@
   </section>
 </div>
 
-<script src="map_data.js">
-if (window.matchMedia('(max-width: 768px)').matches) {
-  view = { x: -210, y: -250, k: 1.45 };
-  if (typeof applyView==='function') applyView();
-}
-
-</script>
+<script src="map_data.js"></script>
 <script>
 
 function __mapAmountOnly(v) {
@@ -2251,7 +2245,46 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('matchResult').textContent = '';
 });
 
-let view = {x:0, y:0, k:1};
+function isMobileMapView() {
+  return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+}
+function defaultMapView() {
+  // PC는 기존 120% 시작, 휴대폰은 더 타이트한 145% 시작
+  return isMobileMapView() ? {x:-210, y:-250, k:1.45} : {x:-90, y:-110, k:1.2};
+}
+function mapViewStorageKey() {
+  return isMobileMapView() ? 'kmaRainMapView_mobile' : 'kmaRainMapView_pc';
+}
+function normalizeMapView(v) {
+  if (!v || !Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.k)) return null;
+  return {
+    x: Number(v.x),
+    y: Number(v.y),
+    k: Math.max(0.7, Math.min(12, Number(v.k)))
+  };
+}
+function loadSavedMapView() {
+  try {
+    const raw = localStorage.getItem(mapViewStorageKey());
+    if (!raw) return null;
+    return normalizeMapView(JSON.parse(raw));
+  } catch(e) {
+    return null;
+  }
+}
+function saveMapView() {
+  try {
+    const v = normalizeMapView(view);
+    if (v) localStorage.setItem(mapViewStorageKey(), JSON.stringify(v));
+  } catch(e) {}
+}
+function clearSavedMapView() {
+  try {
+    localStorage.removeItem(mapViewStorageKey());
+  } catch(e) {}
+}
+
+let view = loadSavedMapView() || defaultMapView();
 let viewRaf = 0;
 function applyView() {
   if (viewRaf) return;
@@ -2260,9 +2293,12 @@ function applyView() {
     viewRaf = 0;
   });
 }
+applyView();
+window.addEventListener('beforeunload', saveMapView);
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-  view = {x:0, y:0, k:1};
+  clearSavedMapView();
+  view = defaultMapView();
   applyView();
 });
 
@@ -2278,6 +2314,7 @@ svg.addEventListener('wheel', e => {
   view.y = my - (my - view.y) * (newK / oldK);
   view.k = newK;
   applyView();
+  saveMapView();
 }, {passive:false});
 
 let dragging = false, last = null;
@@ -2296,7 +2333,7 @@ window.addEventListener('mousemove', e => {
   last = {x:e.clientX, y:e.clientY};
   applyView();
 });
-window.addEventListener('mouseup', () => { dragging = false; svg.classList.remove('panning'); });
+window.addEventListener('mouseup', () => { if (dragging) saveMapView(); dragging = false; svg.classList.remove('panning'); });
 
 // Mobile touch pan / pinch zoom
 let touchMode = null, touchLast = null, touchStartDist = 0, touchStartK = 1;
@@ -2337,7 +2374,8 @@ svg.addEventListener('touchmove', e => {
     applyView();
   }
 }, {passive:false});
-window.addEventListener('touchend', () => { touchMode = null; touchLast = null; svg.classList.remove('panning'); }, {passive:true});
+window.addEventListener('touchend', () => { if (touchMode) saveMapView(); touchMode = null; touchLast = null; svg.classList.remove('panning'); }, {passive:true});
+window.addEventListener('touchcancel', () => { if (touchMode) saveMapView(); touchMode = null; touchLast = null; svg.classList.remove('panning'); }, {passive:true});
 
 
 (function(){
