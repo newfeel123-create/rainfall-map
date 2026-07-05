@@ -436,6 +436,13 @@
   .mountain-symbol { font-size:21px; }
 }
 
+  /* 모바일에서는 수동 색상 인덱스를 지도 아래로 이동해서 보이게 합니다. */
+  .app > .manual-color-panel {
+    width:calc(100% - 16px);
+    margin:8px;
+    box-sizing:border-box;
+  }
+
 
   #matchResult { display:none !important; }
 </style>
@@ -444,7 +451,7 @@
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-    <div class="app-version">Ver.1.0.1</div>
+    <div class="app-version">Ver.1.0.2</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -778,6 +785,30 @@ function clearManualColorSelection() {
 renderManualColorPalette();
 const manualColorOff = document.getElementById('manualColorOff');
 if (manualColorOff) manualColorOff.addEventListener('click', clearManualColorSelection);
+
+
+function relocateManualColorPanelForMobile() {
+  const panel = document.getElementById('manualColorPanel');
+  const side = document.querySelector('.side');
+  const mapcol = document.querySelector('.mapcol');
+  const btns = document.querySelector('.btns');
+  if (!panel || !side || !mapcol || !btns) return;
+
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    // 휴대폰: 지도 아래에 수동 색상 인덱스 표시
+    if (panel.parentElement !== mapcol.parentElement || panel.previousElementSibling !== mapcol) {
+      mapcol.parentElement.insertBefore(panel, mapcol.nextSibling);
+    }
+  } else {
+    // PC: 기존처럼 왼쪽 버튼 아래에 유지
+    if (panel.parentElement !== side || panel.previousElementSibling !== btns) {
+      side.insertBefore(panel, btns.nextSibling);
+    }
+  }
+}
+relocateManualColorPanelForMobile();
+window.addEventListener('resize', relocateManualColorPanelForMobile);
+
 
 function maxRainValue(amount) {
   const nums = String(amount || '').match(/\d+/g);
