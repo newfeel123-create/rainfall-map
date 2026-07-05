@@ -417,7 +417,13 @@
   </section>
 </div>
 
-<script src="map_data.js"></script>
+<script src="map_data.js">
+if (window.matchMedia('(max-width: 768px)').matches) {
+  view = { x: -210, y: -250, k: 1.45 };
+  if (typeof applyView==='function') applyView();
+}
+
+</script>
 <script>
 
 function __mapAmountOnly(v) {
@@ -2245,7 +2251,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('matchResult').textContent = '';
 });
 
-let view = {x:-90, y:-110, k:1.2};
+let view = {x:0, y:0, k:1};
 let viewRaf = 0;
 function applyView() {
   if (viewRaf) return;
@@ -2256,7 +2262,7 @@ function applyView() {
 }
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-  view = {x:-90, y:-110, k:1.2};
+  view = {x:0, y:0, k:1};
   applyView();
 });
 
