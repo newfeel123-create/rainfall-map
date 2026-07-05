@@ -468,7 +468,7 @@
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-9    <div class="app-version">Ver.1.0.5</div>
+9    <div class="app-version">Ver.1.0.9</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -2957,7 +2957,7 @@ function saveCurrentMapImage() {
     // 화면 비율은 유지하되 SVG viewBox 바깥으로 살짝 나간 요소까지 PNG에 들어오게 합니다.
     const EXPORT_PAD_X = 28;
     const EXPORT_PAD_TOP = 38;
-    const EXPORT_PAD_BOTTOM = 90;
+    const EXPORT_PAD_BOTTOM = 150;
     clonedSvg.setAttribute('viewBox', `${-EXPORT_PAD_X} ${-EXPORT_PAD_TOP} ${WIDTH + EXPORT_PAD_X * 2} ${HEIGHT + EXPORT_PAD_TOP + EXPORT_PAD_BOTTOM}`);
     clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     clonedSvg.setAttribute('overflow', 'visible');
