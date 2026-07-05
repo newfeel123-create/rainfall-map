@@ -468,7 +468,7 @@
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-    <div class="app-version">Ver.1.0.6</div>
+    <div class="app-version">Ver.1.0.7</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -2922,8 +2922,8 @@ document.addEventListener('contextmenu', e => {
 
 
 // ===== 지도 이미지 저장 =====
-// 저장은 PC/휴대폰 모두 같은 고정 구도로 저장합니다.
-// 현재 화면에서 지도를 확대/이동해도 저장 결과는 항상 같은 위치와 크기로 저장합니다.
+// 사용자가 올려준 예시처럼 PC/휴대폰 모두 같은 비율의 PNG로 저장합니다.
+// 화면에 보이는 모바일 CSS 크기가 아니라 SVG 지도 전체 + 수치 + 산지 아이콘을 기준으로 저장합니다.
 function saveCurrentMapImage() {
   const btn = document.getElementById('saveImageBtn');
   if (btn) btn.classList.add('btn-active');
@@ -2933,14 +2933,9 @@ function saveCurrentMapImage() {
     const mapWrap = document.querySelector('.mapwrap') || (originalSvg && originalSvg.parentElement);
     if (!originalSvg || !mapWrap) throw new Error('map element not found');
 
-    // 저장 직전 현재 지도 이동/확대값을 실제 SVG에 강제 반영합니다.
-    try {
-      if (typeof viewRaf !== 'undefined' && viewRaf) { cancelAnimationFrame(viewRaf); viewRaf = 0; }
-      const liveViewport = originalSvg.querySelector('#viewport');
-      if (liveViewport && typeof view !== 'undefined') {
-        liveViewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
-      }
-    } catch (_) {}
+    // 저장은 항상 고정 구도로 합니다.
+    // 사용자가 화면에서 확대/이동한 상태는 저장 결과에 반영하지 않습니다.
+    // 그래서 매번 같은 위치/크기로 저장됩니다.
 
     const rect = mapWrap.getBoundingClientRect();
     const outW = Math.max(1, Math.round(rect.width || originalSvg.clientWidth || 900));
@@ -2953,22 +2948,21 @@ function saveCurrentMapImage() {
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
-    // 저장은 항상 고정 구도로 합니다.
-    // 사용자가 지도 이동/확대/축소를 해도 저장 PNG에는 반영하지 않습니다.
-    // 제주도까지 포함한 한반도가 중앙에 오도록 지도 전체를 살짝 위로 올린 고정 프레임입니다.
-    const EXPORT_VIEWBOX_X = 0;
-    const EXPORT_VIEWBOX_Y = 28;
-    const EXPORT_VIEWBOX_W = WIDTH;
-    const EXPORT_VIEWBOX_H = HEIGHT;
-    clonedSvg.setAttribute('viewBox', `${EXPORT_VIEWBOX_X} ${EXPORT_VIEWBOX_Y} ${EXPORT_VIEWBOX_W} ${EXPORT_VIEWBOX_H}`);
+    // 저장 전용 고정 프레임입니다.
+    // 전체 900x1150을 그대로 쓰면 지도와 제주도가 너무 작고 루즈하게 저장됩니다.
+    // 아래 값은 제주도까지 포함하면서 한반도가 검은 저장 박스 안에 크게, 중앙보다 살짝 위로 오도록 맞춘 값입니다.
+    const EXPORT_VB_X = 0;
+    const EXPORT_VB_Y = 70;
+    const EXPORT_VB_W = 900;
+    const EXPORT_VB_H = 1040;
+    clonedSvg.setAttribute('viewBox', `${EXPORT_VB_X} ${EXPORT_VB_Y} ${EXPORT_VB_W} ${EXPORT_VB_H}`);
     clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    clonedSvg.setAttribute('overflow', 'visible');
+    clonedSvg.setAttribute('overflow', 'hidden');
     clonedSvg.removeAttribute('style');
     clonedSvg.style.background = '#ffffff';
 
     const clonedViewport = clonedSvg.querySelector('#viewport');
     if (clonedViewport) {
-      // 저장 전용 고정 위치: 현재 화면의 이동/확대 상태를 무시합니다.
       clonedViewport.setAttribute('transform', 'translate(0 0) scale(1)');
     }
 
@@ -2987,10 +2981,10 @@ function saveCurrentMapImage() {
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
     const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('x', String(EXPORT_VIEWBOX_X));
-    bgRect.setAttribute('y', String(EXPORT_VIEWBOX_Y));
-    bgRect.setAttribute('width', String(EXPORT_VIEWBOX_W));
-    bgRect.setAttribute('height', String(EXPORT_VIEWBOX_H));
+    bgRect.setAttribute('x', String(EXPORT_VB_X));
+    bgRect.setAttribute('y', String(EXPORT_VB_Y));
+    bgRect.setAttribute('width', String(EXPORT_VB_W));
+    bgRect.setAttribute('height', String(EXPORT_VB_H));
     bgRect.setAttribute('fill', '#ffffff');
     clonedSvg.insertBefore(bgRect, clonedSvg.querySelector('#viewport') || clonedSvg.firstChild.nextSibling);
 
