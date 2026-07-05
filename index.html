@@ -2968,7 +2968,7 @@ function saveCurrentMapImage() {
     if (clonedViewport && typeof view !== 'undefined') {
       // 휴대폰 저장 전용: 현재 위치 느낌은 유지하고 PNG 저장 시에만 약 5% 더 확대합니다.
       // PC 저장은 기존과 동일하게 유지합니다.
-      const EXPORT_MOBILE_ZOOM = 1.05;
+      const EXPORT_MOBILE_ZOOM = 1.25;
       const exportZoom = (typeof isMobileMapView === 'function' && isMobileMapView()) ? EXPORT_MOBILE_ZOOM : 1;
       const exportK = view.k * exportZoom;
       const exportX = view.x + (WIDTH / 2) * view.k * (1 - exportZoom);
