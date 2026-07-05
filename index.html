@@ -401,7 +401,7 @@
     <div class="btns">
       <button id="pasteMatchBtn">붙여넣기 매칭</button>
       <button id="kmaLoadBtn" type="button">기상청 강수량 불러오기</button>
-      <button id="clearBtn">선택 색 지우기</button>
+      <button id="clearBtn" type="button">초기화</button>
       <button id="resetBtn">지도 위치 초기화</button>
       <button id="mapMoveToggle" type="button" class="map-locked">지도 이동 OFF</button>
       <button id="centerLabelBtn">수치 중앙 재배치</button>
@@ -2082,6 +2082,44 @@ async function loadRainfallFromKma() {
 
 // ===== 오늘/내일 + 예상 강수량/소나기 선택 불러오기 =====
 let __selectedKmaDayOffset = 0;
+let __selectedKmaKind = '';
+
+function __kmaButton(id) {
+  return document.getElementById(id);
+}
+
+function __clearKmaKindButtons() {
+  ['kmaChoiceRain','kmaChoiceShower','kmaChoiceBoth'].forEach(id => {
+    const btn = __kmaButton(id);
+    if (btn) btn.classList.remove('btn-active');
+  });
+  __selectedKmaKind = '';
+}
+
+function __setKmaDayActive(dayOffset) {
+  const today = __kmaButton('kmaTodayBtn');
+  const tomorrow = __kmaButton('kmaTomorrowBtn');
+  if (today) today.classList.toggle('btn-active', Number(dayOffset || 0) === 0);
+  if (tomorrow) tomorrow.classList.toggle('btn-active', Number(dayOffset || 0) === 1);
+}
+
+function __setKmaKindActive(kind) {
+  __clearKmaKindButtons();
+  const id = kind === 'rain' ? 'kmaChoiceRain' : (kind === 'shower' ? 'kmaChoiceShower' : 'kmaChoiceBoth');
+  const btn = __kmaButton(id);
+  if (btn) btn.classList.add('btn-active');
+  __selectedKmaKind = kind || '';
+}
+
+function __isKmaStateButton(btn) {
+  return btn && ['kmaTodayBtn','kmaTomorrowBtn','kmaChoiceRain','kmaChoiceShower','kmaChoiceBoth'].includes(btn.id);
+}
+
+function __resetKmaChoiceForNewDay(dayOffset) {
+  __selectedKmaDayOffset = Number(dayOffset || 0);
+  __setKmaDayActive(__selectedKmaDayOffset);
+  __clearKmaKindButtons();
+}
 
 function __kmaDateInfo(dayOffset) {
   const d = new Date();
@@ -2209,7 +2247,7 @@ async function loadKmaByDayAndKind(dayOffset, kind) {
 }
 
 function showKmaChoice(dayOffset) {
-  __selectedKmaDayOffset = Number(dayOffset || 0);
+  __resetKmaChoiceForNewDay(dayOffset);
   const panel = document.getElementById('kmaChoicePanel');
   const title = document.getElementById('kmaChoiceTitle');
   const info = __kmaDateInfo(__selectedKmaDayOffset);
@@ -2223,11 +2261,22 @@ function showKmaChoice(dayOffset) {
   const rain = document.getElementById('kmaChoiceRain');
   const shower = document.getElementById('kmaChoiceShower');
   const both = document.getElementById('kmaChoiceBoth');
+
   if (today) today.addEventListener('click', () => showKmaChoice(0));
   if (tomorrow) tomorrow.addEventListener('click', () => showKmaChoice(1));
-  if (rain) rain.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'rain'));
-  if (shower) shower.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'shower'));
-  if (both) both.addEventListener('click', () => loadKmaByDayAndKind(__selectedKmaDayOffset, 'both'));
+
+  if (rain) rain.addEventListener('click', () => {
+    __setKmaKindActive('rain');
+    loadKmaByDayAndKind(__selectedKmaDayOffset, 'rain');
+  });
+  if (shower) shower.addEventListener('click', () => {
+    __setKmaKindActive('shower');
+    loadKmaByDayAndKind(__selectedKmaDayOffset, 'shower');
+  });
+  if (both) both.addEventListener('click', () => {
+    __setKmaKindActive('both');
+    loadKmaByDayAndKind(__selectedKmaDayOffset, 'both');
+  });
 })();
 
 
@@ -2257,10 +2306,24 @@ document.getElementById('centerLabelBtn').addEventListener('click', () => {
 });
 
 
-document.getElementById('clearBtn').addEventListener('click', () => {
+function resetMapContentsOnly() {
+  // 지도 위치/확대값은 건드리지 않고, 색칠/수치/산지/버튼 선택 표시만 초기화합니다.
   clearRainMatch();
-  document.getElementById('matchResult').textContent = '';
-});
+
+  const resultBox = document.getElementById('matchResult');
+  if (resultBox) resultBox.textContent = '';
+
+  // 오늘/내일, 예상 강수량/소나기/둘 다, 저장 버튼 등 노란 선택 표시 제거
+  document.querySelectorAll('button.btn-active').forEach(btn => {
+    btn.classList.remove('btn-active');
+  });
+
+  // 내부 선택 상태도 초기화
+  __selectedKmaDayOffset = 0;
+  __selectedKmaKind = '';
+}
+
+document.getElementById('clearBtn').addEventListener('click', resetMapContentsOnly);
 
 function isMobileMapView() {
   return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
@@ -2338,7 +2401,9 @@ updateMapMoveToggle();
 // 지도 이동 ON/OFF 버튼은 상태 표시가 유지되고, 나머지 버튼은 짧게 점등됩니다.
 document.querySelectorAll('button').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (btn.id === 'mapMoveToggle') return;
+    // 오늘/내일/예상 강수량/소나기 버튼은 선택 상태를 계속 보여줘야 하므로
+    // 짧게 깜빡이는 공통 점등 처리에서 제외합니다.
+    if (btn.id === 'mapMoveToggle' || __isKmaStateButton(btn)) return;
     btn.classList.add('btn-active');
     setTimeout(() => btn.classList.remove('btn-active'), 550);
   });
@@ -2469,9 +2534,25 @@ function saveCurrentMapImage() {
 
     const clonedSvg = originalSvg.cloneNode(true);
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    clonedSvg.setAttribute('width', WIDTH);
-    clonedSvg.setAttribute('height', HEIGHT);
+
+    // 저장할 때는 휴대폰 화면에 보이는 영역이나 모바일 CSS 비율을 절대 사용하지 않습니다.
+    // Safari/Chrome 모바일에서 getBBox()가 화면에 보이는 부분 기준으로 계산되는 경우가 있어
+    // 제주도, 울릉도·독도, 서해5도가 잘리는 문제가 생겼습니다.
+    // 그래서 저장용 SVG는 항상 원본 지도 좌표 전체(0 0 900 1150)를 강제로 사용합니다.
+    const clonedViewport = clonedSvg.querySelector('#viewport');
+    if (clonedViewport) {
+      clonedViewport.removeAttribute('transform');
+      clonedViewport.removeAttribute('style');
+    }
+
+    const saveBox = { x:0, y:0, width:WIDTH, height:HEIGHT };
+    const outW = WIDTH;
+    const outH = HEIGHT;
+    clonedSvg.setAttribute('width', String(outW));
+    clonedSvg.setAttribute('height', String(outH));
     clonedSvg.setAttribute('viewBox', '0 0 ' + WIDTH + ' ' + HEIGHT);
+    clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    clonedSvg.removeAttribute('style');
 
     // 외부 CSS가 PNG 변환 시 빠지지 않도록 필요한 스타일을 SVG 안에 삽입합니다.
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
@@ -2488,6 +2569,15 @@ function saveCurrentMapImage() {
     `;
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
+    // 투명/검은 배경으로 저장되는 것을 막기 위해 저장용 흰 배경을 SVG 안에 추가합니다.
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('x', '0');
+    bgRect.setAttribute('y', '0');
+    bgRect.setAttribute('width', String(WIDTH));
+    bgRect.setAttribute('height', String(HEIGHT));
+    bgRect.setAttribute('fill', '#ffffff');
+    clonedSvg.insertBefore(bgRect, clonedSvg.querySelector('#viewport') || clonedSvg.firstChild.nextSibling);
+
     const svgText = new XMLSerializer().serializeToString(clonedSvg);
     const svgBlob = new Blob([svgText], {type:'image/svg+xml;charset=utf-8'});
     const url = URL.createObjectURL(svgBlob);
@@ -2495,8 +2585,9 @@ function saveCurrentMapImage() {
 
     img.onload = function() {
       const canvas = document.createElement('canvas');
-      canvas.width = WIDTH * 2;
-      canvas.height = HEIGHT * 2;
+      const scaleSave = 2;
+      canvas.width = Math.ceil(outW * scaleSave);
+      canvas.height = Math.ceil(outH * scaleSave);
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
