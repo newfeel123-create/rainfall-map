@@ -2523,7 +2523,8 @@ document.addEventListener('contextmenu', e => {
 
 
 // ===== 지도 이미지 저장 =====
-// 휴대폰에서도 버튼을 누르면 현재 지도 SVG 화면을 PNG 파일로 저장합니다.
+// 저장 시 휴대폰 화면 비율이 아니라 저장 전용 캔버스에 지도 전체를 중앙 배치하고,
+// 강수량 색상 인덱스도 함께 PNG에 넣습니다.
 function saveCurrentMapImage() {
   const btn = document.getElementById('saveImageBtn');
   if (btn) btn.classList.add('btn-active');
@@ -2535,26 +2536,39 @@ function saveCurrentMapImage() {
     const clonedSvg = originalSvg.cloneNode(true);
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-    // 저장할 때는 휴대폰 화면에 보이는 영역이나 모바일 CSS 비율을 절대 사용하지 않습니다.
-    // Safari/Chrome 모바일에서 getBBox()가 화면에 보이는 부분 기준으로 계산되는 경우가 있어
-    // 제주도, 울릉도·독도, 서해5도가 잘리는 문제가 생겼습니다.
-    // 그래서 저장용 SVG는 항상 원본 지도 좌표 전체(0 0 900 1150)를 강제로 사용합니다.
     const clonedViewport = clonedSvg.querySelector('#viewport');
     if (clonedViewport) {
       clonedViewport.removeAttribute('transform');
       clonedViewport.removeAttribute('style');
     }
 
-    const saveBox = { x:0, y:0, width:WIDTH, height:HEIGHT };
-    const outW = WIDTH;
-    const outH = HEIGHT;
+    // 저장용 범위: 지도 전체 좌표에서 실제 지도 내용만 잡아 중앙 배치합니다.
+    // 모바일에서 화면 높이 때문에 제주도/울릉도/독도/서해5도가 잘리는 문제 방지.
+    let box = null;
+    try {
+      const liveViewport = originalSvg.querySelector('#viewport');
+      if (liveViewport) box = liveViewport.getBBox();
+    } catch (_) {}
+    if (!box || !Number.isFinite(box.x) || !box.width || !box.height) {
+      box = { x:0, y:0, width:WIDTH, height:HEIGHT };
+    }
+
+    // 여백을 넉넉히 둬서 서해5도, 제주도, 울릉도·독도, 수치 박스가 잘리지 않게 합니다.
+    const pad = 70;
+    const saveX = Math.max(0, box.x - pad);
+    const saveY = Math.max(0, box.y - pad);
+    const saveW = Math.min(WIDTH - saveX, box.width + pad * 2);
+    const saveH = Math.min(HEIGHT - saveY, box.height + pad * 2);
+
+    // 사용자가 보여준 예시처럼 세로형 이미지로 저장합니다.
+    const outW = 1080;
+    const outH = 1350;
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
-    clonedSvg.setAttribute('viewBox', '0 0 ' + WIDTH + ' ' + HEIGHT);
+    clonedSvg.setAttribute('viewBox', `${saveX} ${saveY} ${saveW} ${saveH}`);
     clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     clonedSvg.removeAttribute('style');
 
-    // 외부 CSS가 PNG 변환 시 빠지지 않도록 필요한 스타일을 SVG 안에 삽입합니다.
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     style.textContent = `
       .region { shape-rendering:geometricPrecision; fill:#ffffff; stroke:#6F6F6F; stroke-width:0.28; vector-effect:non-scaling-stroke; }
@@ -2569,12 +2583,11 @@ function saveCurrentMapImage() {
     `;
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
-    // 투명/검은 배경으로 저장되는 것을 막기 위해 저장용 흰 배경을 SVG 안에 추가합니다.
     const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('x', '0');
-    bgRect.setAttribute('y', '0');
-    bgRect.setAttribute('width', String(WIDTH));
-    bgRect.setAttribute('height', String(HEIGHT));
+    bgRect.setAttribute('x', String(saveX));
+    bgRect.setAttribute('y', String(saveY));
+    bgRect.setAttribute('width', String(saveW));
+    bgRect.setAttribute('height', String(saveH));
     bgRect.setAttribute('fill', '#ffffff');
     clonedSvg.insertBefore(bgRect, clonedSvg.querySelector('#viewport') || clonedSvg.firstChild.nextSibling);
 
@@ -2586,13 +2599,56 @@ function saveCurrentMapImage() {
     img.onload = function() {
       const canvas = document.createElement('canvas');
       const scaleSave = 2;
-      canvas.width = Math.ceil(outW * scaleSave);
-      canvas.height = Math.ceil(outH * scaleSave);
+      canvas.width = outW * scaleSave;
+      canvas.height = outH * scaleSave;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
+
+      // 강수량 색상 인덱스 저장: 현재 지도에 사용된 색상 순서 그대로 우측 하단에 그립니다.
+      try {
+        const items = (amountColorOrder || []).map((amount, i) => ({
+          amount,
+          color: amountColorMap[amount] || '#ffffff',
+          text: `${i + 1}. ${displayAmountNoMm(amount)}`
+        }));
+        if (items.length) {
+          const S = scaleSave;
+          const fontSize = 26 * S;
+          const rowH = 34 * S;
+          const chip = 22 * S;
+          const padBox = 18 * S;
+          ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
+          const maxTextW = Math.max(...items.map(it => ctx.measureText(it.text).width));
+          const boxW = Math.ceil(maxTextW + chip + 14 * S + padBox * 2);
+          const boxH = Math.ceil(items.length * rowH + padBox * 2 + 6 * S);
+          const x = canvas.width - boxW - 36 * S;
+          const y = canvas.height - boxH - 36 * S;
+
+          ctx.fillStyle = 'rgba(255,255,255,0.96)';
+          ctx.strokeStyle = '#333333';
+          ctx.lineWidth = 2 * S;
+          ctx.fillRect(x, y, boxW, boxH);
+          ctx.strokeRect(x, y, boxW, boxH);
+
+          ctx.textBaseline = 'middle';
+          items.forEach((it, idx) => {
+            const yy = y + padBox + 6 * S + idx * rowH + rowH / 2;
+            ctx.fillStyle = it.color;
+            ctx.strokeStyle = '#555555';
+            ctx.lineWidth = 1.5 * S;
+            ctx.fillRect(x + padBox, yy - chip / 2, chip, chip);
+            ctx.strokeRect(x + padBox, yy - chip / 2, chip, chip);
+            ctx.fillStyle = '#111111';
+            ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
+            ctx.fillText(it.text, x + padBox + chip + 14 * S, yy);
+          });
+        }
+      } catch (e) {
+        console.warn('legend draw failed', e);
+      }
 
       canvas.toBlob(function(blob) {
         if (!blob) {
