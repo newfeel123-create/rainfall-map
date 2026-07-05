@@ -2245,7 +2245,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('matchResult').textContent = '';
 });
 
-let view = {x:0, y:0, k:1};
+let view = {x:-90, y:-110, k:1.2};
 let viewRaf = 0;
 function applyView() {
   if (viewRaf) return;
@@ -2256,7 +2256,7 @@ function applyView() {
 }
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-  view = {x:0, y:0, k:1};
+  view = {x:-90, y:-110, k:1.2};
   applyView();
 });
 
