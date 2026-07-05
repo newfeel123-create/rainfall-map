@@ -2523,8 +2523,8 @@ document.addEventListener('contextmenu', e => {
 
 
 // ===== 지도 이미지 저장 =====
-// 저장 시 휴대폰 화면 비율이 아니라 저장 전용 캔버스에 지도 전체를 중앙 배치하고,
-// 강수량 색상 인덱스도 함께 PNG에 넣습니다.
+// 사용자가 올려준 예시처럼 PC/휴대폰 모두 같은 비율의 PNG로 저장합니다.
+// 화면에 보이는 모바일 CSS 크기가 아니라 SVG 지도 전체 + 수치 + 산지 아이콘을 기준으로 저장합니다.
 function saveCurrentMapImage() {
   const btn = document.getElementById('saveImageBtn');
   if (btn) btn.classList.add('btn-active');
@@ -2536,14 +2536,14 @@ function saveCurrentMapImage() {
     const clonedSvg = originalSvg.cloneNode(true);
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
+    // 저장할 때는 현재 화면 이동/확대값을 빼고 원본 지도 기준으로 저장합니다.
     const clonedViewport = clonedSvg.querySelector('#viewport');
     if (clonedViewport) {
       clonedViewport.removeAttribute('transform');
       clonedViewport.removeAttribute('style');
     }
 
-    // 저장용 범위: 지도 전체 좌표에서 실제 지도 내용만 잡아 중앙 배치합니다.
-    // 모바일에서 화면 높이 때문에 제주도/울릉도/독도/서해5도가 잘리는 문제 방지.
+    // 수치 박스/산지 아이콘/서해5도/제주도/울릉도·독도까지 포함되는 실제 내용 범위 계산
     let box = null;
     try {
       const liveViewport = originalSvg.querySelector('#viewport');
@@ -2553,16 +2553,24 @@ function saveCurrentMapImage() {
       box = { x:0, y:0, width:WIDTH, height:HEIGHT };
     }
 
-    // 여백을 넉넉히 둬서 서해5도, 제주도, 울릉도·독도, 수치 박스가 잘리지 않게 합니다.
-    const pad = 70;
-    const saveX = Math.max(0, box.x - pad);
-    const saveY = Math.max(0, box.y - pad);
-    const saveW = Math.min(WIDTH - saveX, box.width + pad * 2);
-    const saveH = Math.min(HEIGHT - saveY, box.height + pad * 2);
+    // 예시 이미지처럼 딱 맞게 보이도록 여백을 약간만 둡니다.
+    const pad = 38;
+    let saveX = box.x - pad;
+    let saveY = box.y - pad;
+    let saveW = box.width + pad * 2;
+    let saveH = box.height + pad * 2;
 
-    // 사용자가 보여준 예시처럼 세로형 이미지로 저장합니다.
-    const outW = 1080;
-    const outH = 1350;
+    // 원본 SVG 범위 밖으로 너무 나가지 않게 제한
+    saveX = Math.max(0, saveX);
+    saveY = Math.max(0, saveY);
+    saveW = Math.min(WIDTH - saveX, saveW);
+    saveH = Math.min(HEIGHT - saveY, saveH);
+
+    // 업로드한 예시와 비슷한 가로형 비율
+    const outW = 1290;
+    const outH = 1147;
+    const scaleSave = 2;
+
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
     clonedSvg.setAttribute('viewBox', `${saveX} ${saveY} ${saveW} ${saveH}`);
@@ -2598,54 +2606,81 @@ function saveCurrentMapImage() {
 
     img.onload = function() {
       const canvas = document.createElement('canvas');
-      const scaleSave = 2;
       canvas.width = outW * scaleSave;
       canvas.height = outH * scaleSave;
       const ctx = canvas.getContext('2d');
+      const S = scaleSave;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
 
-      // 강수량 색상 인덱스 저장: 현재 지도에 사용된 색상 순서 그대로 우측 하단에 그립니다.
+      // 우측 하단 색상 인덱스 + 산지 아이콘 설명을 예시처럼 함께 그림
       try {
         const items = (amountColorOrder || []).map((amount, i) => ({
           amount,
           color: amountColorMap[amount] || '#ffffff',
-          text: `${i + 1}. ${displayAmountNoMm(amount)}`
+          text: `${i + 1}. ${displayAmountNoMm(amount)}mm`
         }));
-        if (items.length) {
-          const S = scaleSave;
-          const fontSize = 26 * S;
-          const rowH = 34 * S;
-          const chip = 22 * S;
-          const padBox = 18 * S;
-          ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
-          const maxTextW = Math.max(...items.map(it => ctx.measureText(it.text).width));
-          const boxW = Math.ceil(maxTextW + chip + 14 * S + padBox * 2);
-          const boxH = Math.ceil(items.length * rowH + padBox * 2 + 6 * S);
-          const x = canvas.width - boxW - 36 * S;
-          const y = canvas.height - boxH - 36 * S;
 
-          ctx.fillStyle = 'rgba(255,255,255,0.96)';
-          ctx.strokeStyle = '#333333';
+        const fontSize = 30 * S;
+        const rowH = 51 * S;
+        const chip = 40 * S;
+        const padBox = 22 * S;
+        const triangleRowH = 70 * S;
+        const triangleSize = 34 * S;
+
+        ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
+        const maxTextW = items.length ? Math.max(...items.map(it => ctx.measureText(it.text).width)) : 0;
+        const mountainTextW = ctx.measureText('산지/지리산부근').width;
+        const boxW = Math.ceil(Math.max(maxTextW + chip + 18 * S, mountainTextW + triangleSize + 28 * S) + padBox * 2);
+        const boxH = Math.ceil(items.length * rowH + triangleRowH + padBox * 2 + 8 * S);
+        const x = canvas.width - boxW - 22 * S;
+        const y = canvas.height - boxH - 28 * S;
+
+        ctx.fillStyle = 'rgba(255,255,255,0.97)';
+        ctx.strokeStyle = '#888888';
+        ctx.lineWidth = 3 * S;
+        ctx.fillRect(x, y, boxW, boxH);
+        ctx.strokeRect(x, y, boxW, boxH);
+        ctx.shadowColor = 'rgba(0,0,0,0.18)';
+        ctx.shadowBlur = 6 * S;
+        ctx.shadowOffsetX = 3 * S;
+        ctx.shadowOffsetY = 3 * S;
+        ctx.strokeRect(x, y, boxW, boxH);
+        ctx.shadowColor = 'transparent';
+
+        ctx.textBaseline = 'middle';
+        items.forEach((it, idx) => {
+          const yy = y + padBox + idx * rowH + rowH / 2;
+          ctx.fillStyle = it.color;
+          ctx.strokeStyle = '#888888';
           ctx.lineWidth = 2 * S;
-          ctx.fillRect(x, y, boxW, boxH);
-          ctx.strokeRect(x, y, boxW, boxH);
+          ctx.fillRect(x + padBox, yy - chip / 2, chip, chip);
+          ctx.strokeRect(x + padBox, yy - chip / 2, chip, chip);
+          ctx.fillStyle = '#111111';
+          ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
+          ctx.fillText(it.text, x + padBox + chip + 18 * S, yy);
+        });
 
-          ctx.textBaseline = 'middle';
-          items.forEach((it, idx) => {
-            const yy = y + padBox + 6 * S + idx * rowH + rowH / 2;
-            ctx.fillStyle = it.color;
-            ctx.strokeStyle = '#555555';
-            ctx.lineWidth = 1.5 * S;
-            ctx.fillRect(x + padBox, yy - chip / 2, chip, chip);
-            ctx.strokeRect(x + padBox, yy - chip / 2, chip, chip);
-            ctx.fillStyle = '#111111';
-            ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
-            ctx.fillText(it.text, x + padBox + chip + 14 * S, yy);
-          });
-        }
+        const ty = y + padBox + items.length * rowH + triangleRowH / 2 + 4 * S;
+        const tx = x + padBox + triangleSize / 2;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty - triangleSize / 2);
+        ctx.lineTo(tx + triangleSize / 2, ty + triangleSize / 2);
+        ctx.lineTo(tx - triangleSize / 2, ty + triangleSize / 2);
+        ctx.closePath();
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 3 * S;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#111111';
+        ctx.font = `900 ${28 * S}px Malgun Gothic, Arial, sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.fillText('산지/지리산부근', x + padBox + triangleSize + 24 * S, ty - 14 * S);
+        ctx.fillText('(아이콘)', x + padBox + triangleSize + 24 * S, ty + 22 * S);
       } catch (e) {
         console.warn('legend draw failed', e);
       }
