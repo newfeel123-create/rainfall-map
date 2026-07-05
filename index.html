@@ -468,7 +468,7 @@
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-    <div class="app-version">Ver.1.0.3</div>
+    <div class="app-version">Ver.1.0.4</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -2930,10 +2930,10 @@ function saveCurrentMapImage() {
 
   try {
     const originalSvg = document.getElementById('map');
-    if (!originalSvg) throw new Error('map svg not found');
+    const mapWrap = document.querySelector('.mapwrap') || (originalSvg && originalSvg.parentElement);
+    if (!originalSvg || !mapWrap) throw new Error('map element not found');
 
-    // 저장 직전에 현재 지도 위치/확대값을 확실히 SVG에 즉시 반영합니다.
-    // 모바일은 requestAnimationFrame 적용 전 저장을 누르면 이전 위치가 저장될 수 있어 강제 반영합니다.
+    // 저장 직전 현재 지도 이동/확대값을 실제 SVG에 강제 반영합니다.
     try {
       if (typeof viewRaf !== 'undefined' && viewRaf) { cancelAnimationFrame(viewRaf); viewRaf = 0; }
       const liveViewport = originalSvg.querySelector('#viewport');
@@ -2942,32 +2942,26 @@ function saveCurrentMapImage() {
       }
     } catch (_) {}
 
+    const rect = mapWrap.getBoundingClientRect();
+    const outW = Math.max(1, Math.round(rect.width || originalSvg.clientWidth || 900));
+    const outH = Math.max(1, Math.round(rect.height || originalSvg.clientHeight || 520));
+
+    // 아이폰에서도 화면에 보이는 비율과 위치가 그대로 나오도록 DPR은 선명도에만 사용합니다.
+    const S = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
     const clonedSvg = originalSvg.cloneNode(true);
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
-    // 핵심 변경:
-    // 예전처럼 저장용으로 지도 위치를 강제 초기화/확대/이동하지 않고,
-    // 사용자가 PC/휴대폰 화면에서 옆으로 움직이고 확대해 둔 현재 상태 그대로 저장합니다.
-    const clonedViewport = clonedSvg.querySelector('#viewport');
-    if (clonedViewport && typeof view !== 'undefined') {
-      clonedViewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
-    }
-
-    const mapWrap = document.querySelector('.mapwrap') || originalSvg.parentElement;
-    const rect = (mapWrap || originalSvg).getBoundingClientRect();
-
-    // 화면에 보이는 지도 박스의 CSS 픽셀 크기 그대로 저장합니다.
-    // 즉, 휴대폰/PC에서 보이는 지도 영역과 저장 PNG의 비율·크기가 일치합니다.
-    const outW = Math.max(1, Math.round((rect && rect.width) ? rect.width : originalSvg.clientWidth || 900));
-    const outH = Math.max(1, Math.round((rect && rect.height) ? rect.height : originalSvg.clientHeight || 1150));
-    const scaleSave = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
-
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
     clonedSvg.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
     clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     clonedSvg.removeAttribute('style');
     clonedSvg.style.background = '#ffffff';
+
+    const clonedViewport = clonedSvg.querySelector('#viewport');
+    if (clonedViewport && typeof view !== 'undefined') {
+      clonedViewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
+    }
 
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     style.textContent = `
@@ -2998,146 +2992,41 @@ function saveCurrentMapImage() {
 
     img.onload = function() {
       const canvas = document.createElement('canvas');
-      canvas.width = outW * scaleSave;
-      canvas.height = outH * scaleSave;
+      canvas.width = Math.round(outW * S);
+      canvas.height = Math.round(outH * S);
       const ctx = canvas.getContext('2d');
-      const S = scaleSave;
+
+      // CSS 픽셀 좌표계로 그립니다. 그래서 화면 박스와 저장 이미지가 1:1로 맞습니다.
+      ctx.setTransform(S, 0, 0, S, 0, 0);
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, outW, outH);
+      ctx.drawImage(img, 0, 0, outW, outH);
       URL.revokeObjectURL(url);
 
-      // 현재 화면의 인덱스를 저장 이미지에도 같이 그림.
-      // 저장할 때만 살짝 작게 표시하고 번호는 넣지 않습니다.
+      // 화면 오른쪽 아래에 보이는 자동 인덱스가 있으면, 화면 크기 그대로 다시 그립니다.
+      // 기존처럼 저장 이미지에서 인덱스가 커지거나 위치가 밀리는 문제를 막습니다.
       try {
-        const items = (amountColorOrder || []).map((amount) => ({
-          amount,
-          color: amountColorMap[amount] || '#ffffff',
-          text: `${displayAmountNoMm(amount)}mm`
-        }));
-
-        if (items.length || true) {
-          const legendScale = 0.88;
-          const fontSize = 24 * S * legendScale;
-          const rowH = 40 * S * legendScale;
-          const chip = 30 * S * legendScale;
-          const padBox = 16 * S * legendScale;
-          const triangleRowH = 54 * S * legendScale;
-          const triangleSize = 27 * S * legendScale;
-
-          ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
-          const maxTextW = items.length ? Math.max(...items.map(it => ctx.measureText(it.text).width)) : 0;
-          const mountainTextW = ctx.measureText('산지/지리산부근').width;
-          const boxW = Math.ceil(Math.max(maxTextW + chip + 14 * S * legendScale, mountainTextW + triangleSize + 22 * S * legendScale) + padBox * 2);
-          const boxH = Math.ceil(items.length * rowH + triangleRowH + padBox * 2 + 8 * S * legendScale);
-          const x = canvas.width - boxW - 22 * S;
-          const y = canvas.height - boxH - 28 * S;
-
-          ctx.fillStyle = 'rgba(255,255,255,0.97)';
-          ctx.strokeStyle = '#888888';
-          ctx.lineWidth = 3 * S * legendScale;
-          ctx.fillRect(x, y, boxW, boxH);
-          ctx.strokeRect(x, y, boxW, boxH);
-          ctx.shadowColor = 'rgba(0,0,0,0.18)';
-          ctx.shadowBlur = 6 * S * legendScale;
-          ctx.shadowOffsetX = 3 * S * legendScale;
-          ctx.shadowOffsetY = 3 * S * legendScale;
-          ctx.strokeRect(x, y, boxW, boxH);
-          ctx.shadowColor = 'transparent';
-
-          ctx.textBaseline = 'middle';
-          items.forEach((it, idx) => {
-            const yy = y + padBox + idx * rowH + rowH / 2;
-            ctx.fillStyle = it.color;
-            ctx.strokeStyle = '#888888';
-            ctx.lineWidth = 2 * S * legendScale;
-            ctx.fillRect(x + padBox, yy - chip / 2, chip, chip);
-            ctx.strokeRect(x + padBox, yy - chip / 2, chip, chip);
-            ctx.fillStyle = '#111111';
-            ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
-            ctx.fillText(it.text, x + padBox + chip + 14 * S * legendScale, yy);
-          });
-
-          const ty = y + padBox + items.length * rowH + triangleRowH / 2 + 4 * S * legendScale;
-          const tx = x + padBox + triangleSize / 2;
-          ctx.beginPath();
-          ctx.moveTo(tx, ty - triangleSize / 2);
-          ctx.lineTo(tx + triangleSize / 2, ty + triangleSize / 2);
-          ctx.lineTo(tx - triangleSize / 2, ty + triangleSize / 2);
-          ctx.closePath();
-          ctx.fillStyle = '#ffffff';
-          ctx.strokeStyle = '#333333';
-          ctx.lineWidth = 3 * S * legendScale;
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = '#111111';
-          ctx.font = `900 ${22 * S * legendScale}px Malgun Gothic, Arial, sans-serif`;
-          ctx.textBaseline = 'middle';
-          ctx.fillText('산지/지리산부근', x + padBox + triangleSize + 20 * S * legendScale, ty - 10 * S * legendScale);
-          ctx.fillText('(아이콘)', x + padBox + triangleSize + 20 * S * legendScale, ty + 17 * S * legendScale);
-        }
+        drawVisibleMapLegend(ctx, mapWrap, outW, outH);
       } catch (e) {
-        console.warn('legend draw failed', e);
+        console.warn('legend draw skipped', e);
       }
 
       canvas.toBlob(function(blob) {
         if (!blob) {
-          alert('이미지 저장에 실패했습니다.');
           if (btn) btn.classList.remove('btn-active');
+          alert('이미지 저장에 실패했습니다.');
           return;
         }
-        const today = new Date();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        const fileName = '강수량지도_' + mm + dd + '.png';
         const pngUrl = URL.createObjectURL(blob);
-
-        // 휴대폰, 특히 iPhone Safari/PWA에서는 a.download가 제대로 동작하지 않는 경우가 있어
-        // 공유 시트로 저장할 수 있게 처리합니다. PC에서는 기존처럼 바로 다운로드됩니다.
-        const isPhone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.matchMedia('(max-width: 768px)').matches;
-
-        if (isPhone) {
-          const file = new File([blob], fileName, {type:'image/png'});
-          if (navigator.canShare && navigator.canShare({files:[file]}) && navigator.share) {
-            navigator.share({files:[file], title:fileName, text:'강수량 지도 이미지'}).catch(() => {
-              const a = document.createElement('a');
-              a.href = pngUrl;
-              a.download = fileName;
-              a.target = '_blank';
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            }).finally(() => {
-              setTimeout(() => URL.revokeObjectURL(pngUrl), 2500);
-              setTimeout(() => { if (btn) btn.classList.remove('btn-active'); }, 450);
-            });
-            return;
-          }
-
-          // 공유 API가 안 되는 휴대폰은 새 창에 이미지를 열어 사용자가 길게 눌러 저장하도록 합니다.
-          const opened = window.open(pngUrl, '_blank');
-          if (!opened) {
-            const a = document.createElement('a');
-            a.href = pngUrl;
-            a.download = fileName;
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-          }
-          setTimeout(() => URL.revokeObjectURL(pngUrl), 10000);
-          setTimeout(() => { if (btn) btn.classList.remove('btn-active'); }, 450);
-          return;
-        }
-
+        const d = new Date();
+        const fileName = `kma_map_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.png`;
         const a = document.createElement('a');
         a.href = pngUrl;
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
+        setTimeout(() => URL.revokeObjectURL(pngUrl), 10000);
         setTimeout(() => { if (btn) btn.classList.remove('btn-active'); }, 450);
       }, 'image/png');
     };
@@ -3154,6 +3043,78 @@ function saveCurrentMapImage() {
     if (btn) btn.classList.remove('btn-active');
     alert('이미지 저장 중 오류가 발생했습니다.');
   }
+}
+
+function drawVisibleMapLegend(ctx, mapWrap, outW, outH) {
+  const legendBox = document.getElementById('mapLegendBox');
+  const rainLegend = document.getElementById('rainLegend');
+  if (!legendBox || !rainLegend) return;
+  const st = getComputedStyle(legendBox);
+  if (st.display === 'none' || st.visibility === 'hidden' || legendBox.offsetWidth <= 0 || legendBox.offsetHeight <= 0) return;
+
+  const mapRect = mapWrap.getBoundingClientRect();
+  const lb = legendBox.getBoundingClientRect();
+  let x = Math.round(lb.left - mapRect.left);
+  let y = Math.round(lb.top - mapRect.top);
+  let w = Math.round(lb.width);
+  let h = Math.round(lb.height);
+  if (w <= 0 || h <= 0) return;
+
+  // 혹시 경계 밖으로 나가면 화면 안으로 보정합니다.
+  x = Math.max(0, Math.min(outW - w, x));
+  y = Math.max(0, Math.min(outH - h, y));
+
+  ctx.save();
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x, y, w, h);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = '#888888';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+  const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  const fontSize = isMobile ? 12 : 13;
+  const chip = isMobile ? 15 : 16;
+  const rowH = isMobile ? 19 : 20;
+  const padX = isMobile ? 7 : 9;
+  const padY = isMobile ? 6 : 8;
+  const gap = 6;
+
+  ctx.font = `${fontSize}px Malgun Gothic, Arial, sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#111111';
+
+  let cy = y + padY + chip / 2;
+  (amountColorOrder || []).forEach((amount, i) => {
+    const color = amountColorMap[amount] || '#ffffff';
+    ctx.fillStyle = color;
+    ctx.fillRect(x + padX, cy - chip / 2, chip, chip);
+    ctx.strokeStyle = '#888888';
+    ctx.strokeRect(x + padX + 0.5, cy - chip / 2 + 0.5, chip - 1, chip - 1);
+    ctx.fillStyle = '#111111';
+    const text = `${i + 1}. ${displayAmountNoMm(amount)}mm`;
+    ctx.fillText(text, x + padX + chip + gap, cy + 0.5);
+    cy += rowH;
+  });
+
+  // 산지 아이콘 줄도 화면과 비슷한 크기로 표시합니다.
+  const triX = x + padX + chip / 2;
+  const triY = cy + 12;
+  ctx.beginPath();
+  ctx.moveTo(triX, triY - 11);
+  ctx.lineTo(triX + 11, triY + 10);
+  ctx.lineTo(triX - 11, triY + 10);
+  ctx.closePath();
+  ctx.strokeStyle = '#333333';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+  ctx.fillStyle = '#111111';
+  ctx.font = `${isMobile ? 10 : 10.5}px Malgun Gothic, Arial, sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.fillText('산지/지리산부근', x + padX + chip + gap, cy + 1);
+  ctx.fillText('(아이콘)', x + padX + chip + gap, cy + 15);
+  ctx.restore();
 }
 
 const saveImageBtn = document.getElementById('saveImageBtn');
