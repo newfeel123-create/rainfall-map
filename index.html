@@ -100,7 +100,7 @@
     z-index:5;
     background:rgba(255,255,255,.96);
     border:1px solid #888;
-    padding:6px 7px;
+    padding:8px 9px;
     box-sizing:border-box;
     box-shadow:0 1px 3px rgba(0,0,0,.15);
   }
@@ -210,12 +210,12 @@
     margin-top:0;
     border-top:none;
     padding-top:0;
-    font-size:11.5px;
+    font-size:13px;
   }
   .chip {
     display:inline-block;
-    width:14px;
-    height:14px;
+    width:16px;
+    height:16px;
     border:1px solid #888;
     vertical-align:middle;
     margin-right:5px;
@@ -224,9 +224,9 @@
   .rain-row {
     display:flex;
     align-items:center;
-    gap:5px;
-    margin:2px 0;
-    font-size:11px;
+    gap:6px;
+    margin:3px 0;
+    font-size:13px;
     white-space:nowrap;
   }
   .rain-row .chip { margin-right:0; }
@@ -362,10 +362,10 @@
     border-bottom:1px solid #d0d7de;
   }
   svg { width: 100%; height: 100%; }
-  .map-legend { right:7px; bottom:8px; padding:5px 6px; border:1px solid #777; background:rgba(255,255,255,.96); }
-  .legend { font-size: 10.5px; }
-  .rain-row { margin:2px 0; font-size:10.5px; }
-  .chip { width:13px; height:13px; }
+  .map-legend { right:7px; bottom:8px; padding:6px 7px; border:1px solid #777; background:rgba(255,255,255,.96); }
+  .legend { font-size: 12px; }
+  .rain-row { margin:2px 0; font-size:12px; }
+  .chip { width:15px; height:15px; }
   .small { font-size:11px; line-height:1.45; }
   .mountain-legend-item { font-size:10px; gap:4px; margin-top:4px; }
   .mountain-symbol { font-size:21px; }
@@ -1515,6 +1515,60 @@ function getGroupAutoCenter(elements) {
   };
 }
 
+
+function adjustAmountLabelOverlapsLive() {
+  try {
+    const labelGroups = Array.from(document.querySelectorAll('#amountLabels .amount-label-group, #amountLabels .mountain-value-label-group'));
+    if (labelGroups.length < 2) return;
+
+    function parseTranslate(g) {
+      const tr = g.getAttribute('transform') || '';
+      const m = tr.match(/translate\(([-0-9.]+)[ ,]+([-0-9.]+)\)/);
+      return m ? {x:parseFloat(m[1]), y:parseFloat(m[2])} : {x:parseFloat(g.dataset.x || '0'), y:parseFloat(g.dataset.y || '0')};
+    }
+    function setTranslate(g, x, y) {
+      g.dataset.x = x;
+      g.dataset.y = y;
+      g.setAttribute('transform', `translate(${x} ${y})`);
+    }
+    function labelBox(g) {
+      const p = parseTranslate(g);
+      const r = g.querySelector('rect');
+      let rx = -34, ry = -17, rw = 68, rh = 34;
+      if (r) {
+        rx = parseFloat(r.getAttribute('x') || rx);
+        ry = parseFloat(r.getAttribute('y') || ry);
+        rw = parseFloat(r.getAttribute('width') || rw);
+        rh = parseFloat(r.getAttribute('height') || rh);
+      }
+      return {g, p, x:p.x + rx - 7, y:p.y + ry - 7, w:rw + 14, h:rh + 14};
+    }
+    function overlap(a, b) {
+      return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+    }
+
+    for (let pass = 0; pass < 28; pass++) {
+      let moved = false;
+      const boxes = labelGroups.map(labelBox).sort((a,b)=>a.y-b.y);
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i], b = boxes[j];
+          if (!overlap(a,b)) continue;
+          const push = Math.max(14, (a.y + a.h - b.y) + 12);
+          let ny = b.p.y + push;
+          const bottomLimit = HEIGHT - b.h - 12;
+          if (ny > bottomLimit) ny = a.p.y - push;
+          setTranslate(b.g, b.p.x, ny);
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+  } catch (e) {
+    console.warn('live label overlap adjust failed', e);
+  }
+}
+
 function renderAmountLabels(options = {}) {
   const ignoreSaved = !!options.ignoreSaved;
   amountLabelsG.innerHTML = '';
@@ -1565,6 +1619,8 @@ function renderAmountLabels(options = {}) {
 
     makeDraggableLabel(g, rect, text, group.amount);
   });
+  // 화면에서도 저장 이미지처럼 수치 박스가 겹치지 않게 자동으로 살짝 떨어뜨립니다.
+  setTimeout(adjustAmountLabelOverlapsLive, 80);
 }
 
 
@@ -2554,7 +2610,7 @@ function saveCurrentMapImage() {
     }
 
     // 예시 이미지처럼 딱 맞게 보이도록 여백을 약간만 둡니다.
-    const pad = 38;
+    const pad = 70;
     let saveX = box.x - pad;
     let saveY = box.y - pad;
     let saveW = box.width + pad * 2;
@@ -2570,6 +2626,66 @@ function saveCurrentMapImage() {
     const outW = 1290;
     const outH = 1147;
     const scaleSave = 2;
+
+    // 저장 이미지에서 지도만 살짝 오른쪽으로 이동합니다.
+    // 화면에서 보는 지도 위치와 범례 위치는 그대로 두고, 저장 PNG에서만 적용됩니다.
+    const mapRightShiftPx = 72;
+    const mapSaveZoom = 1.08;
+    if (clonedViewport) {
+      const mapRightShiftSvg = mapRightShiftPx * saveW / outW;
+      const cx = saveX + saveW / 2;
+      const cy = saveY + saveH / 2;
+      clonedViewport.setAttribute('transform', `translate(${mapRightShiftSvg} 0) translate(${cx} ${cy}) scale(${mapSaveZoom}) translate(${-cx} ${-cy})`);
+    }
+
+    // 저장 이미지에서도 수치 박스가 겹치면 자동으로 살짝 떨어뜨립니다.
+    try {
+      const labelGroups = Array.from(clonedSvg.querySelectorAll('#amountLabels .amount-label-group, #amountLabels .mountain-value-label-group'));
+      function parseTranslate(g) {
+        const tr = g.getAttribute('transform') || '';
+        const m = tr.match(/translate\(([-0-9.]+)[ ,]+([-0-9.]+)\)/);
+        return m ? {x:parseFloat(m[1]), y:parseFloat(m[2])} : {x:parseFloat(g.dataset.x || '0'), y:parseFloat(g.dataset.y || '0')};
+      }
+      function setTranslate(g, x, y) {
+        g.dataset.x = x;
+        g.dataset.y = y;
+        g.setAttribute('transform', `translate(${x} ${y})`);
+      }
+      function labelBox(g) {
+        const p = parseTranslate(g);
+        const r = g.querySelector('rect');
+        let rx = -34, ry = -17, rw = 68, rh = 34;
+        if (r) {
+          rx = parseFloat(r.getAttribute('x') || rx);
+          ry = parseFloat(r.getAttribute('y') || ry);
+          rw = parseFloat(r.getAttribute('width') || rw);
+          rh = parseFloat(r.getAttribute('height') || rh);
+        }
+        return {g, p, x:p.x + rx - 6, y:p.y + ry - 6, w:rw + 12, h:rh + 12};
+      }
+      function overlap(a, b) {
+        return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+      }
+      for (let pass = 0; pass < 28; pass++) {
+        let moved = false;
+        const boxes = labelGroups.map(labelBox).sort((a,b)=>a.y-b.y);
+        for (let i = 0; i < boxes.length; i++) {
+          for (let j = i + 1; j < boxes.length; j++) {
+            const a = boxes[i], b = boxes[j];
+            if (!overlap(a,b)) continue;
+            const push = Math.max(14, (a.y + a.h - b.y) + 12);
+            let ny = b.p.y + push;
+            const bottomLimit = saveY + saveH - b.h - 8;
+            if (ny > bottomLimit) ny = a.p.y - push;
+            setTranslate(b.g, b.p.x, ny);
+            moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+    } catch(e) {
+      console.warn('label overlap adjust failed', e);
+    }
 
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
@@ -2623,17 +2739,17 @@ function saveCurrentMapImage() {
           text: `${i + 1}. ${displayAmountNoMm(amount)}mm`
         }));
 
-        const fontSize = 30 * S;
-        const rowH = 51 * S;
-        const chip = 40 * S;
-        const padBox = 22 * S;
-        const triangleRowH = 70 * S;
-        const triangleSize = 34 * S;
+        const fontSize = 26 * S;
+        const rowH = 44 * S;
+        const chip = 34 * S;
+        const padBox = 18 * S;
+        const triangleRowH = 58 * S;
+        const triangleSize = 29 * S;
 
         ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
         const maxTextW = items.length ? Math.max(...items.map(it => ctx.measureText(it.text).width)) : 0;
         const mountainTextW = ctx.measureText('산지/지리산부근').width;
-        const boxW = Math.ceil(Math.max(maxTextW + chip + 18 * S, mountainTextW + triangleSize + 28 * S) + padBox * 2);
+        const boxW = Math.ceil(Math.max(maxTextW + chip + 14 * S, mountainTextW + triangleSize + 22 * S) + padBox * 2);
         const boxH = Math.ceil(items.length * rowH + triangleRowH + padBox * 2 + 8 * S);
         const x = canvas.width - boxW - 22 * S;
         const y = canvas.height - boxH - 28 * S;
@@ -2660,7 +2776,7 @@ function saveCurrentMapImage() {
           ctx.strokeRect(x + padBox, yy - chip / 2, chip, chip);
           ctx.fillStyle = '#111111';
           ctx.font = `900 ${fontSize}px Malgun Gothic, Arial, sans-serif`;
-          ctx.fillText(it.text, x + padBox + chip + 18 * S, yy);
+          ctx.fillText(it.text, x + padBox + chip + 14 * S, yy);
         });
 
         const ty = y + padBox + items.length * rowH + triangleRowH / 2 + 4 * S;
@@ -2677,10 +2793,10 @@ function saveCurrentMapImage() {
         ctx.stroke();
 
         ctx.fillStyle = '#111111';
-        ctx.font = `900 ${28 * S}px Malgun Gothic, Arial, sans-serif`;
+        ctx.font = `900 ${24 * S}px Malgun Gothic, Arial, sans-serif`;
         ctx.textBaseline = 'middle';
-        ctx.fillText('산지/지리산부근', x + padBox + triangleSize + 24 * S, ty - 14 * S);
-        ctx.fillText('(아이콘)', x + padBox + triangleSize + 24 * S, ty + 22 * S);
+        ctx.fillText('산지/지리산부근', x + padBox + triangleSize + 20 * S, ty - 11 * S);
+        ctx.fillText('(아이콘)', x + padBox + triangleSize + 20 * S, ty + 18 * S);
       } catch (e) {
         console.warn('legend draw failed', e);
       }
