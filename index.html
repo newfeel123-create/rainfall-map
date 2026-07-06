@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
+<html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
@@ -454,15 +452,11 @@
   .mountain-symbol { font-size:21px; }
 }
 
-  /* 모바일에서는 수동 색상 + 지역 수동 매칭을 지도 아래로 이동해서 보이게 합니다. */
-  .app > .manual-color-panel,
+  /* 모바일에서는 지역 수동 매칭을 지도 아래로 이동해서 보이게 합니다. */
   .app > .manual-region-panel {
     width:calc(100% - 16px);
     margin:8px;
     box-sizing:border-box;
-  }
-  .app > .manual-region-panel {
-    margin-top:0;
   }
 
 
@@ -559,6 +553,29 @@
     background:#fff !important;
   }
 
+
+  .manual-region-alias-row {
+    display:flex;
+    gap:5px;
+    margin-top:6px;
+  }
+  .manual-region-alias-row input {
+    flex:1 1 auto;
+    min-width:0;
+    border:1px solid #c8d0d8;
+    border-radius:7px;
+    padding:5px 6px;
+    font-size:11px;
+    box-sizing:border-box;
+  }
+  .manual-region-alias-row button {
+    flex:0 0 auto;
+    font-size:11px;
+    padding:5px 7px;
+    border-radius:7px;
+    white-space:nowrap;
+  }
+
 </style>
 </head>
 <body>
@@ -597,14 +614,6 @@
       <button id="mapMoveToggle" type="button" class="map-locked">지도 이동 OFF</button>
     </div>
 
-    <div class="manual-color-panel" id="manualColorPanel">
-      <div class="manual-color-title">
-        <span>수동 색상</span>
-        <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
-      </div>
-      <div class="manual-color-grid" id="manualColorGrid"></div>
-    </div>
-
     <div class="manual-region-panel" id="manualRegionPanel">
       <button id="manualRegionToggle" type="button" class="manual-region-toggle">▶ 지역 수동 매칭</button>
       <div id="manualRegionBody" class="manual-region-body" style="display:none;">
@@ -619,6 +628,10 @@
         <div class="manual-region-subtitle" id="manualRegionSubtitle">권역을 선택하세요</div>
         <div class="manual-region-buttons" id="manualRegionButtons"></div>
         <div class="manual-region-included" id="manualRegionIncluded">권역을 누른 뒤 지역을 누르면 검정색으로 확인 표시됩니다.</div>
+        <div class="manual-region-alias-row" id="manualRegionAliasRow">
+          <input id="manualRegionAliasInput" type="text" placeholder="별칭 추가 예: 충남동부, 충남동부내륙">
+          <button id="manualRegionAliasSaveBtn" type="button">별칭 저장</button>
+        </div>
         <div class="manual-region-actions" id="manualRegionActions">
           <button id="manualRegionSaveBtn" type="button" class="manual-region-save">현재 선택 저장</button>
           <button id="manualRegionResetBtn" type="button" class="manual-region-reset">기본값 복귀</button>
@@ -966,28 +979,21 @@ if (manualColorOff) manualColorOff.addEventListener('click', clearManualColorSel
 
 
 function relocateManualPanelsForMobile() {
-  const colorPanel = document.getElementById('manualColorPanel');
   const regionPanel = document.getElementById('manualRegionPanel');
   const side = document.querySelector('.side');
   const mapcol = document.querySelector('.mapcol');
   const btns = document.querySelector('.btns');
-  if (!colorPanel || !regionPanel || !side || !mapcol || !btns) return;
+  if (!regionPanel || !side || !mapcol || !btns) return;
 
   if (window.matchMedia('(max-width: 768px)').matches) {
-    // 휴대폰: 지도 아래에 수동 색상 → 지역 수동 매칭 순서로 표시
-    if (colorPanel.parentElement !== mapcol.parentElement || colorPanel.previousElementSibling !== mapcol) {
-      mapcol.parentElement.insertBefore(colorPanel, mapcol.nextSibling);
-    }
-    if (regionPanel.parentElement !== mapcol.parentElement || regionPanel.previousElementSibling !== colorPanel) {
-      colorPanel.parentElement.insertBefore(regionPanel, colorPanel.nextSibling);
+    // 휴대폰: 지도 아래에 지역 수동 매칭 표시
+    if (regionPanel.parentElement !== mapcol.parentElement || regionPanel.previousElementSibling !== mapcol) {
+      mapcol.parentElement.insertBefore(regionPanel, mapcol.nextSibling);
     }
   } else {
-    // PC: 왼쪽 버튼 아래에 수동 색상 → 지역 수동 매칭 순서로 유지
-    if (colorPanel.parentElement !== side || colorPanel.previousElementSibling !== btns) {
-      side.insertBefore(colorPanel, btns.nextSibling);
-    }
-    if (regionPanel.parentElement !== side || regionPanel.previousElementSibling !== colorPanel) {
-      side.insertBefore(regionPanel, colorPanel.nextSibling);
+    // PC: 왼쪽 버튼 바로 아래에 지역 수동 매칭 표시
+    if (regionPanel.parentElement !== side || regionPanel.previousElementSibling !== btns) {
+      side.insertBefore(regionPanel, btns.nextSibling);
     }
   }
 }
@@ -1417,7 +1423,7 @@ function regionMatchesDirectMap(sido, sig, token) {
 // 수동매칭에서 저장한 예보구역 구성은 자동 예보문 매칭에도 우선 적용합니다.
 // 예: '서울' 버튼에서 다른 시군을 추가하고 저장하면, 예보문 '서울: 5mm' 입력 시 저장된 지역을 칠합니다.
 function regionMatchesSavedManualOverride(sido, sig, code, token) {
-  token = normText(token);
+  token = resolveManualRegionCanonical(normText(token));
   if (!token || typeof localStorage === 'undefined') return null;
 
   try {
@@ -1434,7 +1440,7 @@ function regionMatchesSavedManualOverride(sido, sig, code, token) {
 }
 
 function regionMatchesToken(sido, sig, token, code) {
-  token = normText(token);
+  token = resolveManualRegionCanonical(normText(token));
   if (!token || token === '__NO_MATCH__') return false;
 
   const savedManualMatch = regionMatchesSavedManualOverride(sido, sig, code, token);
@@ -3753,12 +3759,86 @@ const MANUAL_REGION_MENU = {
   '제주도': ['제주도','제주도북부','제주도남부','제주도동부','제주도서부','제주도산지','제주도중산간','북부중산간','남부중산간']
 };
 
+// 수동매칭 별칭: 예보문에 다른 표현이 와도 대표 예보구역으로 인식합니다.
+// 예: 충남남동내륙 (충남동부) (충남동부내륙)
+const DEFAULT_MANUAL_REGION_ALIASES = {
+  '충남남동내륙': ['충남동부', '충남동부내륙']
+};
+
+function manualRegionAliasStorageKey(regionName) {
+  return 'kmaManualRegionAliases_v1_' + normText(regionName);
+}
+
+function getSavedManualRegionAliases(regionName) {
+  try {
+    const raw = localStorage.getItem(manualRegionAliasStorageKey(regionName));
+    const arr = raw ? JSON.parse(raw) : null;
+    return Array.isArray(arr) ? arr.map(normText).filter(Boolean) : [];
+  } catch(e) {
+    return [];
+  }
+}
+
+function getManualRegionAliases(regionName) {
+  const key = normText(regionName);
+  const base = DEFAULT_MANUAL_REGION_ALIASES[key] || [];
+  const saved = getSavedManualRegionAliases(key);
+  return Array.from(new Set([...base, ...saved].map(normText).filter(Boolean).filter(v => v !== key)));
+}
+
+function saveManualRegionAliases(regionName, aliases) {
+  try {
+    const key = normText(regionName);
+    const base = new Set((DEFAULT_MANUAL_REGION_ALIASES[key] || []).map(normText));
+    const cleaned = Array.from(new Set((aliases || []).map(normText).filter(Boolean).filter(v => v !== key)));
+    // 기본 별칭은 코드에 이미 들어 있으므로 추가 저장에는 기본값 외 별칭만 저장합니다.
+    const extra = cleaned.filter(v => !base.has(v));
+    localStorage.setItem(manualRegionAliasStorageKey(key), JSON.stringify(extra));
+  } catch(e) {}
+}
+
+function manualRegionDisplayName(regionName) {
+  const key = normText(regionName);
+  const aliases = getManualRegionAliases(key);
+  return key + (aliases.length ? ' (' + aliases.join(') (') + ')' : '');
+}
+
+function allManualRegionNames() {
+  const names = [];
+  Object.keys(MANUAL_REGION_MENU).forEach(zone => (MANUAL_REGION_MENU[zone] || []).forEach(name => names.push(normText(name))));
+  return Array.from(new Set(names));
+}
+
+function resolveManualRegionCanonical(token) {
+  const t = normText(token);
+  if (!t) return t;
+  const names = allManualRegionNames();
+  if (names.includes(t)) return t;
+  for (const name of names) {
+    if (getManualRegionAliases(name).includes(t)) return name;
+  }
+  return t;
+}
+
+function saveCurrentManualRegionAliases() {
+  if (!currentManualRegionName) {
+    alert('먼저 별칭을 추가할 지역 버튼을 눌러주세요.');
+    return;
+  }
+  const input = document.getElementById('manualRegionAliasInput');
+  const text = input ? input.value : '';
+  const typed = text.split(/[,\n\/]+/).map(normText).filter(Boolean);
+  const merged = Array.from(new Set([...getManualRegionAliases(currentManualRegionName), ...typed]));
+  saveManualRegionAliases(currentManualRegionName, merged);
+  updateManualRegionInfo();
+  alert(manualRegionDisplayName(currentManualRegionName) + ' 별칭을 저장했습니다.');
+}
 
 let currentManualRegionName = '';
 let currentManualRegionPaths = [];
 
 function manualRegionStorageKey(regionName) {
-  return 'kmaManualRegionOverride_v1_' + normText(regionName);
+  return 'kmaManualRegionOverride_v1_' + resolveManualRegionCanonical(normText(regionName));
 }
 
 function pathRegionId(p) {
@@ -3782,7 +3862,7 @@ function findPathById(id) {
 }
 
 function getDefaultManualRegionPaths(regionName) {
-  const token = normText(regionName);
+  const token = resolveManualRegionCanonical(normText(regionName));
   const paths = [];
 
   document.querySelectorAll('.region').forEach(p => {
@@ -3868,9 +3948,13 @@ function updateManualRegionInfo() {
   if (!info || !currentManualRegionName) return;
   const names = currentManualRegionPaths.map(getPathDisplayName).filter(Boolean);
   const saved = getSavedManualRegionIds(currentManualRegionName) ? ' <span style="color:#d00;font-weight:900;">저장됨</span>' : '';
-  info.innerHTML = '<b>' + currentManualRegionName + '</b>' + saved + '<br>' +
+  const displayName = manualRegionDisplayName(currentManualRegionName);
+  info.innerHTML = '<b>' + displayName + '</b>' + saved + '<br>' +
     (names.length ? names.join(', ') : '매칭 지역 없음') +
-    '<br><span style="color:#666;">지도에서 시군구를 누르면 추가/해제됩니다.</span>';
+    '<br><span style="color:#666;">지도에서 시군구를 누르면 추가/해제됩니다.<br>별칭을 추가하면 예보문에서도 같은 지역으로 인식합니다.</span>';
+
+  const aliasInput = document.getElementById('manualRegionAliasInput');
+  if (aliasInput) aliasInput.value = getManualRegionAliases(currentManualRegionName).join(', ');
 }
 
 function paintManualPreview(regionName) {
@@ -3942,7 +4026,7 @@ function renderManualRegionButtons(zone) {
   (MANUAL_REGION_MENU[zone] || []).forEach(region => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = region;
+    btn.textContent = manualRegionDisplayName(region);
     btn.dataset.region = region;
     btn.onclick = () => {
       document.querySelectorAll('#manualRegionButtons button').forEach(b => b.classList.remove('active'));
@@ -3975,6 +4059,9 @@ function initManualRegionPanel() {
 
   const resetBtn = document.getElementById('manualRegionResetBtn');
   if (resetBtn) resetBtn.onclick = resetCurrentManualRegion;
+
+  const aliasSaveBtn = document.getElementById('manualRegionAliasSaveBtn');
+  if (aliasSaveBtn) aliasSaveBtn.onclick = saveCurrentManualRegionAliases;
 }
 
 if (document.readyState === 'loading') {
@@ -3984,5 +4071,6 @@ if (document.readyState === 'loading') {
 }
 
 </script>
-</body>
-</html>
+
+
+</body></html>
