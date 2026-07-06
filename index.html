@@ -270,15 +270,25 @@
     margin-top:8px;
     border-top:1px solid #e2e8f0;
     padding-top:8px;
+    min-height:86px;
+    box-sizing:border-box;
   }
   .kma-choice-panel.active { display:block; }
+  .kma-choice-panel.no-buttons {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
   .kma-choice-panel.no-buttons .kma-choice-title {
     margin-bottom:0;
-    padding:8px 0;
+    padding:0;
     display:flex;
     align-items:center;
     justify-content:center;
     min-height:34px;
+  }
+  .kma-choice-panel.no-buttons .kma-choice-buttons {
+    display:none;
   }
   .kma-choice-title {
     font-size:12px;
@@ -1613,7 +1623,7 @@ function expandCompoundTokens(a, zone) {
 }
 
 
-// Ver.1.3.5-v2: 권역별 생략 표현 자동 완성
+// Ver.1.3.7: 권역별 생략 표현 자동 완성
 function addZoneImpliedTokens(areaText, zone, addToken) {
   const z = zoneName(zone);
   const parts = normText(areaText)
@@ -3832,7 +3842,7 @@ if (saveImageBtn) {
 }
 
 
-// Ver.1.3.5-v2: 접기 가능한 지역 수동 매칭 미리보기
+// Ver.1.3.7: 접기 가능한 지역 수동 매칭 미리보기
 const MANUAL_REGION_MENU = {
   '수도권': ['서울','인천','김포','강화','경기','경기내륙','경기북부','경기남부','경기동부','경기서부','경기서해안','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안','서해5도'],
   '강원도': ['강원도','강원내륙','강원북부','강원중부','강원남부','강원북부내륙','강원중부내륙','강원남부내륙','강원동해안','강원북부동해안','강원중부동해안','강원남부동해안','강원산지','강원북부산지','강원중부산지','강원남부산지'],
