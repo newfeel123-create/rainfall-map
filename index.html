@@ -628,10 +628,6 @@
         <div class="manual-region-subtitle" id="manualRegionSubtitle">권역을 선택하세요</div>
         <div class="manual-region-buttons" id="manualRegionButtons"></div>
         <div class="manual-region-included" id="manualRegionIncluded">권역을 누른 뒤 지역을 누르면 검정색으로 확인 표시됩니다.</div>
-        <div class="manual-region-alias-row" id="manualRegionAliasRow">
-          <input id="manualRegionAliasInput" type="text" placeholder="별칭 추가 예: 충남동부, 충남동부내륙">
-          <button id="manualRegionAliasSaveBtn" type="button">별칭 저장</button>
-        </div>
         <div class="manual-region-actions" id="manualRegionActions">
           <button id="manualRegionSaveBtn" type="button" class="manual-region-save">현재 선택 저장</button>
           <button id="manualRegionResetBtn" type="button" class="manual-region-reset">기본값 복귀</button>
@@ -3820,18 +3816,37 @@ function resolveManualRegionCanonical(token) {
   return t;
 }
 
-function saveCurrentManualRegionAliases() {
-  if (!currentManualRegionName) {
+function parseManualAliasText(text) {
+  return String(text || '')
+    .replace(/[()]/g, ',')
+    .split(/[,\n\/]+/)
+    .map(normText)
+    .filter(Boolean);
+}
+
+function editManualRegionAliases(regionName, btn) {
+  const key = normText(regionName || currentManualRegionName);
+  if (!key) {
     alert('먼저 별칭을 추가할 지역 버튼을 눌러주세요.');
     return;
   }
-  const input = document.getElementById('manualRegionAliasInput');
-  const text = input ? input.value : '';
-  const typed = text.split(/[,\n\/]+/).map(normText).filter(Boolean);
-  const merged = Array.from(new Set([...getManualRegionAliases(currentManualRegionName), ...typed]));
-  saveManualRegionAliases(currentManualRegionName, merged);
-  updateManualRegionInfo();
-  alert(manualRegionDisplayName(currentManualRegionName) + ' 별칭을 저장했습니다.');
+
+  const current = getManualRegionAliases(key).join(', ');
+  const text = prompt(
+    key + '에 추가할 별칭을 입력하세요.\n예: 충남동부, 충남동부내륙\n\n입력한 별칭은 예보문 자동매칭에서도 같은 지역으로 인식됩니다.',
+    current
+  );
+  if (text === null) return;
+
+  const aliases = parseManualAliasText(text);
+  saveManualRegionAliases(key, aliases);
+
+  if (btn) btn.textContent = manualRegionDisplayName(key);
+  if (currentManualRegionName === key) updateManualRegionInfo();
+}
+
+function saveCurrentManualRegionAliases() {
+  editManualRegionAliases(currentManualRegionName);
 }
 
 let currentManualRegionName = '';
@@ -3951,11 +3966,9 @@ function updateManualRegionInfo() {
   const displayName = manualRegionDisplayName(currentManualRegionName);
   info.innerHTML = '<b>' + displayName + '</b>' + saved + '<br>' +
     (names.length ? names.join(', ') : '매칭 지역 없음') +
-    '<br><span style="color:#666;">지도에서 시군구를 누르면 추가/해제됩니다.<br>별칭을 추가하면 예보문에서도 같은 지역으로 인식합니다.</span>';
-
-  const aliasInput = document.getElementById('manualRegionAliasInput');
-  if (aliasInput) aliasInput.value = getManualRegionAliases(currentManualRegionName).join(', ');
+    '<br><span style="color:#666;">지도에서 시군구를 누르면 추가/해제됩니다.<br>지역 버튼을 더블클릭하면 별칭을 직접 입력할 수 있습니다.<br>별칭을 추가하면 예보문에서도 같은 지역으로 인식합니다.</span>';
 }
+
 
 function paintManualPreview(regionName) {
   clearManualPreviewPaint();
@@ -4033,6 +4046,12 @@ function renderManualRegionButtons(zone) {
       btn.classList.add('active');
       paintManualPreview(region);
     };
+    btn.ondblclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      currentManualRegionName = normText(region);
+      editManualRegionAliases(region, btn);
+    };
     box.appendChild(btn);
   });
 }
@@ -4060,8 +4079,8 @@ function initManualRegionPanel() {
   const resetBtn = document.getElementById('manualRegionResetBtn');
   if (resetBtn) resetBtn.onclick = resetCurrentManualRegion;
 
-  const aliasSaveBtn = document.getElementById('manualRegionAliasSaveBtn');
-  if (aliasSaveBtn) aliasSaveBtn.onclick = saveCurrentManualRegionAliases;
+  const info = document.getElementById('manualRegionIncluded');
+  if (info) info.ondblclick = () => editManualRegionAliases(currentManualRegionName);
 }
 
 if (document.readyState === 'loading') {
