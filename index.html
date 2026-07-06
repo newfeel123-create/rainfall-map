@@ -463,13 +463,84 @@
 
 
   #matchResult { display:none !important; }
+
+  .manual-region-panel {
+    border:1px solid #d0d7de;
+    background:#f8fafc;
+    border-radius:10px;
+    padding:7px 8px;
+    margin:7px 0 0 0;
+  }
+  .manual-region-panel * { pointer-events:auto; }
+  .manual-region-toggle {
+    width:100%;
+    font-size:12px;
+    font-weight:900;
+    padding:6px 8px;
+    border-radius:8px;
+    background:#fff;
+  }
+  .manual-region-body {
+    margin-top:7px;
+  }
+  .manual-region-zones {
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:5px;
+    margin-bottom:6px;
+  }
+  .manual-region-zones button,
+  .manual-region-buttons button {
+    font-size:11px;
+    padding:5px 4px;
+    border-radius:7px;
+    white-space:nowrap;
+  }
+  .manual-region-zones button.active {
+    background:#ffe66d !important;
+    border-color:#f1b900 !important;
+  }
+  .manual-region-subtitle {
+    font-size:11px;
+    font-weight:800;
+    color:#333;
+    margin:5px 0;
+    text-align:center;
+  }
+  .manual-region-buttons {
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:5px;
+    max-height:145px;
+    overflow:auto;
+    padding-right:2px;
+  }
+  .manual-region-buttons button.active {
+    background:#222 !important;
+    border-color:#000 !important;
+    color:#fff !important;
+  }
+  .manual-region-included {
+    margin-top:6px;
+    font-size:10.5px;
+    line-height:1.4;
+    color:#444;
+    background:#fff;
+    border:1px solid #e1e4e8;
+    border-radius:7px;
+    padding:6px;
+    max-height:72px;
+    overflow:auto;
+    word-break:keep-all;
+  }
+
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.3.5</div>
+   <div class="app-version">Ver.1.3.5-v2</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -491,6 +562,9 @@
     <textarea id="forecastText" placeholder=""></textarea>
 
 
+
+
+
     <div class="btns">
       <button id="pasteMatchBtn">붙여넣기 매칭</button>
       <button id="clearBtn" type="button">초기화</button>
@@ -504,6 +578,23 @@
         <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
       </div>
       <div class="manual-color-grid" id="manualColorGrid"></div>
+    </div>
+
+    <div class="manual-region-panel" id="manualRegionPanel">
+      <button id="manualRegionToggle" type="button" class="manual-region-toggle">▶ 지역 수동 매칭</button>
+      <div id="manualRegionBody" class="manual-region-body" style="display:none;">
+        <div class="manual-region-zones" id="manualRegionZones">
+          <button type="button" data-zone="수도권">수도권</button>
+          <button type="button" data-zone="강원도">강원도</button>
+          <button type="button" data-zone="충청권">충청권</button>
+          <button type="button" data-zone="전라권">전라권</button>
+          <button type="button" data-zone="경상권">경상권</button>
+          <button type="button" data-zone="제주도">제주도</button>
+        </div>
+        <div class="manual-region-subtitle" id="manualRegionSubtitle">권역을 선택하세요</div>
+        <div class="manual-region-buttons" id="manualRegionButtons"></div>
+        <div class="manual-region-included" id="manualRegionIncluded">권역을 누른 뒤 지역을 누르면 검정색으로 확인 표시됩니다.</div>
+      </div>
     </div>
 
     <div id="matchResult" class="small" style="display:none;margin-top:0;line-height:1.55;"></div>
@@ -1140,6 +1231,7 @@ const KMA_REGION_GROUPS = {
   '경북서부': ['경북북서내륙','경북남서내륙','경북서부내륙'],
   '경북북부': ['경북북부내륙','경북북부동해안','경북북동산지'],
   '경북남부': ['경북남서내륙','경북남동내륙','경북남부동해안'],
+  '경북남부내륙': ['경북남서내륙','경북남동내륙'],
   '경북해안': ['경북북부동해안','경북남부동해안'],
   '경북동해안': ['경북북부동해안','경북남부동해안'],
   '경남내륙': ['경남북서내륙','경남남서내륙','경남중부내륙','경남동부내륙'],
@@ -1445,11 +1537,98 @@ function expandCompoundTokens(a, zone) {
   return out;
 }
 
+
+// Ver.1.3.5-v2: 권역별 생략 표현 자동 완성
+function addZoneImpliedTokens(areaText, zone, addToken) {
+  const z = zoneName(zone);
+  const parts = normText(areaText)
+    .replace(/[()]/g, '')
+    .split(/[,.\/]+/)
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  let lastPrefix = '';
+  let lastSuffix = '';
+
+  function detectPrefix(t) {
+    const prefixes = ['경기','강원','충남','충북','전남','전북','경북','경남','제주도','제주'];
+    return prefixes.find(p => t.startsWith(p)) || '';
+  }
+
+  function defaultPrefixByZone(shortToken) {
+    if (z === '수도권') return '경기';
+    if (z === '강원도') return '강원';
+    if (z === '충청권') return lastPrefix || '충남';
+    if (z === '전라권') return lastPrefix || '전남';
+    if (z === '경상권') return lastPrefix || '경북';
+    if (z === '제주도') return '제주도';
+    return lastPrefix;
+  }
+
+  function completeToken(prefix, shortToken, suffixHint) {
+    if (!prefix || !shortToken) return '';
+
+    // 해안/산지 계열은 권역별 표준명으로 보정
+    if (shortToken === '남해안') {
+      if (prefix === '전남') return '전남남해안';
+      if (prefix === '경남') return '경남남해안';
+    }
+    if (shortToken === '동해안') {
+      if (prefix === '강원') return '강원동해안';
+      if (prefix === '경북') return '경북동해안';
+    }
+    if (shortToken === '서해안') {
+      if (prefix === '경기') return '경기서해안';
+      if (prefix === '충남') return '충남서해안';
+      if (prefix === '전남') return '전남서해안';
+      if (prefix === '전북') return '전북서해안';
+    }
+    if (shortToken === '북동산지' && prefix === '경북') return '경북북동산지';
+    if (shortToken === '산지') {
+      if (prefix === '강원') return '강원산지';
+      if (prefix === '제주도' || prefix === '제주') return '제주도산지';
+      if (prefix === '경북') return '경북북동산지';
+    }
+
+    // 앞 토큰이 내륙이면 뒤의 남부/동부/서부 등을 내륙으로 해석
+    if (suffixHint === '내륙' && ['북부','중부','남부','동부','서부','북서','북동','남서','남동'].includes(shortToken)) {
+      return prefix + shortToken + '내륙';
+    }
+
+    // 예: 경기남부.동부 => 경기남부 + 경기동부
+    if (['북부','중부','남부','동부','서부'].includes(shortToken)) {
+      return prefix + shortToken;
+    }
+
+    // 예: 남동내륙, 북서내륙
+    if (/^(북서|북동|남서|남동|북부|중부|남부|동부|서부)내륙$/.test(shortToken)) {
+      return prefix + shortToken;
+    }
+
+    return prefix + shortToken;
+  }
+
+  parts.forEach(part => {
+    const p = detectPrefix(part);
+    if (p) {
+      lastPrefix = p;
+      lastSuffix = part.includes('내륙') ? '내륙' : '';
+      addToken(part);
+      return;
+    }
+
+    if (!lastPrefix) lastPrefix = defaultPrefixByZone(part);
+    const inferred = completeToken(lastPrefix, part, lastSuffix);
+    if (inferred) addToken(inferred);
+  });
+}
+
 function tokensFromArea(areaText, zone) {
   const a = normText(areaText);
   const z = zoneName(zone);
   const tokens = [];
   const addToken = t => { if (t) tokens.push(t); };
+  addZoneImpliedTokens(areaText, zone, addToken);
 
   expandCompoundTokens(a, zone).forEach(addToken);
 
@@ -3494,6 +3673,124 @@ function drawVisibleMapLegend(ctx, mapWrap, outW, outH) {
 const saveImageBtn = document.getElementById('saveImageBtn');
 if (saveImageBtn) {
   saveImageBtn.addEventListener('click', saveCurrentMapImage);
+}
+
+
+// Ver.1.3.5-v2: 접기 가능한 지역 수동 매칭 미리보기
+const MANUAL_REGION_MENU = {
+  '수도권': ['서울','인천','김포','강화','경기','경기내륙','경기북부','경기남부','경기동부','경기서부','경기서해안','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안','서해5도'],
+  '강원도': ['강원도','강원내륙','강원북부','강원중부','강원남부','강원북부내륙','강원중부내륙','강원남부내륙','강원동해안','강원북부동해안','강원중부동해안','강원남부동해안','강원산지','강원북부산지','강원중부산지','강원남부산지'],
+  '충청권': ['대전','세종','충남','충북','충남내륙','충남북부','충남남부','충남동부','충남서해안','충남북부내륙','충남중부내륙','충남남동내륙','충남남서내륙','충남북부서해안','충남남부서해안','충북북부','충북중부','충북남부'],
+  '전라권': ['광주','전남','전북','전남내륙','전남해안','전남북부','전남남부','전남동부','전남서해안','전남남해안','전남북서부','전남북동부','전남중부내륙','전남동부내륙','전남남부서해안','전남중부남해안','전남서부남해안','전남동부남해안','전북내륙','전북서부','전북동부','전북북부','전북남부','전북서해안','전북북동내륙','전북남동내륙','전북중부내륙','전북북부서해안','전북남부서해안'],
+  '경상권': ['부산','울산','대구','경북','경남','경북내륙','경북북부','경북남부','경북서부','경북해안','경북동해안','경북북부내륙','경북중북부내륙','경북북서내륙','경북북동내륙','경북서부내륙','경북남서내륙','경북남동내륙','경북남부내륙','경북북부동해안','경북남부동해안','경북북동산지','경남내륙','경남서부','경남중부','경남북서내륙','경남남서내륙','경남중부내륙','경남동부내륙','경남서부내륙','경남남해안','경남서부남해안','경남중부남해안','지리산부근','남해군'],
+  '제주도': ['제주도','제주도북부','제주도남부','제주도동부','제주도서부','제주도산지','제주도중산간','북부중산간','남부중산간']
+};
+
+function clearManualPreviewPaint() {
+  document.querySelectorAll('.region').forEach(p => {
+    if (p.dataset.manualPreview === '1') {
+      p.style.fill = p.dataset.manualOldFill || '';
+      p.classList.toggle('matched', p.dataset.manualOldMatched === '1');
+      delete p.dataset.manualPreview;
+      delete p.dataset.manualOldFill;
+      delete p.dataset.manualOldMatched;
+    }
+  });
+}
+
+function getManualRegionPaths(regionName) {
+  const token = normText(regionName);
+  const paths = [];
+
+  document.querySelectorAll('.region').forEach(p => {
+    const sido = p.dataset.sido || '';
+    const sig = p.dataset.sig || p.dataset.name || '';
+
+    let ok = false;
+    try { ok = regionMatchesToken(sido, sig, token); } catch(e) { ok = false; }
+
+    if (!ok) {
+      const sidoAlias = token === '강원도' ? '강원' : (token === '제주도' ? '제주' : token);
+      if (sido === sidoAlias) ok = true;
+    }
+    if (!ok && (sig === token || sig.startsWith(token))) ok = true;
+
+    if (ok) paths.push(p);
+  });
+  return paths;
+}
+
+function paintManualPreview(regionName) {
+  clearManualPreviewPaint();
+  const paths = getManualRegionPaths(regionName);
+
+  paths.forEach(p => {
+    p.dataset.manualOldFill = p.style.fill || '';
+    p.dataset.manualOldMatched = p.classList.contains('matched') ? '1' : '0';
+    p.dataset.manualPreview = '1';
+    p.classList.add('matched');
+    p.style.fill = '#000000';
+  });
+
+  const info = document.getElementById('manualRegionIncluded');
+  if (info) {
+    const names = paths.map(p => p.dataset.sig || p.dataset.name || '').filter(Boolean);
+    info.innerHTML = '<b>' + regionName + '</b><br>' + (names.length ? names.join(', ') : '매칭 지역 없음');
+  }
+}
+
+function renderManualRegionButtons(zone) {
+  clearManualPreviewPaint();
+
+  document.querySelectorAll('#manualRegionZones button').forEach(b => {
+    b.classList.toggle('active', b.dataset.zone === zone);
+  });
+
+  const box = document.getElementById('manualRegionButtons');
+  const subtitle = document.getElementById('manualRegionSubtitle');
+  const info = document.getElementById('manualRegionIncluded');
+  if (!box) return;
+
+  box.innerHTML = '';
+  if (subtitle) subtitle.textContent = zone + ' 지역';
+  if (info) info.textContent = zone + ' 안에 있는 지역만 표시 중입니다.';
+
+  (MANUAL_REGION_MENU[zone] || []).forEach(region => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = region;
+    btn.dataset.region = region;
+    btn.onclick = () => {
+      document.querySelectorAll('#manualRegionButtons button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      paintManualPreview(region);
+    };
+    box.appendChild(btn);
+  });
+}
+
+function initManualRegionPanel() {
+  const toggle = document.getElementById('manualRegionToggle');
+  const body = document.getElementById('manualRegionBody');
+
+  if (toggle && body) {
+    toggle.onclick = () => {
+      const open = body.style.display === 'none';
+      body.style.display = open ? 'block' : 'none';
+      toggle.textContent = open ? '▼ 지역 수동 매칭' : '▶ 지역 수동 매칭';
+      if (!open) clearManualPreviewPaint();
+    };
+  }
+
+  document.querySelectorAll('#manualRegionZones button').forEach(btn => {
+    btn.onclick = () => renderManualRegionButtons(btn.dataset.zone);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initManualRegionPanel);
+} else {
+  initManualRegionPanel();
 }
 
 </script>
