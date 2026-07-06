@@ -1066,153 +1066,9 @@
 
 
 
-/* ===== Ver.1.6.3 3D menu + dynamic calendar + map emboss 2D/3D toggle ===== */
 .kma-day-title::before {
   content: attr(data-cal-day);
 }
-.map-3d-toggle {
-  position:absolute;
-  right:10px;
-  top:10px;
-  z-index:7;
-  min-width:74px;
-  height:34px;
-  padding:0 10px;
-  border-radius:999px;
-  border:1px solid #BFD2EA;
-  background:linear-gradient(180deg,#FFFFFF 0%,#EEF5FF 100%);
-  color:#245181;
-  font-size:12px;
-  font-weight:900;
-  box-shadow:0 5px 0 #C8D6E8, 0 9px 18px rgba(21,76,135,.15);
-}
-.map-3d-toggle:active {
-  transform:translateY(3px);
-  box-shadow:0 2px 0 #C8D6E8, 0 5px 10px rgba(21,76,135,.18);
-}
-.map-3d-toggle.is-on {
-  border-color:#FFB300;
-  background:linear-gradient(180deg,#FFE979 0%,#FFC928 100%);
-  color:#111;
-  box-shadow:0 5px 0 #D99500, 0 10px 20px rgba(255,193,7,.28);
-}
-body.map-3d-enabled .mapwrap {
-  background:linear-gradient(145deg,#DDF1FF 0%,#BEE3FF 52%,#EAF7FF 100%) !important;
-  box-shadow:
-    inset 0 2px 8px rgba(255,255,255,.9),
-    inset 0 -8px 18px rgba(35,89,150,.12),
-    0 12px 26px rgba(30,72,120,.24) !important;
-}
-body.map-3d-enabled #viewport {
-  filter:drop-shadow(6px 10px 5px rgba(41,85,135,.26));
-}
-body.map-3d-enabled .region {
-  /* 3D ON: 시군구 라인은 유지하면서 면만 엠보싱 처리 */
-  filter:url(#regionEmboss3d);
-  stroke:#445160;
-  stroke-width:.44;
-  vector-effect:non-scaling-stroke;
-}
-body.map-3d-enabled .region.matched {
-  filter:url(#matchedEmboss3d);
-  stroke:#303B48;
-  stroke-width:.50;
-}
-body.map-3d-enabled .region:hover {
-  filter:url(#matchedEmboss3d);
-  stroke:#111111;
-  stroke-width:.70;
-}
-body.map-3d-enabled .coastline {
-  /* 해안선은 필터 없이 최상단에서 선명하게 유지 */
-  filter:none !important;
-  stroke:#050505;
-  stroke-width:1.10;
-  vector-effect:non-scaling-stroke;
-}
-body.map-3d-enabled .sido-boundary {
-  /* 시도 경계는 더 진하게, 시군구는 회색으로 구분 */
-  filter:none !important;
-  stroke:#111111;
-  stroke-width:1.00;
-  opacity:.98;
-  vector-effect:non-scaling-stroke;
-}
-body.map-3d-enabled .amount-label-box {
-  filter:drop-shadow(0 5px 4px rgba(0,0,0,.34));
-}
-body.map-3d-enabled .map-legend {
-  border:0 !important;
-  border-radius:14px !important;
-  box-shadow:0 10px 24px rgba(30,72,120,.20) !important;
-}
-
-
-/* ===== Ver.1.6.5 recommended safe 2.5D map emboss upgrade =====
-   실제 3D(WebGL) 대신 오류 위험이 낮은 CSS/SVG 필터로
-   3D ON/OFF 차이가 확실히 보이도록 강화합니다. */
-body.map-3d-enabled .mapwrap {
-  background:
-    radial-gradient(circle at 20% 18%, rgba(255,255,255,.75) 0 0.5px, transparent 1.5px),
-    linear-gradient(145deg,#D6EEFF 0%,#A8D7F7 48%,#DFF4FF 100%) !important;
-  box-shadow:
-    inset 0 2px 10px rgba(255,255,255,.95),
-    inset 0 -12px 22px rgba(25,96,165,.18),
-    0 14px 28px rgba(30,72,120,.26) !important;
-}
-body.map-3d-enabled svg {
-  background:transparent !important;
-}
-body.map-3d-enabled #regions {
-  filter:
-    drop-shadow(7px 10px 5px rgba(38,82,135,.30))
-    drop-shadow(-2px -2px 0 rgba(255,255,255,.70));
-}
-body.map-3d-enabled .region {
-  filter:
-    drop-shadow(1.15px 1.15px 0 rgba(30,42,56,.34))
-    drop-shadow(-0.75px -0.75px 0 rgba(255,255,255,.78)) !important;
-  stroke:#4B5662 !important;
-  stroke-width:.42 !important;
-  vector-effect:non-scaling-stroke !important;
-}
-body.map-3d-enabled .region.matched {
-  filter:
-    drop-shadow(2.2px 2.4px 1.1px rgba(21,31,44,.45))
-    drop-shadow(-1.15px -1.15px 0 rgba(255,255,255,.85)) !important;
-  stroke:#293746 !important;
-  stroke-width:.52 !important;
-}
-body.map-3d-enabled .coastline,
-body.map-3d-enabled .sido-boundary {
-  filter:none !important;
-  paint-order:stroke fill !important;
-}
-body.map-3d-enabled .coastline {
-  stroke:#020202 !important;
-  stroke-width:1.14 !important;
-  opacity:1 !important;
-}
-body.map-3d-enabled .sido-boundary {
-  stroke:#111 !important;
-  stroke-width:1.02 !important;
-  opacity:.98 !important;
-}
-body.map-3d-enabled .amount-label-box {
-  filter:drop-shadow(0 5px 5px rgba(0,0,0,.34)) !important;
-  stroke:#FFFFFF !important;
-  stroke-width:1.3 !important;
-}
-body.map-3d-enabled .amount-label {
-  text-shadow:0 2px 4px rgba(0,0,0,.38) !important;
-}
-body.map-3d-enabled .map-legend {
-  background:rgba(255,255,255,.96) !important;
-  border:1px solid rgba(255,255,255,.75) !important;
-  border-radius:16px !important;
-  box-shadow:0 10px 0 rgba(159,180,205,.18), 0 16px 28px rgba(30,72,120,.24) !important;
-}
-
 @media (max-width:768px) {
   .kma-day-title::before {
     width:38px !important;
@@ -1266,62 +1122,42 @@ body.map-3d-enabled .map-legend {
   .manual-region-save {
     box-shadow:0 5px 0 #0755B8, 0 10px 18px rgba(13,110,253,.28) !important;
   }
-  .map-3d-toggle {
-    right:8px;
-    top:8px;
-    height:30px;
-    min-width:66px;
-    font-size:11px;
+}
+
+
+
+
+  .sound-mini-row {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    margin:-1px 0 2px 0;
+    height:24px;
   }
-}
-
-
-/* ===== Ver.1.6.5 safe mobile 3D patch =====
-   iOS/Safari에서 시군구 수백 개 path마다 filter를 걸면 오류/멈춤이 날 수 있어
-   개별 지역 필터는 끄고, 지도 전체/카드/라벨/범례만 안전하게 3D 느낌을 줍니다. */
-body.map-3d-enabled #regions,
-body.map-3d-enabled .region,
-body.map-3d-enabled .region.matched,
-body.map-3d-enabled .region:hover {
-  filter:none !important;
-}
-body.map-3d-enabled #viewport {
-  filter:drop-shadow(5px 8px 5px rgba(38,82,135,.24)) !important;
-}
-body.map-3d-enabled .region {
-  stroke:#3F4A55 !important;
-  stroke-width:.42 !important;
-  vector-effect:non-scaling-stroke !important;
-}
-body.map-3d-enabled .region.matched {
-  stroke:#263443 !important;
-  stroke-width:.50 !important;
-}
-body.map-3d-enabled .mapwrap {
-  background:linear-gradient(145deg,#DDF1FF 0%,#BCE3FF 52%,#EAF7FF 100%) !important;
-  box-shadow:inset 0 2px 8px rgba(255,255,255,.92), inset 0 -8px 16px rgba(35,89,150,.12), 0 12px 24px rgba(30,72,120,.22) !important;
-}
-body.map-3d-enabled .coastline {
-  filter:none !important;
-  stroke:#050505 !important;
-  stroke-width:1.08 !important;
-  opacity:1 !important;
-}
-body.map-3d-enabled .sido-boundary {
-  filter:none !important;
-  stroke:#111 !important;
-  stroke-width:.96 !important;
-  opacity:.98 !important;
-}
-body.map-3d-enabled .amount-label-box {
-  filter:drop-shadow(0 4px 4px rgba(0,0,0,.28)) !important;
-}
-body.map-3d-enabled .map-legend {
-  background:rgba(255,255,255,.96) !important;
-  border:1px solid rgba(255,255,255,.75) !important;
-  border-radius:16px !important;
-  box-shadow:0 10px 22px rgba(30,72,120,.22) !important;
-}
+  #soundToggle.sound-toggle-mini {
+    min-width:54px;
+    height:22px;
+    padding:2px 8px !important;
+    border-radius:999px !important;
+    font-size:10.5px !important;
+    line-height:1 !important;
+    font-weight:900 !important;
+    box-shadow:0 2px 0 rgba(120,145,170,.55), 0 4px 8px rgba(31,71,130,.12) !important;
+  }
+  #soundToggle.sound-toggle-mini:active {
+    transform:translateY(1px) scale(.98) !important;
+    box-shadow:0 1px 0 rgba(120,145,170,.55), 0 2px 5px rgba(31,71,130,.14) !important;
+  }
+  #soundToggle.sound-on {
+    background:linear-gradient(180deg,#E3F2FD,#BBDEFB);
+    border-color:#64B5F6;
+    color:#0D47A1;
+  }
+  #soundToggle.sound-off {
+    background:linear-gradient(180deg,#F5F5F5,#E0E0E0);
+    border-color:#BDBDBD;
+    color:#555;
+  }
 
 </style>
 </head>
@@ -1329,7 +1165,10 @@ body.map-3d-enabled .map-legend {
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.6.5</div>
+    <div class="sound-mini-row">
+      <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
+    </div>
+   <div class="app-version">Ver.1.6.5-sound-b2</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1390,19 +1229,8 @@ body.map-3d-enabled .map-legend {
   <section class="mapcol">
   <main class="mapwrap">
     <div id="tooltip" class="tooltip"></div>
-    <button id="map3dToggle" type="button" class="map-3d-toggle" aria-pressed="false">3D OFF</button>
-    <svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
-      <defs>
-        <filter id="regionEmboss3d" x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="2.2" dy="2.2" stdDeviation="0.85" flood-color="#314259" flood-opacity="0.45"></feDropShadow>
-          <feDropShadow dx="-1.4" dy="-1.4" stdDeviation="0.65" flood-color="#FFFFFF" flood-opacity="0.92"></feDropShadow>
-        </filter>
-        <filter id="matchedEmboss3d" x="-35%" y="-35%" width="170%" height="170%">
-          <feDropShadow dx="2.8" dy="2.8" stdDeviation="1.05" flood-color="#1F2C3A" flood-opacity="0.55"></feDropShadow>
-          <feDropShadow dx="-1.6" dy="-1.6" stdDeviation="0.75" flood-color="#FFFFFF" flood-opacity="0.95"></feDropShadow>
-        </filter>
-      </defs>
-      <g id="viewport">
+<svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
+<g id="viewport">
         <g id="regions"></g>
         <g id="coastline"></g>
         <g id="sidoBoundaries"></g>
@@ -4506,7 +4334,8 @@ function saveCurrentMapImage() {
         }
         const pngUrl = URL.createObjectURL(blob);
         const d = new Date();
-        const fileName = `kma_map_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.png`;
+        const mapMode = document.body.classList.contains('map-3d-enabled') ? '3d' : '2d';
+        const fileName = `kma_map_${mapMode}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.png`;
         const a = document.createElement('a');
         a.href = pngUrl;
         a.download = fileName;
@@ -4957,39 +4786,94 @@ if (document.readyState === 'loading') {
 
 
 
-// Ver.1.6.5: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
+// Ver.1.6.5-sound: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
 function updateCalendarIconDay() {
   const title = document.getElementById('kmaForecastTime');
   if (!title) return;
   const d = new Date();
   title.setAttribute('data-cal-day', String(d.getDate()).padStart(2, '0'));
 }
-function initMap3dToggle() {
-  const btn = document.getElementById('map3dToggle');
-  if (!btn) return;
-  const saved = localStorage.getItem('rainMap3dMode') === '1';
-  function apply(on) {
-    document.body.classList.toggle('map-3d-enabled', on);
-    btn.classList.toggle('is-on', on);
-    btn.textContent = on ? '3D ON' : '3D OFF';
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
-  apply(saved);
-  btn.addEventListener('click', () => {
-    const on = !document.body.classList.contains('map-3d-enabled');
-    localStorage.setItem('rainMap3dMode', on ? '1' : '0');
-    apply(on);
-  });
-}
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    updateCalendarIconDay();
-    initMap3dToggle();
-  });
+  document.addEventListener('DOMContentLoaded', updateCalendarIconDay);
 } else {
   updateCalendarIconDay();
-  initMap3dToggle();
 }
+
+
+
+// ===== Ver.1.6.5-sound 버튼 효과음 =====
+(function initButtonSound(){
+  const KEY = 'rainMapButtonSoundEnabled';
+  let soundEnabled = localStorage.getItem(KEY);
+  soundEnabled = soundEnabled === null ? true : soundEnabled === '1';
+  let audioCtx = null;
+
+  function getAudioCtx(){
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    return audioCtx;
+  }
+
+  function playTone(type){
+    if (!soundEnabled) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    const isSave = type === 'save';
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(isSave ? 880 : 620, now);
+    osc.frequency.exponentialRampToValueAtTime(isSave ? 1175 : 760, now + (isSave ? 0.075 : 0.045));
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(isSave ? 0.08 : 0.045, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + (isSave ? 0.14 : 0.075));
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + (isSave ? 0.16 : 0.09));
+  }
+
+  function updateSoundButton(){
+    const btn = document.getElementById('soundToggle');
+    if (!btn) return;
+    btn.textContent = soundEnabled ? '🔊 ON' : '🔇 OFF';
+    btn.classList.toggle('sound-on', soundEnabled);
+    btn.classList.toggle('sound-off', !soundEnabled);
+  }
+
+  window.playUiClickSound = playTone;
+
+  document.addEventListener('DOMContentLoaded', updateSoundButton);
+  updateSoundButton();
+
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('button');
+    if (!btn) return;
+
+    if (btn.id === 'soundToggle') {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem(KEY, soundEnabled ? '1' : '0');
+      updateSoundButton();
+      if (soundEnabled) playTone('click');
+      return;
+    }
+
+    if (btn.id === 'manualRegionSaveBtn' || btn.id === 'saveImageBtn') {
+      playTone('save');
+    } else {
+      playTone('click');
+    }
+  }, true);
+})();
 
 </script>
 
