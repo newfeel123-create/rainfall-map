@@ -151,7 +151,7 @@
   .sido-boundary {
     fill:none;
     stroke:#222222;
-    stroke-width:0.5;
+    stroke-width:0.85;
     vector-effect:non-scaling-stroke;
     pointer-events:none;
     opacity:0.95;
@@ -206,7 +206,7 @@
     pointer-events:none;
   }
   .tooltip {
-    position:absolute;
+    position:fixed;
     pointer-events:none;
     background:rgba(0,0,0,.78);
     color:#fff;
@@ -214,8 +214,9 @@
     border-radius:6px;
     font-size:11.5px;
     display:none;
-    z-index:10;
+    z-index:9999;
     white-space:nowrap;
+    transform:none;
   }
   .legend {
     margin-top:0;
@@ -462,21 +463,13 @@
 
 
   #matchResult { display:none !important; }
-
-  /* 지도 위치 고정용 상단 여백 */
-  .map-top-spacer {
-    height:40px;
-    flex:0 0 40px;
-    pointer-events:none;
-  }
-
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.2.3</div>
+   <div class="app-version">Ver.1.3.5</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -518,7 +511,6 @@
   </aside>
 
   <section class="mapcol">
-  <div class="map-top-spacer"></div>
   <main class="mapwrap">
     <div id="tooltip" class="tooltip"></div>
     <svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
@@ -702,6 +694,35 @@ function renderSidoBoundaries() {
   sidoBoundariesG.appendChild(frag);
 }
 
+
+
+
+
+function moveTooltipToMouse(e) {
+  if (!tooltip) return;
+
+  tooltip.style.display = 'block';
+
+  const gap = 14;
+  const rect = tooltip.getBoundingClientRect();
+
+  // 기본 위치: 마우스 포인트 바로 위 중앙
+  let x = e.clientX - rect.width / 2;
+  let y = e.clientY - rect.height - gap;
+
+  // 위로 나가면 아래쪽에 표시
+  if (y < 8) y = e.clientY + gap;
+
+  // 좌우 화면 밖 보정
+  if (x < 8) x = 8;
+  if (x + rect.width > window.innerWidth - 8) {
+    x = window.innerWidth - rect.width - 8;
+  }
+
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+
 function render() {
   const frag = document.createDocumentFragment();
   GEOJSON.features.forEach((f, idx) => {
@@ -717,13 +738,11 @@ function render() {
         ? p.dataset.sido + ' ' + p.dataset.sig
         : (p.dataset.sido || p.dataset.sig || p.dataset.name);
       tooltip.textContent = fullName;
-      tooltip.style.left = (e.clientX + 12) + 'px';
-      tooltip.style.top = (e.clientY + 12) + 'px';
-      tooltip.style.display = 'block';
+      moveTooltipToMouse(e);
     });
-    p.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+    p.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
     p.addEventListener('click', () => {
-      // Ver.1.1.8
+      // Ver.1.3.5
       // 수동 색상이 선택되지 않았을 때는 지도 클릭으로 색이 들어가지 않게 합니다.
       if (!selectedManualColor) return;
 
@@ -885,7 +904,7 @@ const SOUTH_GYEONGBUK = ['포항시','포항시남구','포항시북구','경주
 const NORTH_GYEONGBUK = ['안동시','영주시','상주시','문경시','예천군','봉화군','울진군','영양군','청송군','영덕군'];
 const EAST_COAST_GYEONGBUK = ['포항시','포항시남구','포항시북구','경주시','영덕군','울진군'];
 const NORTHEAST_MOUNTAIN_GYEONGBUK = ['봉화군','울진군','영양군','청송군'];
-const INLAND_GYEONGBUK = ['김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시','군위군','의성군','청송군','영양군','영덕군','청도군','고령군','성주군','칠곡군','예천군','봉화군'];
+const INLAND_GYEONGBUK = ['김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시','군위군','의성군','청송군','영양군','청도군','고령군','성주군','칠곡군','예천군','봉화군'];
 
 const GYEONGNAM_WEST = ['진주시','사천시','통영시','거제시','고성군','남해군','하동군','산청군','함양군','거창군','합천군'];
 const GYEONGNAM_EAST = ['창원시','김해시','밀양시','양산시','의령군','함안군','창녕군'];
@@ -925,6 +944,47 @@ function zoneName(zone) {
   return z;
 }
 
+
+// Ver.1.3.5: "많은 곳 A.B.C 100mm 이상" 다중 지역 처리
+function addHeavyMultiAreasFromText(parts, zone, amountText) {
+  const z = zoneName(zone);
+  const raw = normText(amountText);
+  const m = raw.match(/많은곳(.+?)([0-9]+mm(?:이상|안팎|미만)?)/);
+  if (!m) return;
+
+  const areaPart = m[1];
+  const heavyAmount = m[2];
+
+  areaPart
+    .replace(/[()]/g, '')
+    .split(/[,.\/]+/)
+    .map(v => v.trim())
+    .filter(Boolean)
+    .forEach(area => {
+      let scoped = scopedToken(zone, area);
+
+      // 권역별 짧은 해안 표현 보정
+      if (area === '남해안' && z === '전라권') scoped = '전남남해안';
+      if (area === '남해안' && z === '경상권') scoped = '경남남해안';
+      if (area === '서해안' && z === '전라권') scoped = '전남서해안';
+      if (area === '동해안' && z === '경상권') scoped = '경북동해안';
+      if (area === '북동산지' && z === '경상권') scoped = '경북북동산지';
+      if (area === '산지' && z === '제주도') scoped = '제주산지';
+      if (area === '산지' && z === '강원도') scoped = '강원산지';
+
+      if (!scoped || scoped === '__NO_MATCH__' || scoped === '많은곳') return;
+
+      // 면 색칠용
+      parts.push({ zone, area: scoped, amount: heavyAmount });
+
+      // 산지/부근/중산간은 ▲ 아이콘도 추가
+      if (/산지|지리산|덕유산|소백산|중산간/.test(scoped)) {
+        parts.push({ type:'mountain', zone, area: scoped, amount: heavyAmount });
+      }
+    });
+}
+
+
 function splitForecastParts(line) {
   let text = line.replace(/^[-–]\s*/, '').trim();
   const zoneMatch = text.match(/^\s*(\([^)]*\))\s*/);
@@ -941,7 +1001,7 @@ function splitForecastParts(line) {
     let area = seg.slice(0, c).trim();
     let amountText = seg.slice(c + 1).trim();
     // 구간 앞에 붙는 날짜 괄호는 지역명에서 제거합니다. 예: (25일) 울릉도.독도
-    area = area.replace(/^\s*\([^)]*일[^)]*\)\s*/, '').trim();
+    area = area.replace(/\s*\([^)]*일[^)]*\)\s*/g, '').trim();
     let am = (amountText.match(/[0-9]+\s*~\s*[0-9]+m{1,2}|[0-9]+m{1,2}\s*안팎|[0-9]+m{1,2}\s*미만|[0-9]+m{1,2}\s*이상|[0-9]+m{1,2}/) || [''])[0].replace(/\s+/g, '');
     am = am.replace(/m$/,'mm').replace(/m(안팎|미만|이상)$/,'mm$1');
     lastAmount = am || lastAmount;
@@ -953,8 +1013,9 @@ function splitForecastParts(line) {
     }
 
     const heavyText = normText(amountText);
+    addHeavyMultiAreasFromText(parts, zone, amountText);
     // 많은 곳 중산간 120mm, 산지 150mm 이상 처럼 여러 수치를 모두 추출
-    const heavyRe = /(지리산부근|덕유산부근|소백산부근|경북북동산지|중산간|산지|남해안|서해안|동해안|전남남해안|경남남해안|제주도산지|제주산지|강원산지)([0-9]+mm(?:이상|안팎|미만)?)/g;
+    const heavyRe = /(전남남부서해안|전남남해안|전남서해안|경남남해안|경남서부남해안|경남중부남해안|부산|울산|지리산부근|덕유산부근|소백산부근|경북북동산지|중산간|산지|남해안|서해안|동해안|제주도산지|제주산지|강원산지)([0-9]+mm(?:이상|안팎|미만)?)/g;
     let hm;
     while ((hm = heavyRe.exec(heavyText)) !== null) {
       let hArea = hm[1];
@@ -977,6 +1038,29 @@ function scopedToken(zone, token) {
   token = normText(token);
   const z = zoneName(zone);
   if (!token) return '';
+  // Ver.1.3.5: 권역 안에서 짧게 쓰는 예보구역명을 표준명으로 보정
+  if (z === '경상권') {
+    if (token === '북서내륙') return '경남북서내륙';
+    if (token === '남서내륙') return '경남남서내륙';
+    if (token === '중부내륙') return '경남중부내륙';
+    if (token === '동부내륙') return '경남동부내륙';
+    if (token === '서부내륙') return '경남서부내륙';
+    if (token === '서부남해안') return '경남서부남해안';
+    if (token === '중부남해안') return '경남중부남해안';
+    if (token === '북부동해안') return '경북북부동해안';
+    if (token === '남부동해안') return '경북남부동해안';
+  }
+  if (z === '강원도') {
+    if (token === '북부내륙') return '강원북부내륙';
+    if (token === '중부내륙') return '강원중부내륙';
+    if (token === '남부내륙') return '강원남부내륙';
+    if (token === '북부동해안') return '강원북부동해안';
+    if (token === '중부동해안') return '강원중부동해안';
+    if (token === '남부동해안') return '강원남부동해안';
+    if (token === '북부산지') return '강원북부산지';
+    if (token === '중부산지') return '강원중부산지';
+    if (token === '남부산지') return '강원남부산지';
+  }
   if (token === '산지') {
     if (z === '강원도') return '강원산지';
     if (z === '제주도') return '제주산지';
@@ -1005,9 +1089,216 @@ function inList(sido, sig, targetSido, arr) {
   return arr.some(v => sig === v || sig.startsWith(v));
 }
 
+
+// Ver.1.3.5 기상청 예보구역 묶음 구조
+// 개별 시군을 직접 추가하는 방식이 아니라,
+// "경남내륙 = 경남북서내륙 + 경남남서내륙 + 경남중부내륙 + 경남동부내륙"처럼
+// 상위 예보구역이 하위 예보구역을 묶어서 칠해지도록 처리합니다.
+const KMA_REGION_GROUPS = {
+  // 수도권
+  '경기내륙': ['경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙'],
+  '경기북부': ['경기북서내륙','경기북동내륙'],
+  '경기남부': ['경기남동내륙','경기남서내륙','경기남부서해안'],
+  '경기서해안': ['경기남부서해안'],
+  '경기서부': ['경기북서내륙','경기남서내륙','경기남부서해안'],
+  '경기동부': ['경기북동내륙','경기남동내륙'],
+
+  // 강원도
+  '강원내륙': ['강원북부내륙','강원중부내륙','강원남부내륙'],
+  '강원동해안': ['강원북부동해안','강원중부동해안','강원남부동해안'],
+  '강원산지': ['강원북부산지','강원중부산지','강원남부산지'],
+  '강원북부': ['강원북부내륙','강원북부동해안','강원북부산지'],
+  '강원중부': ['강원중부내륙','강원중부동해안','강원중부산지'],
+  '강원남부': ['강원남부내륙','강원남부동해안','강원남부산지'],
+  '강원영서': ['강원북부내륙','강원중부내륙','강원남부내륙'],
+  '강원영동': ['강원북부동해안','강원중부동해안','강원남부동해안','강원북부산지','강원중부산지','강원남부산지'],
+
+  // 충청권
+  '충남내륙': ['충남북부내륙','충남중부내륙','충남남동내륙','충남남서내륙'],
+  '충남북부': ['충남북부내륙','충남북부서해안'],
+  '충남남부': ['충남남동내륙','충남남서내륙','충남남부서해안'],
+  '충남서해안': ['충남북부서해안','충남남부서해안'],
+  '충남해안': ['충남서해안'],
+  '충북': ['충북북부','충북중부','충북남부'],
+
+  // 전라권
+  '전남내륙': ['전남북서부','전남북동부','전남중부내륙','전남동부내륙'],
+  '전남해안': ['전남서해안','전남남해안','전남남동부해안'],
+  '전남남해안': ['전남중부남해안','전남서부남해안','전남동부남해안'],
+  '전남북부': ['전남북서부','전남북동부'],
+  '전남남부': ['전남남부서해안','전남남해안'],
+  '전남동부': ['전남동부내륙','전남동부남해안','전남북동부'],
+  '전북내륙': ['전북중부내륙','전북북동내륙','전북남동내륙'],
+  '전북서부': ['전북북서부','전북남서부','전북서해안'],
+  '전북서해안': ['전북북부서해안','전북남부서해안'],
+  '전북북부': ['전북북서부','전북북동내륙','전북북부서해안'],
+  '전북남부': ['전북남서부','전북남동내륙','전북남부서해안'],
+  '전북동부': ['전북북동내륙','전북남동내륙'],
+
+  // 경상권
+  '경북내륙': ['경북북부내륙','경북중북부내륙','경북서부내륙','경북북동내륙','경북남서내륙','경북남동내륙'],
+  '경북서부': ['경북북서내륙','경북남서내륙','경북서부내륙'],
+  '경북북부': ['경북북부내륙','경북북부동해안','경북북동산지'],
+  '경북남부': ['경북남서내륙','경북남동내륙','경북남부동해안'],
+  '경북해안': ['경북북부동해안','경북남부동해안'],
+  '경북동해안': ['경북북부동해안','경북남부동해안'],
+  '경남내륙': ['경남북서내륙','경남남서내륙','경남중부내륙','경남동부내륙'],
+  '경남서부': ['경남북서내륙','경남남서내륙','경남서부남해안'],
+  '경남중부': ['경남중부내륙','경남중부남해안'],
+  '경남남해안': ['경남서부남해안','경남중부남해안'],
+
+  // 제주도
+  '제주도': ['제주도북부','제주도남부','제주도동부','제주도서부'],
+  '제주': ['제주도'],
+  '제주도중산간': ['북부중산간','남부중산간']
+};
+
+const KMA_REGION_SIGS = {
+  // 수도권 세부
+  '경기북서내륙': {sido:'경기', sigs:['파주시','고양시','고양시덕양구','고양시일산동구','고양시일산서구','김포시','양주시']},
+  '경기북동내륙': {sido:'경기', sigs:['연천군','동두천시','포천시','의정부시','남양주시','구리시','가평군']},
+  '경기남동내륙': {sido:'경기', sigs:['광주시','이천시','여주시','양평군','하남시','성남시','용인시','안성시']},
+  '경기남서내륙': {sido:'경기', sigs:['수원시','안양시','군포시','의왕시','과천시','오산시','부천시','광명시']},
+  '경기남부서해안': {sido:'경기', sigs:['시흥시','안산시','안산시상록구','안산시단원구','화성시','평택시']},
+
+  // 강원도 세부
+  '강원북부내륙': {sido:'강원', sigs:['철원군','화천군','양구군','인제군']},
+  '강원중부내륙': {sido:'강원', sigs:['춘천시','홍천군','횡성군','원주시','평창군']},
+  '강원남부내륙': {sido:'강원', sigs:['영월군','정선군','태백시']},
+  '강원북부동해안': {sido:'강원', sigs:['고성군','속초시','양양군']},
+  '강원중부동해안': {sido:'강원', sigs:['강릉시']},
+  '강원남부동해안': {sido:'강원', sigs:['동해시','삼척시']},
+  '강원북부산지': {sido:'강원', sigs:['양구군','인제군']},
+  '강원중부산지': {sido:'강원', sigs:['홍천군','평창군']},
+  '강원남부산지': {sido:'강원', sigs:['정선군','태백시']},
+
+  // 충청권 세부
+  '충남북부내륙': {sido:'충남', sigs:['천안시','아산시','예산군']},
+  '충남중부내륙': {sido:'충남', sigs:['공주시','계룡시','청양군','홍성군']},
+  '충남남동내륙': {sido:'충남', sigs:['논산시','금산군']},
+  '충남남서내륙': {sido:'충남', sigs:['부여군']},
+  '충남북부서해안': {sido:'충남', sigs:['당진시','서산시','태안군']},
+  '충남남부서해안': {sido:'충남', sigs:['보령시','서천군']},
+  '충북북부': {sido:'충북', sigs:['충주시','제천시','단양군']},
+  '충북중부': {sido:'충북', sigs:['증평군','진천군','괴산군','음성군']},
+  '충북남부': {sido:'충북', sigs:['청주시','보은군','옥천군','영동군']},
+
+  // 전라권 세부
+  '전남북서부': {sido:'전남', sigs:['영광군','함평군','무안군','장성군']},
+  '전남북동부': {sido:'전남', sigs:['구례군','곡성군']},
+  '전남중부내륙': {sido:'전남', sigs:['나주시','화순군','담양군','영암군']},
+  '전남동부내륙': {sido:'전남', sigs:['순천시','광양시']},
+  '전남서해안': {sido:'전남', sigs:['목포시','무안군','영광군','함평군','영암군','해남군','진도군','신안군']},
+  '전남남부서해안': {sido:'전남', sigs:['해남군','진도군','신안군']},
+  '전남중부남해안': {sido:'전남', sigs:['보성군','장흥군','강진군']},
+  '전남서부남해안': {sido:'전남', sigs:['목포시','완도군','해남군','진도군','신안군']},
+  '전남동부남해안': {sido:'전남', sigs:['여수시','순천시','광양시','고흥군']},
+  '전남남동부해안': {sido:'전남', sigs:['여수시','고흥군']},
+
+  '전북북서부': {sido:'전북', sigs:['군산시','익산시','김제시']},
+  '전북남서부': {sido:'전북', sigs:['정읍시','고창군','부안군']},
+  '전북중부내륙': {sido:'전북', sigs:['전주시','완주군','임실군']},
+  '전북북동내륙': {sido:'전북', sigs:['무주군','진안군','장수군']},
+  '전북남동내륙': {sido:'전북', sigs:['남원시','순창군']},
+  '전북북부서해안': {sido:'전북', sigs:['군산시','김제시']},
+  '전북남부서해안': {sido:'전북', sigs:['고창군','부안군']},
+
+  // 경상권 세부
+  '경북북부내륙': {sido:'경북', sigs:['안동시','영주시','상주시','문경시','예천군','봉화군','영양군','청송군']},
+  '경북중북부내륙': {sido:'경북', sigs:['안동시','영주시','상주시','문경시','예천군','봉화군','의성군']},
+  '경북북서내륙': {sido:'경북', sigs:['문경시','상주시','예천군','영주시']},
+  '경북북동내륙': {sido:'경북', sigs:['봉화군','영양군','청송군']},
+  '경북서부내륙': {sido:'경북', sigs:['김천시','구미시','상주시','문경시','예천군','성주군','칠곡군']},
+  '경북남서내륙': {sido:'경북', sigs:['김천시','구미시','고령군','성주군','칠곡군']},
+  '경북남동내륙': {sido:'경북', sigs:['영천시','경산시','청도군','군위군']},
+  '경북북부동해안': {sido:'경북', sigs:['영덕군','울진군']},
+  '경북남부동해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시']},
+  '경북북동산지': {sido:'경북', sigs:['봉화군','울진군','영양군','청송군']},
+
+  '경남북서내륙': {sido:'경남', sigs:['거창군','함양군','합천군']},
+  '경남남서내륙': {sido:'경남', sigs:['진주시','산청군','하동군']},
+  '경남중부내륙': {sido:'경남', sigs:['의령군','함안군','창녕군','밀양시']},
+  '경남동부내륙': {sido:'경남', sigs:['김해시','양산시','밀양시','창녕군']},
+  '경남서부내륙': {sido:'경남', sigs:['진주시','산청군','함양군','거창군','합천군','하동군']},
+  '경남서부남해안': {sido:'경남', sigs:['통영시','사천시','거제시','고성군','남해군','하동군']},
+  '경남중부남해안': {sido:'경남', sigs:['창원시','창원시마산합포구','창원시마산회원구','창원시성산구','창원시의창구','창원시진해구']},
+
+  // 제주도
+  '제주도북부': {sido:'제주', sigs:['제주시']},
+  '제주도남부': {sido:'제주', sigs:['서귀포시']},
+  '제주도동부': {sido:'제주', sigs:['제주시','서귀포시']},
+  '제주도서부': {sido:'제주', sigs:['제주시','서귀포시']}
+};
+
+function regionMatchesKmaGroup(sido, sig, token, seen) {
+  token = normText(token);
+  seen = seen || new Set();
+  if (!token || seen.has(token)) return false;
+
+  // Ver.1.3.5: 산지/중산간은 시군구 면을 덮어쓰지 않고 ▲ 아이콘으로만 표시
+  // 예: 강원내륙 5~30 / 강원산지.동해안 30~80 에서 산지가 내륙을 덮지 않게 함
+  if (/산지|중산간/.test(token)) return false;
+
+  seen.add(token);
+
+  const sigRule = KMA_REGION_SIGS[token];
+  if (sigRule) return inList(sido, sig, sigRule.sido, sigRule.sigs);
+
+  const children = KMA_REGION_GROUPS[token];
+  if (children) return children.some(child => regionMatchesKmaGroup(sido, sig, child, seen) || regionMatchesToken(sido, sig, child));
+
+  return false;
+}
+
+
+// Ver.1.3.5 예보구역 직접 매칭 테이블
+// 복잡한 조건문보다 "예보구역명 -> 실제 시군"을 우선 적용합니다.
+const REGION_DIRECT_MATCH = {
+  '경북동해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']},
+  '경북해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']},
+  '경북북부동해안': {sido:'경북', sigs:['영덕군','울진군']},
+  '경북남부동해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시']},
+
+  // 경북내륙은 동해안(포항·경주·영덕·울진)을 제외한 내륙 중심
+  '경북내륙': {sido:'경북', sigs:['김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시','군위군','의성군','청송군','영양군','청도군','고령군','성주군','칠곡군','예천군','봉화군']},
+  '경북북동산지': {sido:'경북', sigs:['봉화군','울진군','영양군','청송군']},
+
+  '경남내륙': {sido:'경남', sigs:['거창군','함양군','합천군','진주시','산청군','하동군','의령군','함안군','창녕군','밀양시','김해시','양산시']},
+  '경남북서내륙': {sido:'경남', sigs:['거창군','함양군','합천군']},
+  '경남남서내륙': {sido:'경남', sigs:['진주시','산청군','하동군']},
+  '경남중부내륙': {sido:'경남', sigs:['의령군','함안군','창녕군','밀양시']},
+  '경남동부내륙': {sido:'경남', sigs:['김해시','양산시','밀양시','창녕군']},
+  '경남남해안': {sido:'경남', sigs:['창원시','창원시마산합포구','창원시마산회원구','창원시성산구','창원시의창구','창원시진해구','통영시','사천시','거제시','고성군','남해군','하동군']},
+  '경남서부남해안': {sido:'경남', sigs:['통영시','사천시','거제시','고성군','남해군','하동군']},
+  '경남중부남해안': {sido:'경남', sigs:['창원시','창원시마산합포구','창원시마산회원구','창원시성산구','창원시의창구','창원시진해구']}
+};
+
+function regionMatchesDirectMap(sido, sig, token) {
+  token = normText(token);
+  const rule = REGION_DIRECT_MATCH[token];
+  if (!rule) return false;
+  return inList(sido, sig, rule.sido, rule.sigs);
+}
+
 function regionMatchesToken(sido, sig, token) {
   token = normText(token);
   if (!token || token === '__NO_MATCH__') return false;
+
+  // Ver.1.3.5: 예보구역 직접 매칭 우선
+  if (regionMatchesDirectMap(sido, sig, token)) return true;
+
+
+  // Ver.1.3.5: 경북동해안 직접 매칭 고정
+  if (token === '경북동해안' || token === '경북해안') {
+    return inList(sido, sig, '경북', ['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']);
+  }
+
+
+  // Ver.1.3.5: 산지/중산간은 면 색칠이 아니라 ▲ 아이콘 전용
+  if (/산지|중산간/.test(token)) return false;
+
+  // Ver.1.3.5: 기상청 예보구역 묶음 우선 매칭
+  if (regionMatchesKmaGroup(sido, sig, token)) return true;
 
   // 광역 단위
   if (token === '서울') return sido === '서울';
@@ -1105,6 +1396,18 @@ function expandCompoundTokens(a, zone) {
   const out = [];
   const add = v => { if (v) out.push(v); };
 
+  // Ver.1.3.5: 기상청 예보구역 묶음 표현 직접 인식
+  [
+    '경기내륙','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안',
+    '강원북부내륙','강원중부내륙','강원남부내륙','강원북부동해안','강원중부동해안','강원남부동해안','강원북부산지','강원중부산지','강원남부산지',
+    '충남북부내륙','충남중부내륙','충남남동내륙','충남남서내륙','충남북부서해안','충남남부서해안',
+    '전남중부내륙','전남동부내륙','전남북서부','전남북동부','전남서해안','전남남부서해안','전남중부남해안','전남서부남해안','전남동부남해안','전남남동부해안',
+    '전북중부내륙','전북북동내륙','전북남동내륙','전북북서부','전북남서부','전북북부서해안','전북남부서해안',
+    '경북북부내륙','경북중북부내륙','경북북서내륙','경북북동내륙','경북서부내륙','경북남서내륙','경북남동내륙','경북북부동해안','경북남부동해안',
+    '경남북서내륙','경남남서내륙','경남중부내륙','경남동부내륙','경남서부내륙','경남서부남해안','경남중부남해안',
+    '제주도북부','제주도남부','제주도동부','제주도서부'
+  ].forEach(k => { if (a.includes(k)) add(k); });
+
   // 중.남부 / 중.북부 / 남.동부 형태 보정
   if (a.includes('강원남부내륙.산지') || a.includes('강원남부내륙산지') || a.includes('강원남부산지내륙')) { add('강원남부내륙'); add('강원남부산지'); }
   if (a.includes('강원남부동해안')) add('강원남부동해안');
@@ -1112,12 +1415,24 @@ function expandCompoundTokens(a, zone) {
   if (a.includes('강원중.북부') || a.includes('강원중북부')) { add('강원중부'); add('강원북부'); }
   if (a.includes('경북중.북부') || a.includes('경북중북부')) add('경북북부');
   if (z === '경상권' && /(^|[,.])북동산지/.test(a)) add('경북북동산지');
+  if (a.includes('경북동해안.북동산지') || a.includes('경북동해안북동산지')) { add('경북동해안'); add('경북북동산지'); }
   if (a.includes('경북내륙.북동산지') || a.includes('경북내륙북동산지')) { add('경북내륙'); add('경북북동산지'); }
   if (a.includes('경북북동내륙.산지') || a.includes('경북북동내륙산지')) { add('경북북동내륙'); add('경북북동산지'); }
   if (a.includes('경남중부남해안')) add('경남중부남해안');
   if (a.includes('경남중.동부내륙') || a.includes('경남중동부내륙')) { add('경남중부내륙'); add('경남동부내륙'); }
   else if (a.includes('경남중.동부') || a.includes('경남중동부')) add('경남동부');
   if (a.includes('전남남부서해안')) add('전남남부서해안');
+
+
+  // Ver.1.3.5: 괄호 제외 표현을 표준 예보구역으로 단순 치환
+  // 예: 대구.경북(동해안.북동산지 제외) => 대구 + 경북내륙
+  const compactExcept = a.replace(/[,.\/()\s]/g, '');
+  if (compactExcept.includes('대구경북') && compactExcept.includes('동해안북동산지제외')) {
+    add('대구');
+    add('경북내륙');
+  } else if (compactExcept.includes('경북') && compactExcept.includes('동해안북동산지제외')) {
+    add('경북내륙');
+  }
 
   // 괄호 제외 표현
   if (a.includes('제주도') && a.includes('산지제외')) add('제주도__EXCEPT_산지');
@@ -1152,6 +1467,17 @@ function tokensFromArea(areaText, zone) {
       addToken('경남내륙');
       addToken('경북동해안');
     }
+    if (compact.includes('경북동해안북동산지')) {
+      addToken('경북동해안');
+      addToken('경북북동산지');
+    }
+
+
+    if (compact.includes('대구경북동해안북동산지제외')) {
+      addToken('대구');
+      addToken('경북내륙');
+    }
+
     if (compact.includes('울릉도독도')) {
       addToken('울릉도독도');
     }
@@ -1202,9 +1528,41 @@ function tokensFromArea(areaText, zone) {
   // 경북내륙 + 경북북동산지 둘 다 유지합니다.
   if (z === '경상권' && /(^|[,.])북동산지/.test(a)) {
     const hasExplicitGyeongbukInland = a.includes('경북내륙.북동산지') || a.includes('경북내륙북동산지');
+    const hasExplicitGyeongbukEastCoast = a.includes('경북동해안.북동산지') || a.includes('경북동해안북동산지');
     filtered = filtered.filter(t => !['산지','강원산지','경북'].includes(t) && (hasExplicitGyeongbukInland || t !== '경북내륙'));
     if (hasExplicitGyeongbukInland) filtered.push('경북내륙');
+    if (hasExplicitGyeongbukEastCoast) filtered.push('경북동해안');
     filtered.push('경북북동산지');
+  }
+
+
+  // Ver.1.3.5: 대구.경북(동해안.북동산지 제외)은 대구 + 경북내륙만 남김
+  if (a.replace(/[,.\/()\s]/g, '').includes('대구경북동해안북동산지제외')) {
+    filtered = filtered.filter(t => !['대구경북','경북','경북동해안','경북북동산지','동해안','북동산지'].includes(t));
+    if (!filtered.includes('대구')) filtered.push('대구');
+    if (!filtered.includes('경북내륙')) filtered.push('경북내륙');
+  } else if (a.replace(/[,.\/()\s]/g, '').includes('경북동해안북동산지제외')) {
+    filtered = filtered.filter(t => !['경북','경북동해안','경북북동산지','동해안','북동산지'].includes(t));
+    if (!filtered.includes('경북내륙')) filtered.push('경북내륙');
+  }
+
+
+  // Ver.1.3.5: 경북동해안.북동산지 표현에서 동해안 면 색칠 보장
+  if (z === '경상권' && (a.includes('경북동해안.북동산지') || a.includes('경북동해안북동산지'))) {
+    if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
+    if (!filtered.includes('경북북동산지')) filtered.push('경북북동산지');
+  }
+
+
+  // Ver.1.3.5: area 원문에 경북동해안이 있으면 무조건 색칠 토큰 유지
+  if (z === '경상권' && a.includes('경북동해안')) {
+    if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
+  }
+
+
+  // Ver.1.3.5: 경북동해안 원문 포함 시 직접 토큰 유지
+  if (z === '경상권' && a.includes('경북동해안')) {
+    if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
   }
 
   return Array.from(new Set(filtered));
@@ -3001,7 +3359,7 @@ function saveCurrentMapImage() {
       .region.matched { stroke:#666666; stroke-width:0.28; }
       .region.selected { fill:#ffe08a; }
       .coastline { fill:none; stroke:#111111; stroke-width:0.95; vector-effect:non-scaling-stroke; opacity:0.98; stroke-linejoin:round; stroke-linecap:round; }
-      .sido-boundary { fill:none; stroke:#222222; stroke-width:0.5; vector-effect:non-scaling-stroke; opacity:0.95; stroke-linejoin:round; stroke-linecap:round; }
+      .sido-boundary { fill:none; stroke:#222222; stroke-width:0.85; vector-effect:non-scaling-stroke; opacity:0.95; stroke-linejoin:round; stroke-linecap:round; }
       .amount-label-box { stroke:#111; stroke-width:1.1; rx:6; ry:6; vector-effect:non-scaling-stroke; }
       .amount-label { font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:18px; font-weight:900; fill:#ffffff; stroke:#000000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; dominant-baseline:middle; }
       .mountain-triangle { stroke:#000; stroke-width:0.8; vector-effect:non-scaling-stroke; }
