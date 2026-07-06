@@ -1064,16 +1064,137 @@
   .side h1::before { content:'☁️ '; }
 }
 
+
+
+/* ===== Ver.1.6.1 3D menu + dynamic calendar + map 2D/3D toggle ===== */
+.kma-day-title::before {
+  content: attr(data-cal-day);
+}
+.map-3d-toggle {
+  position:absolute;
+  right:10px;
+  top:10px;
+  z-index:7;
+  min-width:74px;
+  height:34px;
+  padding:0 10px;
+  border-radius:999px;
+  border:1px solid #BFD2EA;
+  background:linear-gradient(180deg,#FFFFFF 0%,#EEF5FF 100%);
+  color:#245181;
+  font-size:12px;
+  font-weight:900;
+  box-shadow:0 5px 0 #C8D6E8, 0 9px 18px rgba(21,76,135,.15);
+}
+.map-3d-toggle:active {
+  transform:translateY(3px);
+  box-shadow:0 2px 0 #C8D6E8, 0 5px 10px rgba(21,76,135,.18);
+}
+.map-3d-toggle.is-on {
+  border-color:#FFB300;
+  background:linear-gradient(180deg,#FFE979 0%,#FFC928 100%);
+  color:#111;
+  box-shadow:0 5px 0 #D99500, 0 10px 20px rgba(255,193,7,.28);
+}
+body.map-3d-enabled .mapwrap {
+  background:linear-gradient(145deg,#DDF1FF 0%,#BEE3FF 52%,#EAF7FF 100%) !important;
+}
+body.map-3d-enabled #viewport {
+  filter:drop-shadow(5px 9px 4px rgba(41,85,135,.28));
+}
+body.map-3d-enabled .region {
+  stroke:#ffffff;
+  stroke-width:.42;
+}
+body.map-3d-enabled .coastline {
+  stroke:#27496D;
+  stroke-width:1.05;
+}
+body.map-3d-enabled .sido-boundary {
+  stroke:rgba(255,255,255,.78);
+  stroke-width:.72;
+}
+body.map-3d-enabled .amount-label-box {
+  filter:drop-shadow(0 4px 3px rgba(0,0,0,.25));
+}
+body.map-3d-enabled .map-legend {
+  border:0 !important;
+  border-radius:14px !important;
+  box-shadow:0 10px 24px rgba(30,72,120,.20) !important;
+}
+
+@media (max-width:768px) {
+  .kma-day-title::before {
+    width:38px !important;
+    height:38px !important;
+    min-width:38px !important;
+    border-radius:10px !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    margin-right:2px !important;
+    padding-top:8px !important;
+    box-sizing:border-box !important;
+    font-size:18px !important;
+    font-weight:900 !important;
+    color:#1C2B44 !important;
+    background:
+      linear-gradient(180deg,#2787FF 0 28%,#FFFFFF 28% 100%) !important;
+    border:1px solid #BFD8F6 !important;
+    box-shadow:0 4px 0 #B8C9DD, 0 8px 14px rgba(27,80,140,.16) !important;
+  }
+  button,
+  .kma-day-buttons button,
+  .kma-choice-buttons button,
+  .btns button,
+  .manual-region-zones button,
+  .manual-region-buttons button,
+  .manual-region-actions button,
+  .manual-region-toggle {
+    box-shadow:0 5px 0 #C9D5E3, 0 9px 18px rgba(31,71,130,.13) !important;
+    transform:translateY(0);
+  }
+  button:active,
+  .kma-day-buttons button:active,
+  .kma-choice-buttons button:active,
+  .btns button:active,
+  .manual-region-zones button:active,
+  .manual-region-buttons button:active,
+  .manual-region-actions button:active,
+  .manual-region-toggle:active {
+    transform:translateY(3px) scale(.99) !important;
+    box-shadow:0 2px 0 #C9D5E3, 0 5px 10px rgba(31,71,130,.16) !important;
+  }
+  button.btn-active,
+  .manual-region-zones button.active,
+  .manual-region-buttons button.active,
+  #kmaTodayBtn.btn-active,
+  #kmaTomorrowBtn.btn-active,
+  #kmaLoadBtn.btn-active {
+    box-shadow:0 5px 0 #D99A00, 0 10px 18px rgba(255,193,7,.25) !important;
+  }
+  .manual-region-save {
+    box-shadow:0 5px 0 #0755B8, 0 10px 18px rgba(13,110,253,.28) !important;
+  }
+  .map-3d-toggle {
+    right:8px;
+    top:8px;
+    height:30px;
+    min-width:66px;
+    font-size:11px;
+  }
+}
+
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.6.0</div>
+   <div class="app-version">Ver.1.6.1</div>
 
     <div class="kma-day-panel">
-      <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
+      <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
       <div class="kma-day-buttons">
         <button id="kmaTodayBtn" type="button">오늘</button>
         <button id="kmaTomorrowBtn" type="button">내일</button>
@@ -1131,6 +1252,7 @@
   <section class="mapcol">
   <main class="mapwrap">
     <div id="tooltip" class="tooltip"></div>
+    <button id="map3dToggle" type="button" class="map-3d-toggle" aria-pressed="false">3D OFF</button>
     <svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
       <g id="viewport">
         <g id="regions"></g>
@@ -3480,7 +3602,7 @@ function __stopKmaLoadingTitle(resetText) {
   }
   if (resetText) {
     const title = document.getElementById('kmaForecastTime');
-    if (title) title.textContent = '예보 발표 시간 확인 중';
+    if (title) title.textContent = '예보 발표 시간';
   }
 }
 
@@ -4683,6 +4805,42 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initManualRegionPanel);
 } else {
   initManualRegionPanel();
+}
+
+
+
+// Ver.1.6.1: 달력 아이콘 숫자 자동 변경 + 지도 2D/3D 토글
+function updateCalendarIconDay() {
+  const title = document.getElementById('kmaForecastTime');
+  if (!title) return;
+  const d = new Date();
+  title.setAttribute('data-cal-day', String(d.getDate()).padStart(2, '0'));
+}
+function initMap3dToggle() {
+  const btn = document.getElementById('map3dToggle');
+  if (!btn) return;
+  const saved = localStorage.getItem('rainMap3dMode') === '1';
+  function apply(on) {
+    document.body.classList.toggle('map-3d-enabled', on);
+    btn.classList.toggle('is-on', on);
+    btn.textContent = on ? '3D ON' : '3D OFF';
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  apply(saved);
+  btn.addEventListener('click', () => {
+    const on = !document.body.classList.contains('map-3d-enabled');
+    localStorage.setItem('rainMap3dMode', on ? '1' : '0');
+    apply(on);
+  });
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    updateCalendarIconDay();
+    initMap3dToggle();
+  });
+} else {
+  updateCalendarIconDay();
+  initMap3dToggle();
 }
 
 </script>
