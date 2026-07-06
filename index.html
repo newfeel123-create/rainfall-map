@@ -1066,7 +1066,7 @@
 
 
 
-/* ===== Ver.1.6.1 3D menu + dynamic calendar + map 2D/3D toggle ===== */
+/* ===== Ver.1.6.2 3D menu + dynamic calendar + map 2D/3D toggle ===== */
 .kma-day-title::before {
   content: attr(data-cal-day);
 }
@@ -1103,16 +1103,27 @@ body.map-3d-enabled #viewport {
   filter:drop-shadow(5px 9px 4px rgba(41,85,135,.28));
 }
 body.map-3d-enabled .region {
-  stroke:#ffffff;
-  stroke-width:.42;
+  /* 3D 모드에서도 시군구 라인은 그대로 보이게 유지 */
+  stroke:#5f6b78;
+  stroke-width:.32;
+  vector-effect:non-scaling-stroke;
+}
+body.map-3d-enabled .region.matched {
+  stroke:#4d5965;
+  stroke-width:.34;
 }
 body.map-3d-enabled .coastline {
-  stroke:#27496D;
+  /* 해안선도 기존처럼 선명하게 유지 */
+  stroke:#111111;
   stroke-width:1.05;
+  vector-effect:non-scaling-stroke;
 }
 body.map-3d-enabled .sido-boundary {
-  stroke:rgba(255,255,255,.78);
-  stroke-width:.72;
+  /* 시도 경계는 더 진하게, 시군구는 회색으로 구분 */
+  stroke:#222222;
+  stroke-width:.95;
+  opacity:.95;
+  vector-effect:non-scaling-stroke;
 }
 body.map-3d-enabled .amount-label-box {
   filter:drop-shadow(0 4px 3px rgba(0,0,0,.25));
@@ -1191,7 +1202,7 @@ body.map-3d-enabled .map-legend {
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.6.1</div>
+   <div class="app-version">Ver.1.6.2</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -4809,7 +4820,7 @@ if (document.readyState === 'loading') {
 
 
 
-// Ver.1.6.1: 달력 아이콘 숫자 자동 변경 + 지도 2D/3D 토글
+// Ver.1.6.2: 달력 아이콘 숫자 자동 변경 + 지도 2D/3D 토글
 function updateCalendarIconDay() {
   const title = document.getElementById('kmaForecastTime');
   if (!title) return;
