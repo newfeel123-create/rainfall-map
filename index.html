@@ -1129,7 +1129,7 @@
 
   .sound-mini-row {
     display:flex;
-    justify-content:center;
+    justify-content:flex-start;
     align-items:center;
     margin:-1px 0 2px 0;
     height:24px;
@@ -1168,7 +1168,7 @@
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.6.5-sound-b3</div>
+   <div class="app-version">Ver.1.6.5-sound</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -3079,6 +3079,13 @@ function applyForecastMatch() {
   box.innerHTML = matchedCount
     ? `매칭 완료: ${matchedCount}개 지역<br>${summaries.join('<br>')}`
     : '매칭된 지역이 없습니다. 지역명 표기를 확인해 주세요.';
+
+  // Ver.1.6.5-sound: 지도 매칭 적용 완료/실패 효과음
+  if (matchedCount > 0 && typeof window.playUiDoneSound === 'function') {
+    window.playUiDoneSound();
+  } else if (matchedCount === 0 && typeof window.playUiErrorSound === 'function') {
+    window.playUiErrorSound();
+  }
 }
 
 
@@ -4817,28 +4824,50 @@ if (document.readyState === 'loading') {
     return audioCtx;
   }
 
-  function playTone(type){
+  function uiVibrate(type){
+    if (soundEnabled) return;
+    if (!navigator.vibrate) return;
+    try {
+      if (type === 'done') navigator.vibrate([35, 25, 45]);
+      else if (type === 'save' || type === 'image') navigator.vibrate([22, 18, 22]);
+      else if (type === 'reset') navigator.vibrate(35);
+      else if (type === 'error') navigator.vibrate([60, 30, 60]);
+      else navigator.vibrate(18);
+    } catch(e) {}
+  }
+
+  function tone(freq1, freq2, duration, peak, wave){
     if (!soundEnabled) return;
     const ctx = getAudioCtx();
     if (!ctx) return;
-
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-
-    const isSave = type === 'save';
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(isSave ? 880 : 620, now);
-    osc.frequency.exponentialRampToValueAtTime(isSave ? 1175 : 760, now + (isSave ? 0.075 : 0.045));
-
+    osc.type = wave || 'sine';
+    osc.frequency.setValueAtTime(freq1, now);
+    if (freq2 && freq2 !== freq1) osc.frequency.exponentialRampToValueAtTime(freq2, now + Math.max(0.02, duration * 0.55));
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(isSave ? 0.08 : 0.045, now + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + (isSave ? 0.14 : 0.075));
-
+    gain.gain.exponentialRampToValueAtTime(peak || 0.045, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + (isSave ? 0.16 : 0.09));
+    osc.stop(now + duration + 0.02);
+  }
+
+  function playTone(type){
+    if (!soundEnabled) { uiVibrate(type); return; }
+
+    if (type === 'done') {
+      tone(660, 880, 0.11, 0.055, 'sine');
+      setTimeout(() => tone(880, 1175, 0.14, 0.065, 'sine'), 90);
+      return;
+    }
+    if (type === 'save') { tone(760, 1040, 0.15, 0.065, 'triangle'); return; }
+    if (type === 'image') { tone(520, 760, 0.10, 0.055, 'square'); return; }
+    if (type === 'reset') { tone(420, 260, 0.12, 0.045, 'sine'); return; }
+    if (type === 'error') { tone(240, 180, 0.12, 0.04, 'sawtooth'); return; }
+    tone(620, 760, 0.075, 0.04, 'sine');
   }
 
   function updateSoundButton(){
@@ -4849,7 +4878,9 @@ if (document.readyState === 'loading') {
     btn.classList.toggle('sound-off', !soundEnabled);
   }
 
-  window.playUiClickSound = playTone;
+  window.playUiClickSound = () => playTone('click');
+  window.playUiDoneSound = () => playTone('done');
+  window.playUiErrorSound = () => playTone('error');
 
   document.addEventListener('DOMContentLoaded', updateSoundButton);
   updateSoundButton();
@@ -4863,17 +4894,16 @@ if (document.readyState === 'loading') {
       localStorage.setItem(KEY, soundEnabled ? '1' : '0');
       updateSoundButton();
       if (soundEnabled) playTone('click');
+      else uiVibrate('click');
       return;
     }
 
-    if (btn.id === 'manualRegionSaveBtn' || btn.id === 'saveImageBtn') {
-      playTone('save');
-    } else {
-      playTone('click');
-    }
+    if (btn.id === 'saveImageBtn') playTone('image');
+    else if (btn.id === 'manualRegionSaveBtn') playTone('save');
+    else if (btn.id === 'clearBtn' || btn.id === 'manualRegionResetBtn') playTone('reset');
+    else playTone('click');
   }, true);
 })();
-
 </script>
 
 
