@@ -414,9 +414,9 @@
   }
 
   .kma-choice-buttons button {
-    flex:0 1 118px;
-    width:118px;
-    min-width:118px;
+    flex:0 1 128px;
+    width:128px;
+    min-width:128px;
     text-align:center;
   }
   .btns button {
@@ -441,7 +441,7 @@
   .kma-day-title { font-size:13px; margin-bottom:8px; }
   .kma-day-buttons { gap:8px; }
   .kma-day-buttons button { height:34px; font-size:14px; }
-  .kma-choice-buttons button { font-size:12px; padding:7px 8px; flex:0 1 98px; width:98px; min-width:98px; height:34px; }
+  .kma-choice-buttons button { font-size:12px; padding:7px 8px; flex:0 1 112px; width:112px; min-width:112px; height:34px; }
   textarea { height: 105px; font-size: 12px; border-radius:10px; }
   .btns { gap: 5px; margin-top:6px; justify-content:center; }
   .btns button { flex:1 1 calc(25% - 5px); width:auto; min-width:0; height:35px; padding:7px 4px; font-size:11.5px; }
@@ -982,7 +982,7 @@
   .manual-region-zones button[data-zone="제주도"]::before { content:'🌴'; }
 
   .manual-region-subtitle {
-    text-align:left !important;
+    text-align:center !important;
     padding-left:4px !important;
     color:var(--ui-deep) !important;
   }
@@ -1163,30 +1163,23 @@
 
 
 
-/* ===== Ver.1.8.1: 지도 리마스터 + 은은한 바다 배경 ===== */
+/* ===== Ver.1.8.2: 지도 리마스터 + 고정 바다 배경 ===== */
 .mapwrap {
-  background:linear-gradient(180deg,#DFF4FF 0%,#F7FBFF 48%,#EAF6FF 100%) !important;
+  background:linear-gradient(180deg,#F8FCFF 0%,#EDF8FF 45%,#E4F3FF 100%) !important;
   border:1px solid rgba(160,180,205,.55) !important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.95), 0 8px 22px rgba(31,71,130,.10) !important;
 }
 .mapwrap::before {
   content:"";
   position:absolute;
-  inset:-18%;
+  inset:0;
   z-index:0;
   pointer-events:none;
   background:
-    radial-gradient(ellipse at 18% 24%, rgba(255,255,255,.66) 0%, rgba(255,255,255,0) 34%),
-    radial-gradient(ellipse at 84% 72%, rgba(255,255,255,.45) 0%, rgba(255,255,255,0) 32%),
-    repeating-linear-gradient(135deg, rgba(255,255,255,.26) 0 10px, rgba(169,218,246,.16) 10px 22px, rgba(255,255,255,0) 22px 38px),
-    linear-gradient(180deg,#DDF3FF 0%,#F8FCFF 55%,#EAF7FF 100%);
-  background-size:160% 160%, 140% 140%, 220px 220px, 100% 100%;
-  opacity:.96;
-  animation:oceanDrift 22s ease-in-out infinite alternate;
-}
-@keyframes oceanDrift {
-  0% { transform:translate3d(-1.6%, -1.0%, 0) scale(1.01); background-position:0% 0%, 100% 100%, 0 0, 0 0; }
-  100% { transform:translate3d(1.6%, 1.0%, 0) scale(1.025); background-position:100% 38%, 0% 60%, 58px 42px, 0 0; }
+    radial-gradient(ellipse at 18% 24%, rgba(255,255,255,.58) 0%, rgba(255,255,255,0) 36%),
+    radial-gradient(ellipse at 84% 72%, rgba(255,255,255,.38) 0%, rgba(255,255,255,0) 34%),
+    linear-gradient(180deg,#F8FCFF 0%,#EDF8FF 46%,#E4F3FF 100%);
+  opacity:.98;
 }
 svg {
   position:relative;
@@ -1239,6 +1232,222 @@ svg {
   box-shadow:0 6px 18px rgba(15,23,42,.16) !important;
 }
 
+
+
+/* Compact KMA choice panel: match today/tomorrow/load card spacing */
+.kma-choice-panel {
+  min-height:0 !important;
+  margin-top:6px !important;
+  padding-top:6px !important;
+  border-top:1px solid #E5EDF8 !important;
+}
+.kma-choice-panel.no-buttons {
+  min-height:38px !important;
+  padding-top:0 !important;
+  margin-top:6px !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+.kma-choice-panel.no-buttons .kma-choice-title {
+  min-height:32px !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+.kma-choice-title {
+  margin-bottom:5px !important;
+  font-size:12px !important;
+  line-height:1.25 !important;
+}
+.kma-choice-buttons {
+  gap:6px !important;
+}
+.kma-choice-buttons button {
+  height:32px !important;
+  padding:5px 7px !important;
+  font-size:11.5px !important;
+}
+@media (max-width:768px) {
+  .kma-choice-panel {
+    margin-top:5px !important;
+    padding-top:5px !important;
+  }
+  .kma-choice-panel.no-buttons {
+    min-height:36px !important;
+  }
+  .kma-choice-title {
+    margin-bottom:4px !important;
+  }
+  .kma-choice-buttons {
+    gap:6px !important;
+  }
+  .kma-choice-buttons button {
+    height:31px !important;
+    padding:5px 6px !important;
+    font-size:11.5px !important;
+  }
+}
+
+
+/* ===== Text/icon center alignment fix ===== */
+@media (max-width:768px) {
+  .kma-day-buttons button,
+  .kma-choice-buttons button,
+  .btns button,
+  .manual-region-zones button,
+  .manual-region-buttons button,
+  .manual-region-actions button,
+  .manual-region-toggle {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+    line-height:1.15 !important;
+    box-sizing:border-box !important;
+  }
+
+  .kma-day-buttons button::before,
+  .kma-choice-buttons button::before {
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    line-height:1 !important;
+    margin:0 3px 0 0 !important;
+    transform:translateY(0) !important;
+  }
+
+  .btns button::before {
+    display:block !important;
+    line-height:1 !important;
+    margin:0 0 3px 0 !important;
+    transform:translateY(0) !important;
+  }
+
+  .btns button {
+    flex-direction:column !important;
+    gap:2px !important;
+  }
+
+  .manual-region-zones button::before {
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    line-height:1 !important;
+    margin:0 3px 0 0 !important;
+    transform:translateY(0) !important;
+  }
+}
+
+
+/* ===== Fixed choice box height + KMA button text position fix ===== */
+.kma-choice-panel {
+  height:86px !important;
+  min-height:86px !important;
+  max-height:86px !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+}
+.kma-choice-panel.active:not(.no-buttons) {
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+.kma-choice-panel.no-buttons {
+  height:86px !important;
+  min-height:86px !important;
+  max-height:86px !important;
+}
+.kma-choice-panel.active:not(.no-buttons) .kma-choice-title {
+  flex:0 0 auto !important;
+}
+.kma-choice-panel.active:not(.no-buttons) .kma-choice-buttons {
+  flex:0 0 auto !important;
+}
+
+@media (max-width:768px) {
+  .kma-choice-panel,
+  .kma-choice-panel.no-buttons {
+    height:86px !important;
+    min-height:86px !important;
+    max-height:86px !important;
+  }
+
+  .kma-day-buttons button,
+  .kma-choice-buttons button {
+    justify-content:center !important;
+    text-align:left !important;
+    padding-left:7px !important;
+    padding-right:6px !important;
+  }
+
+  .kma-day-buttons button::before,
+  .kma-choice-buttons button::before {
+    margin-right:3px !important;
+    flex:0 0 auto !important;
+  }
+}
+
+
+@media (max-width:768px){
+  .kma-day-buttons button span,
+  .kma-choice-buttons button span{
+    transform:translateX(-1px);
+  }
+}
+
+
+/* Ver.1.8.2 - subtle 1px optical left shift for KMA buttons */
+@media (max-width:768px){
+  .kma-day-buttons button,
+  .kma-choice-buttons button{
+    position:relative;
+    left:-1px;
+  }
+}
+
+
+/* Today button text micro-adjustment only */
+@media (max-width:768px){
+  #kmaTodayBtn{
+    transform:translateX(-2px);
+  }
+}
+
+
+/* Move KMA button labels 2px left */
+@media (max-width:768px){
+  #kmaTodayBtn,
+  #kmaTomorrowBtn,
+  #kmaLoadBtn,
+  #kmaChoiceRain,
+  #kmaChoiceShower,
+  #kmaChoiceBoth{
+    transform:translateX(-3px) !important;
+  }
+}
+
+
+/* KMA top/choice button content real left adjustment */
+@media (max-width:768px){
+  #kmaTodayBtn,
+  #kmaTomorrowBtn,
+  #kmaLoadBtn,
+  #kmaChoiceRain,
+  #kmaChoiceShower,
+  #kmaChoiceBoth{
+    text-indent:-5px !important;
+  }
+
+  #kmaTodayBtn::before,
+  #kmaTomorrowBtn::before,
+  #kmaLoadBtn::before,
+  #kmaChoiceRain::before,
+  #kmaChoiceShower::before,
+  #kmaChoiceBoth::before{
+    margin-left:-5px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1248,7 +1457,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.1</div>
+   <div class="app-version">Ver.1.8.2</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -4516,7 +4725,7 @@ if (saveImageBtn) {
 }
 
 
-// Ver.1.8.1: 접기 가능한 지역 수동 매칭 미리보기
+// Ver.1.8.2: 접기 가능한 지역 수동 매칭 미리보기
 const MANUAL_REGION_MENU = {
   '수도권': ['서울','인천','김포','강화','경기','경기내륙','경기북부','경기남부','경기동부','경기서부','경기서해안','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안','서해5도'],
   '강원도': ['강원도','강원내륙','강원북부','강원중부','강원남부','강원북부내륙','강원중부내륙','강원남부내륙','강원동해안','강원북부동해안','강원중부동해안','강원남부동해안','강원산지','강원북부산지','강원중부산지','강원남부산지'],
