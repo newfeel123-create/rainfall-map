@@ -520,6 +520,11 @@
     border-color:#000 !important;
     color:#fff !important;
   }
+  .manual-custom-sig.active {
+    background:#222 !important;
+    border-color:#000 !important;
+    color:#fff !important;
+  }
   .manual-region-included {
     margin-top:6px;
     font-size:10.5px;
@@ -3698,8 +3703,41 @@ function clearManualPreviewPaint() {
   });
 }
 
+const MANUAL_CUSTOM_REGION_STORAGE_KEY = 'kma_manual_custom_regions_v1';
+const MANUAL_CUSTOM_REGION_DEFAULTS = {
+  // 공식 예보구역은 아니지만 작업 편의용으로 직접 저장해서 쓰는 구역입니다.
+  '충남동부': ['공주시','논산시','계룡시','금산군']
+};
+const MANUAL_CUSTOM_REGION_CANDIDATES = {
+  '충남동부': ['천안시','공주시','아산시','논산시','계룡시','금산군','부여군','청양군','예산군','홍성군','당진시','서산시','태안군','보령시','서천군']
+};
+let manualCustomRegions = loadManualCustomRegions();
+let currentManualCustomRegion = '';
+let currentManualCustomSelected = new Set();
+
+function loadManualCustomRegions() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MANUAL_CUSTOM_REGION_STORAGE_KEY) || '{}');
+    return Object.assign({}, MANUAL_CUSTOM_REGION_DEFAULTS, saved || {});
+  } catch(e) {
+    return Object.assign({}, MANUAL_CUSTOM_REGION_DEFAULTS);
+  }
+}
+
+function saveManualCustomRegions() {
+  try {
+    localStorage.setItem(MANUAL_CUSTOM_REGION_STORAGE_KEY, JSON.stringify(manualCustomRegions));
+  } catch(e) {}
+}
+
+function getManualCustomSigs(regionName) {
+  const token = normText(regionName);
+  return manualCustomRegions[token] || null;
+}
+
 function getManualRegionPaths(regionName) {
   const token = normText(regionName);
+  const customSigs = getManualCustomSigs(token);
   const paths = [];
 
   document.querySelectorAll('.region').forEach(p => {
@@ -3707,13 +3745,21 @@ function getManualRegionPaths(regionName) {
     const sig = p.dataset.sig || p.dataset.name || '';
 
     let ok = false;
-    try { ok = regionMatchesToken(sido, sig, token); } catch(e) { ok = false; }
 
-    if (!ok) {
+    // 저장형 수동매칭이 있으면 저장된 시군구를 최우선 적용합니다.
+    if (customSigs && customSigs.length) {
+      ok = customSigs.some(v => sig === v || sig.startsWith(v));
+    }
+
+    if (!ok && !customSigs) {
+      try { ok = regionMatchesToken(sido, sig, token); } catch(e) { ok = false; }
+    }
+
+    if (!ok && !customSigs) {
       const sidoAlias = token === '강원도' ? '강원' : (token === '제주도' ? '제주' : token);
       if (sido === sidoAlias) ok = true;
     }
-    if (!ok && (sig === token || sig.startsWith(token))) ok = true;
+    if (!ok && !customSigs && (sig === token || sig.startsWith(token))) ok = true;
 
     if (ok) paths.push(p);
   });
@@ -3735,8 +3781,65 @@ function paintManualPreview(regionName) {
   const info = document.getElementById('manualRegionIncluded');
   if (info) {
     const names = paths.map(p => p.dataset.sig || p.dataset.name || '').filter(Boolean);
-    info.innerHTML = '<b>' + regionName + '</b><br>' + (names.length ? names.join(', ') : '매칭 지역 없음');
+    info.innerHTML = '<b>' + regionName + '</b><br>' + (names.length ? [...new Set(names)].join(', ') : '매칭 지역 없음');
   }
+}
+
+function renderManualCustomEditor(regionName) {
+  const info = document.getElementById('manualRegionIncluded');
+  if (!info) return;
+
+  currentManualCustomRegion = normText(regionName);
+  currentManualCustomSelected = new Set(getManualCustomSigs(currentManualCustomRegion) || []);
+  const candidates = MANUAL_CUSTOM_REGION_CANDIDATES[currentManualCustomRegion] || [];
+
+  const makeButtonHtml = name => {
+    const active = currentManualCustomSelected.has(name) ? 'active' : '';
+    return '<button type="button" class="manual-custom-sig ' + active + '" data-sig="' + name + '">' + name.replace(/시$|군$/,'') + '</button>';
+  };
+
+  info.innerHTML =
+    '<b>' + currentManualCustomRegion + ' 사용자 저장</b><br>' +
+    '<div style="margin:5px 0 6px 0;">원하는 시군을 누른 뒤 저장을 누르면 다음부터 기억됩니다.</div>' +
+    '<div id="manualCustomSigButtons" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px;">' +
+      candidates.map(makeButtonHtml).join('') +
+    '</div>' +
+    '<button id="manualCustomSaveBtn" type="button" style="width:100%;padding:6px 8px;border-radius:7px;background:#222;color:#fff;border-color:#000;font-weight:900;">현재 선택 저장</button>' +
+    '<div id="manualCustomSavedText" style="margin-top:5px;font-size:10.5px;color:#333;"></div>';
+
+  function refreshCustomText() {
+    const t = document.getElementById('manualCustomSavedText');
+    if (t) t.textContent = '현재 선택: ' + (Array.from(currentManualCustomSelected).join(', ') || '없음');
+  }
+
+  document.querySelectorAll('#manualCustomSigButtons .manual-custom-sig').forEach(btn => {
+    btn.onclick = () => {
+      const sig = btn.dataset.sig;
+      if (currentManualCustomSelected.has(sig)) {
+        currentManualCustomSelected.delete(sig);
+        btn.classList.remove('active');
+      } else {
+        currentManualCustomSelected.add(sig);
+        btn.classList.add('active');
+      }
+      manualCustomRegions[currentManualCustomRegion] = Array.from(currentManualCustomSelected);
+      paintManualPreview(currentManualCustomRegion);
+      renderManualCustomEditor(currentManualCustomRegion);
+    };
+  });
+
+  const saveBtn = document.getElementById('manualCustomSaveBtn');
+  if (saveBtn) {
+    saveBtn.onclick = () => {
+      manualCustomRegions[currentManualCustomRegion] = Array.from(currentManualCustomSelected);
+      saveManualCustomRegions();
+      paintManualPreview(currentManualCustomRegion);
+      renderManualCustomEditor(currentManualCustomRegion);
+      const t = document.getElementById('manualCustomSavedText');
+      if (t) t.textContent = '저장 완료: ' + (manualCustomRegions[currentManualCustomRegion].join(', ') || '없음');
+    };
+  }
+  refreshCustomText();
 }
 
 function renderManualRegionButtons(zone) {
@@ -3764,6 +3867,9 @@ function renderManualRegionButtons(zone) {
       document.querySelectorAll('#manualRegionButtons button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       paintManualPreview(region);
+      if (MANUAL_CUSTOM_REGION_CANDIDATES[normText(region)]) {
+        renderManualCustomEditor(region);
+      }
     };
     box.appendChild(btn);
   });
