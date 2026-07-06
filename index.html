@@ -1148,7 +1148,7 @@ body.map-3d-enabled .map-legend {
 }
 
 
-/* ===== Ver.1.6.4 recommended safe 2.5D map emboss upgrade =====
+/* ===== Ver.1.6.5 recommended safe 2.5D map emboss upgrade =====
    실제 3D(WebGL) 대신 오류 위험이 낮은 CSS/SVG 필터로
    3D ON/OFF 차이가 확실히 보이도록 강화합니다. */
 body.map-3d-enabled .mapwrap {
@@ -1275,13 +1275,61 @@ body.map-3d-enabled .map-legend {
   }
 }
 
+
+/* ===== Ver.1.6.5 safe mobile 3D patch =====
+   iOS/Safari에서 시군구 수백 개 path마다 filter를 걸면 오류/멈춤이 날 수 있어
+   개별 지역 필터는 끄고, 지도 전체/카드/라벨/범례만 안전하게 3D 느낌을 줍니다. */
+body.map-3d-enabled #regions,
+body.map-3d-enabled .region,
+body.map-3d-enabled .region.matched,
+body.map-3d-enabled .region:hover {
+  filter:none !important;
+}
+body.map-3d-enabled #viewport {
+  filter:drop-shadow(5px 8px 5px rgba(38,82,135,.24)) !important;
+}
+body.map-3d-enabled .region {
+  stroke:#3F4A55 !important;
+  stroke-width:.42 !important;
+  vector-effect:non-scaling-stroke !important;
+}
+body.map-3d-enabled .region.matched {
+  stroke:#263443 !important;
+  stroke-width:.50 !important;
+}
+body.map-3d-enabled .mapwrap {
+  background:linear-gradient(145deg,#DDF1FF 0%,#BCE3FF 52%,#EAF7FF 100%) !important;
+  box-shadow:inset 0 2px 8px rgba(255,255,255,.92), inset 0 -8px 16px rgba(35,89,150,.12), 0 12px 24px rgba(30,72,120,.22) !important;
+}
+body.map-3d-enabled .coastline {
+  filter:none !important;
+  stroke:#050505 !important;
+  stroke-width:1.08 !important;
+  opacity:1 !important;
+}
+body.map-3d-enabled .sido-boundary {
+  filter:none !important;
+  stroke:#111 !important;
+  stroke-width:.96 !important;
+  opacity:.98 !important;
+}
+body.map-3d-enabled .amount-label-box {
+  filter:drop-shadow(0 4px 4px rgba(0,0,0,.28)) !important;
+}
+body.map-3d-enabled .map-legend {
+  background:rgba(255,255,255,.96) !important;
+  border:1px solid rgba(255,255,255,.75) !important;
+  border-radius:16px !important;
+  box-shadow:0 10px 22px rgba(30,72,120,.22) !important;
+}
+
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.6.4</div>
+   <div class="app-version">Ver.1.6.5</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -4909,7 +4957,7 @@ if (document.readyState === 'loading') {
 
 
 
-// Ver.1.6.4: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
+// Ver.1.6.5: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
 function updateCalendarIconDay() {
   const title = document.getElementById('kmaForecastTime');
   if (!title) return;
