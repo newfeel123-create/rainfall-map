@@ -1,4 +1,4 @@
-<html lang="ko"><head>.
+<html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
@@ -1168,7 +1168,7 @@
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.6.5-sound</div>
+   <div class="app-version">Ver.1.7.0-sound</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -3080,7 +3080,7 @@ function applyForecastMatch() {
     ? `매칭 완료: ${matchedCount}개 지역<br>${summaries.join('<br>')}`
     : '매칭된 지역이 없습니다. 지역명 표기를 확인해 주세요.';
 
-  // Ver.1.6.5-sound: 지도 매칭 적용 완료/실패 효과음
+  // Ver.1.7.0: 지도 매칭 적용 완료/실패 효과음
   if (matchedCount > 0 && typeof window.playUiDoneSound === 'function') {
     window.playUiDoneSound();
   } else if (matchedCount === 0 && typeof window.playUiErrorSound === 'function') {
@@ -4792,7 +4792,7 @@ if (document.readyState === 'loading') {
 
 
 
-// Ver.1.6.5-sound: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
+// Ver.1.7.0: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
 function updateCalendarIconDay() {
   const title = document.getElementById('kmaForecastTime');
   if (!title) return;
@@ -4807,7 +4807,7 @@ if (document.readyState === 'loading') {
 
 
 
-// ===== Ver.1.6.5-sound 버튼 효과음 =====
+// ===== Ver.1.7.0 버튼 효과음 =====
 (function initButtonSound(){
   const KEY = 'rainMapButtonSoundEnabled';
   let soundEnabled = localStorage.getItem(KEY);
@@ -4859,14 +4859,12 @@ if (document.readyState === 'loading') {
     if (!soundEnabled) { uiVibrate(type); return; }
 
     if (type === 'done') {
+      // 매칭 적용 완료만 띠링 소리
       tone(660, 880, 0.11, 0.055, 'sine');
       setTimeout(() => tone(880, 1175, 0.14, 0.065, 'sine'), 90);
       return;
     }
-    if (type === 'save') { tone(760, 1040, 0.15, 0.065, 'triangle'); return; }
-    if (type === 'image') { tone(520, 760, 0.10, 0.055, 'square'); return; }
-    if (type === 'reset') { tone(420, 260, 0.12, 0.045, 'sine'); return; }
-    if (type === 'error') { tone(240, 180, 0.12, 0.04, 'sawtooth'); return; }
+    // 그 외 모든 버튼/동작은 같은 톡 소리
     tone(620, 760, 0.075, 0.04, 'sine');
   }
 
@@ -4880,7 +4878,7 @@ if (document.readyState === 'loading') {
 
   window.playUiClickSound = () => playTone('click');
   window.playUiDoneSound = () => playTone('done');
-  window.playUiErrorSound = () => playTone('error');
+  window.playUiErrorSound = () => playTone('click');
 
   document.addEventListener('DOMContentLoaded', updateSoundButton);
   updateSoundButton();
@@ -4898,10 +4896,8 @@ if (document.readyState === 'loading') {
       return;
     }
 
-    if (btn.id === 'saveImageBtn') playTone('image');
-    else if (btn.id === 'manualRegionSaveBtn') playTone('save');
-    else if (btn.id === 'clearBtn' || btn.id === 'manualRegionResetBtn') playTone('reset');
-    else playTone('click');
+    // 모든 버튼은 같은 톡 소리로 통일
+    playTone('click');
   }, true);
 })();
 </script>
