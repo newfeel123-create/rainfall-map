@@ -594,13 +594,219 @@
     white-space:nowrap;
   }
 
+
+
+/* ===== Ver.1.3.8 mobile UI polish: light blue premium style ===== */
+:root {
+  --ui-blue:#1976D2;
+  --ui-blue2:#0D6EFD;
+  --ui-sky:#EAF4FF;
+  --ui-line:#D8E2F0;
+  --ui-text:#1F2A3D;
+  --ui-muted:#5F6B7A;
+  --ui-yellow:#FFE681;
+  --ui-yellow-line:#F2B600;
+  --ui-card:#FFFFFF;
+}
+
+@media (max-width: 768px) {
+  html, body {
+    background:linear-gradient(180deg,#F6FAFF 0%,#FFFFFF 55%,#F8FBFF 100%) !important;
+  }
+  .side {
+    background:#F7FAFE !important;
+    padding:calc(8px + env(safe-area-inset-top)) 8px 8px 8px !important;
+    border-bottom:1px solid var(--ui-line) !important;
+  }
+  .side h1 {
+    color:var(--ui-text) !important;
+    letter-spacing:-0.4px;
+  }
+  .app-version {
+    color:#7A8797 !important;
+  }
+  .kma-day-panel {
+    min-height:86px;
+    background:rgba(255,255,255,.92) !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:18px !important;
+    box-shadow:0 4px 14px rgba(31,71,130,.08) !important;
+  }
+  .kma-day-title {
+    color:var(--ui-text) !important;
+    font-size:14px !important;
+    letter-spacing:-0.4px;
+  }
+  .kma-day-buttons button,
+  .kma-choice-buttons button,
+  .btns button {
+    background:#FFFFFF !important;
+    border:1px solid #C8D6E8 !important;
+    color:var(--ui-blue) !important;
+    border-radius:14px !important;
+    box-shadow:0 2px 7px rgba(31,71,130,.05) !important;
+  }
+  .kma-day-buttons button.btn-active,
+  .kma-choice-buttons button.btn-active,
+  .btns button.btn-active,
+  #mapMoveToggle.map-unlocked {
+    background:linear-gradient(180deg,#FFE98A 0%,#FFD54F 100%) !important;
+    border-color:var(--ui-yellow-line) !important;
+    color:#1F2A3D !important;
+    box-shadow:0 0 0 3px rgba(255,213,79,.28), 0 4px 10px rgba(242,182,0,.14) !important;
+  }
+  #mapMoveToggle.map-locked {
+    background:#F2F5F9 !important;
+    color:#5C6675 !important;
+  }
+  textarea {
+    background:#FFFFFF !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:16px !important;
+    box-shadow:inset 0 1px 2px rgba(31,71,130,.04) !important;
+    color:var(--ui-text) !important;
+  }
+  .mapwrap {
+    border-top:1px solid var(--ui-line) !important;
+    border-bottom:1px solid var(--ui-line) !important;
+    background:#FFFFFF !important;
+  }
+  .app > .manual-region-panel {
+    width:calc(100% - 16px) !important;
+    margin:10px 8px 12px 8px !important;
+  }
+  .manual-region-panel {
+    background:linear-gradient(180deg,#FFFFFF 0%,#F8FBFF 100%) !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:20px !important;
+    padding:10px !important;
+    box-shadow:0 6px 18px rgba(31,71,130,.10) !important;
+  }
+  .manual-region-toggle {
+    height:44px !important;
+    background:#FFFFFF !important;
+    border:1px solid #C8D6E8 !important;
+    color:var(--ui-blue) !important;
+    font-size:15px !important;
+    border-radius:16px !important;
+    box-shadow:0 2px 8px rgba(31,71,130,.05) !important;
+  }
+  .manual-region-body {
+    margin-top:10px !important;
+  }
+  .manual-region-zones {
+    gap:8px !important;
+    margin-bottom:10px !important;
+  }
+  .manual-region-zones button {
+    min-height:40px !important;
+    border-radius:14px !important;
+    background:#FFFFFF !important;
+    border:1px solid #C8D6E8 !important;
+    color:var(--ui-blue) !important;
+    font-size:13px !important;
+    box-shadow:0 2px 7px rgba(31,71,130,.05) !important;
+  }
+  .manual-region-zones button.active {
+    background:linear-gradient(180deg,#FFF2A8 0%,#FFE06A 100%) !important;
+    border-color:var(--ui-yellow-line) !important;
+    color:#1F2A3D !important;
+    box-shadow:0 0 0 3px rgba(255,213,79,.25) !important;
+  }
+  .manual-region-subtitle {
+    color:var(--ui-text) !important;
+    font-size:13px !important;
+    font-weight:900 !important;
+    margin:8px 0 8px 0 !important;
+  }
+  .manual-region-buttons {
+    gap:8px !important;
+    max-height:220px !important;
+    padding-right:0 !important;
+  }
+  .manual-region-buttons button {
+    min-height:40px !important;
+    padding:8px 6px !important;
+    border-radius:13px !important;
+    background:#FFFFFF !important;
+    border:1px solid var(--ui-line) !important;
+    color:#1E5FAE !important;
+    font-size:12.5px !important;
+    box-shadow:0 2px 8px rgba(31,71,130,.045) !important;
+  }
+  .manual-region-buttons button.active {
+    background:linear-gradient(180deg,#FFF5B7 0%,#FFE681 100%) !important;
+    border-color:var(--ui-yellow-line) !important;
+    color:#1E293B !important;
+    box-shadow:0 0 0 3px rgba(255,213,79,.22) !important;
+  }
+  .manual-region-included {
+    margin-top:10px !important;
+    padding:12px 14px !important;
+    max-height:180px !important;
+    background:linear-gradient(180deg,#FFFFFF 0%,#F7FBFF 100%) !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:16px !important;
+    color:var(--ui-muted) !important;
+    font-size:12.5px !important;
+    line-height:1.55 !important;
+    box-shadow:inset 0 1px 1px rgba(31,71,130,.03) !important;
+  }
+  .manual-region-included b,
+  .manual-region-included strong {
+    color:var(--ui-blue) !important;
+    font-size:15px !important;
+    letter-spacing:-0.5px;
+  }
+  .manual-region-actions {
+    gap:8px !important;
+    margin-top:10px !important;
+    flex-wrap:wrap;
+  }
+  .manual-region-actions button {
+    min-height:43px !important;
+    border-radius:14px !important;
+    font-size:13px !important;
+    box-shadow:0 2px 8px rgba(31,71,130,.06) !important;
+  }
+  #manualAliasBtn,
+  .manual-region-alias-save {
+    background:#EAF4FF !important;
+    border-color:#BBD7F8 !important;
+    color:var(--ui-blue) !important;
+  }
+  .manual-region-save {
+    background:linear-gradient(180deg,#2387F5 0%,#0D6EFD 100%) !important;
+    border-color:#0B61E6 !important;
+    color:#FFFFFF !important;
+  }
+  .manual-region-reset {
+    background:#F3F6FA !important;
+    border-color:#CBD5E1 !important;
+    color:#344054 !important;
+  }
+  .manual-region-alias-row {
+    gap:8px !important;
+    margin-top:9px !important;
+  }
+  .manual-region-alias-row input {
+    min-height:39px !important;
+    border-radius:13px !important;
+    border:1px solid #C8D6E8 !important;
+    background:#FFFFFF !important;
+    color:var(--ui-text) !important;
+    font-size:12px !important;
+    padding:8px 10px !important;
+  }
+}
+
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.4.9</div>
+   <div class="app-version">Ver.1.3.8</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
