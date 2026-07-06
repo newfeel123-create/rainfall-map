@@ -850,13 +850,227 @@
   }
 }
 
+
+
+/* ===== Ver.1.6.0 mobile icon polish / app-like UI ===== */
+@media (max-width: 768px) {
+  :root {
+    --ui-deep:#0B1F4D;
+    --ui-primary:#1677EE;
+    --ui-primary2:#0D6EFD;
+    --ui-cyan:#13A8B5;
+    --ui-soft:#F5F9FF;
+    --ui-soft2:#EEF6FF;
+    --ui-border:#D8E3F2;
+    --ui-shadow:0 8px 24px rgba(28,72,132,.10);
+    --ui-shadow-sm:0 3px 10px rgba(28,72,132,.07);
+  }
+
+  body { background:linear-gradient(180deg,#F7FBFF 0%,#FFFFFF 52%,#F7FAFF 100%) !important; }
+
+  .side h1 {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:8px !important;
+    margin-top:4px !important;
+    color:var(--ui-deep) !important;
+    font-size:21px !important;
+    font-weight:900 !important;
+    letter-spacing:-1px !important;
+  }
+  .side h1::before {
+    content:'☁️';
+    width:34px;
+    height:34px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    background:linear-gradient(180deg,#EAF4FF,#FFFFFF);
+    box-shadow:var(--ui-shadow-sm);
+    font-size:22px;
+  }
+  .app-version {
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    padding:4px 11px !important;
+    margin:4px auto 8px auto !important;
+    width:max-content !important;
+    border-radius:999px !important;
+    background:linear-gradient(180deg,#E8F1FF,#DDEBFF) !important;
+    color:#164483 !important;
+    font-weight:900 !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.9) !important;
+  }
+
+  .kma-day-panel,
+  textarea,
+  .btns,
+  .mapwrap,
+  .manual-region-panel {
+    box-shadow:var(--ui-shadow) !important;
+  }
+
+  .kma-day-title {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:7px !important;
+    font-size:15px !important;
+    color:var(--ui-deep) !important;
+  }
+  .kma-day-title::before { content:'📅'; font-size:18px; }
+
+  button {
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease !important;
+  }
+  button:active { transform:scale(.985); }
+
+  #kmaTodayBtn::before { content:'☀️ '; }
+  #kmaTomorrowBtn::before { content:'🗓️ '; }
+  #kmaLoadBtn::before { content:'📋 '; }
+  #kmaChoiceRain::before { content:'🌧️ '; }
+  #kmaChoiceShower::before { content:'⚡ '; }
+  #kmaChoiceBoth::before { content:'🌦️ '; }
+
+  #pasteMatchBtn::before { content:'📋'; display:block; font-size:20px; line-height:1; margin-bottom:2px; }
+  #clearBtn::before { content:'🔄'; display:block; font-size:20px; line-height:1; margin-bottom:2px; }
+  #saveImageBtn::before { content:'⬇️'; display:block; font-size:20px; line-height:1; margin-bottom:2px; }
+  #mapMoveToggle::before { content:'🎯'; display:block; font-size:20px; line-height:1; margin-bottom:2px; }
+
+  .btns button {
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:2px !important;
+    height:58px !important;
+    line-height:1.1 !important;
+    color:var(--ui-deep) !important;
+    background:linear-gradient(180deg,#FFFFFF,#F6F9FE) !important;
+  }
+  #mapMoveToggle.map-locked {
+    background:linear-gradient(180deg,#F3F5F8,#E9EEF5) !important;
+  }
+
+  .manual-region-toggle {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:8px !important;
+    color:var(--ui-deep) !important;
+    font-size:17px !important;
+  }
+  .manual-region-toggle::before { content:'🗺️'; font-size:20px; }
+
+  .manual-region-zones button,
+  .manual-region-buttons button {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:6px !important;
+  }
+  .manual-region-zones button[data-zone="수도권"]::before { content:'🏙️'; }
+  .manual-region-zones button[data-zone="강원도"]::before { content:'⛰️'; }
+  .manual-region-zones button[data-zone="충청권"]::before { content:'🏛️'; }
+  .manual-region-zones button[data-zone="전라권"]::before { content:'🏯'; }
+  .manual-region-zones button[data-zone="경상권"]::before { content:'🏢'; }
+  .manual-region-zones button[data-zone="제주도"]::before { content:'🌴'; }
+
+  .manual-region-subtitle {
+    text-align:left !important;
+    padding-left:4px !important;
+    color:var(--ui-deep) !important;
+  }
+  .manual-region-subtitle::before { content:'선택 '; color:var(--ui-primary); }
+
+  .manual-region-included {
+    position:relative !important;
+    overflow:hidden !important;
+  }
+  .manual-region-included::before {
+    content:'';
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:4px;
+    background:linear-gradient(180deg,var(--ui-primary),#7BB8FF);
+  }
+  .manual-region-included strong,
+  .manual-region-included b {
+    display:inline-block !important;
+    margin-bottom:5px !important;
+  }
+
+  #manualRegionAliasBtn,
+  #manualAliasBtn,
+  .manual-region-alias-save {
+    background:linear-gradient(180deg,#F2F8FF,#E7F1FF) !important;
+    border-color:#B9D5F6 !important;
+    color:var(--ui-primary) !important;
+  }
+  #manualRegionAliasBtn::before { content:'✏️ '; }
+  #manualRegionSaveBtn::before { content:'💾 '; }
+  #manualRegionResetBtn::before { content:'↻ '; }
+
+  .manual-region-save {
+    background:linear-gradient(180deg,#1685FF 0%,#006DF5 100%) !important;
+    color:#fff !important;
+    border-color:#0068DF !important;
+    box-shadow:0 7px 16px rgba(13,110,253,.22) !important;
+  }
+  .manual-region-reset {
+    background:linear-gradient(180deg,#FFFFFF,#F1F4F8) !important;
+  }
+
+  .mapwrap::after {
+    content:'ⓘ 지도를 터치하면 해당 지역을 선택할 수 있습니다.';
+    position:absolute;
+    left:8px;
+    right:8px;
+    bottom:-48px;
+    min-height:34px;
+    display:none;
+    align-items:center;
+    padding:0 12px;
+    border-radius:14px;
+    background:#EEF6FF;
+    color:#245181;
+    font-size:12px;
+    box-sizing:border-box;
+  }
+
+  .rain-row {
+    gap:8px !important;
+    font-weight:800 !important;
+  }
+  .chip {
+    border-radius:4px !important;
+    border:0 !important;
+    box-shadow:0 1px 3px rgba(0,0,0,.15) !important;
+  }
+
+  .kma-choice-panel {
+    border-top:1px solid #E5EDF8 !important;
+  }
+
+  textarea {
+    line-height:1.42 !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .side h1::before { content:'☁️ '; }
+}
+
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.5.2</div>
+   <div class="app-version">Ver.1.6.0</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
