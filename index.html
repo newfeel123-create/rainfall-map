@@ -462,13 +462,44 @@
 
 
   #matchResult { display:none !important; }
+
+  /* 시도선 굵기 슬라이더 - 수동 색상 아래 길게 */
+  #sidoLinePanel {
+    border:1px solid #d0d7de;
+    background:#f8fafc;
+    border-radius:10px;
+    padding:7px 8px;
+    margin:7px 0 0 0;
+    box-sizing:border-box;
+  }
+  #sidoLinePanel .sido-line-title {
+    font-weight:900;
+    font-size:12px;
+    margin-bottom:5px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+  }
+  #sidoWidthValue {
+    font-size:11px;
+    font-weight:900;
+    color:#111;
+  }
+  #sidoWidthRange {
+    width:100%;
+    height:18px;
+    margin:0;
+    display:block;
+  }
+
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.1.8</div>
+   <div class="app-version">Ver.1.2.1</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
@@ -503,6 +534,14 @@
         <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
       </div>
       <div class="manual-color-grid" id="manualColorGrid"></div>
+    </div>
+
+    <div id="sidoLinePanel">
+      <div class="sido-line-title">
+        <span>시도선 굵기</span>
+        <span id="sidoWidthValue">0.85</span>
+      </div>
+      <input id="sidoWidthRange" type="range" min="0.5" max="2.5" step="0.05" value="0.85">
     </div>
 
     <div id="matchResult" class="small" style="display:none;margin-top:0;line-height:1.55;"></div>
@@ -739,6 +778,30 @@ function render() {
 render();
 renderCoastline();
 renderSidoBoundaries();
+
+// 시도 경계선 굵기 수동 조절
+function applySidoBoundaryWidth(width) {
+  const w = String(width || '0.85');
+  document.querySelectorAll('.sido-boundary').forEach(p => {
+    p.style.strokeWidth = w;
+  });
+  const v = document.getElementById('sidoWidthValue');
+  if (v) v.textContent = w;
+}
+function initSidoBoundaryWidthControl() {
+  const range = document.getElementById('sidoWidthRange');
+  if (!range) return;
+  const saved = localStorage.getItem('kmaSidoBoundaryWidth') || range.value || '0.85';
+  range.value = saved;
+  applySidoBoundaryWidth(saved);
+  range.addEventListener('input', () => {
+    localStorage.setItem('kmaSidoBoundaryWidth', range.value);
+    applySidoBoundaryWidth(range.value);
+  });
+}
+initSidoBoundaryWidthControl();
+
+
 
 // 강수량 구간별 고유 색 인덱스
 // 핵심: 최대값 기준이 아니라 "10~60mm", "20~60mm" 같은 수치 문자열 자체를 서로 다른 색으로 배정합니다.
