@@ -596,7 +596,7 @@
 
 
 
-/* ===== Ver.1.3.8 mobile UI polish: light blue premium style ===== */
+/* ===== Ver.1.5.0 mobile UI polish: map first + manual matching below ===== */
 :root {
   --ui-blue:#1976D2;
   --ui-blue2:#0D6EFD;
@@ -800,13 +800,63 @@
   }
 }
 
+
+/* ===== Ver.1.5.0 extra mobile card layout ===== */
+@media (max-width: 768px) {
+  .side {
+    border-bottom:0 !important;
+  }
+  .mapcol {
+    padding:0 8px 0 8px !important;
+    box-sizing:border-box !important;
+  }
+  .mapwrap {
+    width:100% !important;
+    height:88vw !important;
+    min-height:350px !important;
+    max-height:560px !important;
+    margin:8px 0 10px 0 !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:20px !important;
+    background:linear-gradient(180deg,#EAF6FF 0%,#FFFFFF 100%) !important;
+    box-shadow:0 6px 18px rgba(31,71,130,.10) !important;
+  }
+  .map-legend {
+    right:10px !important;
+    bottom:10px !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:14px !important;
+    background:rgba(255,255,255,.94) !important;
+    box-shadow:0 5px 16px rgba(31,71,130,.12) !important;
+  }
+  .btns {
+    display:grid !important;
+    grid-template-columns:repeat(4, 1fr) !important;
+    gap:8px !important;
+    padding:8px !important;
+    margin:8px 0 0 0 !important;
+    background:#FFFFFF !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:18px !important;
+    box-shadow:0 4px 14px rgba(31,71,130,.08) !important;
+  }
+  .btns button {
+    height:46px !important;
+    font-size:12px !important;
+    padding:6px 3px !important;
+  }
+  .app > .manual-region-panel {
+    margin:0 8px 14px 8px !important;
+  }
+}
+
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <h1 style="text-align:center;">기상청 예상강수량 지도</h1>
-   <div class="app-version">Ver.1.3.8</div>
+   <div class="app-version">Ver.1.5.0</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title">예보 발표 시간 확인 중</div>
