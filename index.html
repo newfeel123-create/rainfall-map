@@ -454,11 +454,15 @@
   .mountain-symbol { font-size:21px; }
 }
 
-  /* 모바일에서는 수동 색상 인덱스를 지도 아래로 이동해서 보이게 합니다. */
-  .app > .manual-color-panel {
+  /* 모바일에서는 수동 색상 + 지역 수동 매칭을 지도 아래로 이동해서 보이게 합니다. */
+  .app > .manual-color-panel,
+  .app > .manual-region-panel {
     width:calc(100% - 16px);
     margin:8px;
     box-sizing:border-box;
+  }
+  .app > .manual-region-panel {
+    margin-top:0;
   }
 
 
@@ -520,11 +524,6 @@
     border-color:#000 !important;
     color:#fff !important;
   }
-  .manual-custom-sig.active {
-    background:#222 !important;
-    border-color:#000 !important;
-    color:#fff !important;
-  }
   .manual-region-included {
     margin-top:6px;
     font-size:10.5px;
@@ -537,6 +536,27 @@
     max-height:72px;
     overflow:auto;
     word-break:keep-all;
+  }
+
+  .manual-region-actions {
+    display:flex;
+    gap:5px;
+    margin-top:6px;
+  }
+  .manual-region-actions button {
+    flex:1 1 0;
+    font-size:11px;
+    padding:5px 4px;
+    border-radius:7px;
+    white-space:nowrap;
+  }
+  .manual-region-save {
+    background:#111 !important;
+    color:#fff !important;
+    border-color:#000 !important;
+  }
+  .manual-region-reset {
+    background:#fff !important;
   }
 
 </style>
@@ -599,6 +619,10 @@
         <div class="manual-region-subtitle" id="manualRegionSubtitle">권역을 선택하세요</div>
         <div class="manual-region-buttons" id="manualRegionButtons"></div>
         <div class="manual-region-included" id="manualRegionIncluded">권역을 누른 뒤 지역을 누르면 검정색으로 확인 표시됩니다.</div>
+        <div class="manual-region-actions" id="manualRegionActions">
+          <button id="manualRegionSaveBtn" type="button" class="manual-region-save">현재 선택 저장</button>
+          <button id="manualRegionResetBtn" type="button" class="manual-region-reset">기본값 복귀</button>
+        </div>
       </div>
     </div>
 
@@ -838,6 +862,11 @@ function render() {
     });
     p.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
     p.addEventListener('click', () => {
+      // 지역 수동 매칭에서 예보구역을 선택한 상태면 지도 클릭으로 지역을 추가/해제합니다.
+      if (typeof toggleManualRegionPathFromMap === 'function' && currentManualRegionName) {
+        if (toggleManualRegionPathFromMap(p)) return;
+      }
+
       // Ver.1.3.5
       // 수동 색상이 선택되지 않았을 때는 지도 클릭으로 색이 들어가지 않게 합니다.
       if (!selectedManualColor) return;
@@ -936,27 +965,34 @@ const manualColorOff = document.getElementById('manualColorOff');
 if (manualColorOff) manualColorOff.addEventListener('click', clearManualColorSelection);
 
 
-function relocateManualColorPanelForMobile() {
-  const panel = document.getElementById('manualColorPanel');
+function relocateManualPanelsForMobile() {
+  const colorPanel = document.getElementById('manualColorPanel');
+  const regionPanel = document.getElementById('manualRegionPanel');
   const side = document.querySelector('.side');
   const mapcol = document.querySelector('.mapcol');
   const btns = document.querySelector('.btns');
-  if (!panel || !side || !mapcol || !btns) return;
+  if (!colorPanel || !regionPanel || !side || !mapcol || !btns) return;
 
   if (window.matchMedia('(max-width: 768px)').matches) {
-    // 휴대폰: 지도 아래에 수동 색상 인덱스 표시
-    if (panel.parentElement !== mapcol.parentElement || panel.previousElementSibling !== mapcol) {
-      mapcol.parentElement.insertBefore(panel, mapcol.nextSibling);
+    // 휴대폰: 지도 아래에 수동 색상 → 지역 수동 매칭 순서로 표시
+    if (colorPanel.parentElement !== mapcol.parentElement || colorPanel.previousElementSibling !== mapcol) {
+      mapcol.parentElement.insertBefore(colorPanel, mapcol.nextSibling);
+    }
+    if (regionPanel.parentElement !== mapcol.parentElement || regionPanel.previousElementSibling !== colorPanel) {
+      colorPanel.parentElement.insertBefore(regionPanel, colorPanel.nextSibling);
     }
   } else {
-    // PC: 기존처럼 왼쪽 버튼 아래에 유지
-    if (panel.parentElement !== side || panel.previousElementSibling !== btns) {
-      side.insertBefore(panel, btns.nextSibling);
+    // PC: 왼쪽 버튼 아래에 수동 색상 → 지역 수동 매칭 순서로 유지
+    if (colorPanel.parentElement !== side || colorPanel.previousElementSibling !== btns) {
+      side.insertBefore(colorPanel, btns.nextSibling);
+    }
+    if (regionPanel.parentElement !== side || regionPanel.previousElementSibling !== colorPanel) {
+      side.insertBefore(regionPanel, colorPanel.nextSibling);
     }
   }
 }
-relocateManualColorPanelForMobile();
-window.addEventListener('resize', relocateManualColorPanelForMobile);
+relocateManualPanelsForMobile();
+window.addEventListener('resize', relocateManualPanelsForMobile);
 
 
 function maxRainValue(amount) {
@@ -1377,9 +1413,32 @@ function regionMatchesDirectMap(sido, sig, token) {
   return inList(sido, sig, rule.sido, rule.sigs);
 }
 
-function regionMatchesToken(sido, sig, token) {
+
+// 수동매칭에서 저장한 예보구역 구성은 자동 예보문 매칭에도 우선 적용합니다.
+// 예: '서울' 버튼에서 다른 시군을 추가하고 저장하면, 예보문 '서울: 5mm' 입력 시 저장된 지역을 칠합니다.
+function regionMatchesSavedManualOverride(sido, sig, code, token) {
+  token = normText(token);
+  if (!token || typeof localStorage === 'undefined') return null;
+
+  try {
+    const raw = localStorage.getItem('kmaManualRegionOverride_v1_' + token);
+    if (!raw) return null;
+    const ids = JSON.parse(raw);
+    if (!Array.isArray(ids)) return null;
+
+    const id = (sido || '') + '|' + (sig || '') + '|' + (code || '');
+    return ids.includes(id);
+  } catch(e) {
+    return null;
+  }
+}
+
+function regionMatchesToken(sido, sig, token, code) {
   token = normText(token);
   if (!token || token === '__NO_MATCH__') return false;
+
+  const savedManualMatch = regionMatchesSavedManualOverride(sido, sig, code, token);
+  if (savedManualMatch !== null) return savedManualMatch;
 
   // Ver.1.3.5: 예보구역 직접 매칭 우선
   if (regionMatchesDirectMap(sido, sig, token)) return true;
@@ -2406,7 +2465,7 @@ function applyForecastMatch() {
         document.querySelectorAll('.region').forEach(el => {
           const sido = el.dataset.sido || '';
           const sig = el.dataset.sig || el.dataset.name || '';
-          if (regionMatchesToken(sido, sig, token)) {
+          if (regionMatchesToken(sido, sig, token, el.dataset.code || '')) {
             // 뒤에 나온 세부 예보가 앞의 광역 예보보다 우선입니다.
             // 예: 인천 10~60mm 뒤에 서해5도 10~40mm가 나오면 서해5도는 10~40mm 색으로 덮어씁니다.
             el.classList.add('matched');
@@ -3216,6 +3275,9 @@ function resetMapContentsOnly() {
   const resultBox = document.getElementById('matchResult');
   if (resultBox) resultBox.textContent = '';
 
+  const forecastText = document.getElementById('forecastText');
+  if (forecastText) forecastText.value = '';
+
   // 오늘/내일, 예상 강수량/소나기/둘 다, 저장 버튼 등 노란 선택 표시 제거
   document.querySelectorAll('button.btn-active').forEach(btn => {
     btn.classList.remove('btn-active');
@@ -3691,6 +3753,76 @@ const MANUAL_REGION_MENU = {
   '제주도': ['제주도','제주도북부','제주도남부','제주도동부','제주도서부','제주도산지','제주도중산간','북부중산간','남부중산간']
 };
 
+
+let currentManualRegionName = '';
+let currentManualRegionPaths = [];
+
+function manualRegionStorageKey(regionName) {
+  return 'kmaManualRegionOverride_v1_' + normText(regionName);
+}
+
+function pathRegionId(p) {
+  return (p.dataset.sido || '') + '|' + (p.dataset.sig || p.dataset.name || '') + '|' + (p.dataset.code || '');
+}
+
+function getPathDisplayName(p) {
+  const sido = p.dataset.sido || '';
+  const sig = p.dataset.sig || p.dataset.name || '';
+  if (!sido) return sig;
+  if (!sig || sig === sido) return sido;
+  return sig;
+}
+
+function allRegionPaths() {
+  return Array.from(document.querySelectorAll('.region'));
+}
+
+function findPathById(id) {
+  return allRegionPaths().find(p => pathRegionId(p) === id) || null;
+}
+
+function getDefaultManualRegionPaths(regionName) {
+  const token = normText(regionName);
+  const paths = [];
+
+  document.querySelectorAll('.region').forEach(p => {
+    const sido = p.dataset.sido || '';
+    const sig = p.dataset.sig || p.dataset.name || '';
+
+    let ok = false;
+    try { ok = regionMatchesToken(sido, sig, token); } catch(e) { ok = false; }
+
+    if (!ok) {
+      const sidoAlias = token === '강원도' ? '강원' : (token === '제주도' ? '제주' : token);
+      if (sido === sidoAlias) ok = true;
+    }
+    if (!ok && (sig === token || sig.startsWith(token))) ok = true;
+
+    if (ok) paths.push(p);
+  });
+  return paths;
+}
+
+function getSavedManualRegionIds(regionName) {
+  try {
+    const raw = localStorage.getItem(manualRegionStorageKey(regionName));
+    const arr = raw ? JSON.parse(raw) : null;
+    return Array.isArray(arr) ? arr : null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function saveManualRegionIds(regionName, ids) {
+  try {
+    localStorage.setItem(manualRegionStorageKey(regionName), JSON.stringify(ids));
+  } catch(e) {}
+}
+
+function clearSavedManualRegion(regionName) {
+  try { localStorage.removeItem(manualRegionStorageKey(regionName)); } catch(e) {}
+}
+
 function clearManualPreviewPaint() {
   document.querySelectorAll('.region').forEach(p => {
     if (p.dataset.manualPreview === '1') {
@@ -3703,147 +3835,96 @@ function clearManualPreviewPaint() {
   });
 }
 
-const MANUAL_CUSTOM_REGION_STORAGE_KEY = 'kma_manual_custom_regions_v1';
-const MANUAL_CUSTOM_REGION_DEFAULTS = {
-  // 공식 예보구역은 아니지만 작업 편의용으로 직접 저장해서 쓰는 구역입니다.
-  '충남동부': ['공주시','논산시','계룡시','금산군']
-};
-const MANUAL_CUSTOM_REGION_CANDIDATES = {
-  '충남동부': ['천안시','공주시','아산시','논산시','계룡시','금산군','부여군','청양군','예산군','홍성군','당진시','서산시','태안군','보령시','서천군']
-};
-let manualCustomRegions = loadManualCustomRegions();
-let currentManualCustomRegion = '';
-let currentManualCustomSelected = new Set();
+function getManualRegionPaths(regionName) {
+  const savedIds = getSavedManualRegionIds(regionName);
+  if (savedIds) {
+    return savedIds.map(findPathById).filter(Boolean);
+  }
+  return getDefaultManualRegionPaths(regionName);
+}
 
-function loadManualCustomRegions() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(MANUAL_CUSTOM_REGION_STORAGE_KEY) || '{}');
-    return Object.assign({}, MANUAL_CUSTOM_REGION_DEFAULTS, saved || {});
-  } catch(e) {
-    return Object.assign({}, MANUAL_CUSTOM_REGION_DEFAULTS);
+function paintOneManualPath(p) {
+  if (p.dataset.manualPreview !== '1') {
+    p.dataset.manualOldFill = p.style.fill || '';
+    p.dataset.manualOldMatched = p.classList.contains('matched') ? '1' : '0';
+    p.dataset.manualPreview = '1';
+  }
+  p.classList.add('matched');
+  p.style.fill = '#000000';
+}
+
+function unpaintOneManualPath(p) {
+  if (p.dataset.manualPreview === '1') {
+    p.style.fill = p.dataset.manualOldFill || '';
+    p.classList.toggle('matched', p.dataset.manualOldMatched === '1');
+    delete p.dataset.manualPreview;
+    delete p.dataset.manualOldFill;
+    delete p.dataset.manualOldMatched;
   }
 }
 
-function saveManualCustomRegions() {
-  try {
-    localStorage.setItem(MANUAL_CUSTOM_REGION_STORAGE_KEY, JSON.stringify(manualCustomRegions));
-  } catch(e) {}
-}
-
-function getManualCustomSigs(regionName) {
-  const token = normText(regionName);
-  return manualCustomRegions[token] || null;
-}
-
-function getManualRegionPaths(regionName) {
-  const token = normText(regionName);
-  const customSigs = getManualCustomSigs(token);
-  const paths = [];
-
-  document.querySelectorAll('.region').forEach(p => {
-    const sido = p.dataset.sido || '';
-    const sig = p.dataset.sig || p.dataset.name || '';
-
-    let ok = false;
-
-    // 저장형 수동매칭이 있으면 저장된 시군구를 최우선 적용합니다.
-    if (customSigs && customSigs.length) {
-      ok = customSigs.some(v => sig === v || sig.startsWith(v));
-    }
-
-    if (!ok && !customSigs) {
-      try { ok = regionMatchesToken(sido, sig, token); } catch(e) { ok = false; }
-    }
-
-    if (!ok && !customSigs) {
-      const sidoAlias = token === '강원도' ? '강원' : (token === '제주도' ? '제주' : token);
-      if (sido === sidoAlias) ok = true;
-    }
-    if (!ok && !customSigs && (sig === token || sig.startsWith(token))) ok = true;
-
-    if (ok) paths.push(p);
-  });
-  return paths;
+function updateManualRegionInfo() {
+  const info = document.getElementById('manualRegionIncluded');
+  if (!info || !currentManualRegionName) return;
+  const names = currentManualRegionPaths.map(getPathDisplayName).filter(Boolean);
+  const saved = getSavedManualRegionIds(currentManualRegionName) ? ' <span style="color:#d00;font-weight:900;">저장됨</span>' : '';
+  info.innerHTML = '<b>' + currentManualRegionName + '</b>' + saved + '<br>' +
+    (names.length ? names.join(', ') : '매칭 지역 없음') +
+    '<br><span style="color:#666;">지도에서 시군구를 누르면 추가/해제됩니다.</span>';
 }
 
 function paintManualPreview(regionName) {
   clearManualPreviewPaint();
-  const paths = getManualRegionPaths(regionName);
+  currentManualRegionName = regionName;
+  currentManualRegionPaths = getManualRegionPaths(regionName);
 
-  paths.forEach(p => {
-    p.dataset.manualOldFill = p.style.fill || '';
-    p.dataset.manualOldMatched = p.classList.contains('matched') ? '1' : '0';
-    p.dataset.manualPreview = '1';
-    p.classList.add('matched');
-    p.style.fill = '#000000';
-  });
-
-  const info = document.getElementById('manualRegionIncluded');
-  if (info) {
-    const names = paths.map(p => p.dataset.sig || p.dataset.name || '').filter(Boolean);
-    info.innerHTML = '<b>' + regionName + '</b><br>' + (names.length ? [...new Set(names)].join(', ') : '매칭 지역 없음');
-  }
+  currentManualRegionPaths.forEach(p => paintOneManualPath(p));
+  updateManualRegionInfo();
 }
 
-function renderManualCustomEditor(regionName) {
-  const info = document.getElementById('manualRegionIncluded');
-  if (!info) return;
+function toggleManualRegionPathFromMap(p) {
+  if (!currentManualRegionName) return false;
 
-  currentManualCustomRegion = normText(regionName);
-  currentManualCustomSelected = new Set(getManualCustomSigs(currentManualCustomRegion) || []);
-  const candidates = MANUAL_CUSTOM_REGION_CANDIDATES[currentManualCustomRegion] || [];
+  const id = pathRegionId(p);
+  const idx = currentManualRegionPaths.findIndex(x => pathRegionId(x) === id);
 
-  const makeButtonHtml = name => {
-    const active = currentManualCustomSelected.has(name) ? 'active' : '';
-    return '<button type="button" class="manual-custom-sig ' + active + '" data-sig="' + name + '">' + name.replace(/시$|군$/,'') + '</button>';
-  };
-
-  info.innerHTML =
-    '<b>' + currentManualCustomRegion + ' 사용자 저장</b><br>' +
-    '<div style="margin:5px 0 6px 0;">원하는 시군을 누른 뒤 저장을 누르면 다음부터 기억됩니다.</div>' +
-    '<div id="manualCustomSigButtons" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px;">' +
-      candidates.map(makeButtonHtml).join('') +
-    '</div>' +
-    '<button id="manualCustomSaveBtn" type="button" style="width:100%;padding:6px 8px;border-radius:7px;background:#222;color:#fff;border-color:#000;font-weight:900;">현재 선택 저장</button>' +
-    '<div id="manualCustomSavedText" style="margin-top:5px;font-size:10.5px;color:#333;"></div>';
-
-  function refreshCustomText() {
-    const t = document.getElementById('manualCustomSavedText');
-    if (t) t.textContent = '현재 선택: ' + (Array.from(currentManualCustomSelected).join(', ') || '없음');
+  if (idx >= 0) {
+    currentManualRegionPaths.splice(idx, 1);
+    unpaintOneManualPath(p);
+  } else {
+    currentManualRegionPaths.push(p);
+    paintOneManualPath(p);
   }
 
-  document.querySelectorAll('#manualCustomSigButtons .manual-custom-sig').forEach(btn => {
-    btn.onclick = () => {
-      const sig = btn.dataset.sig;
-      if (currentManualCustomSelected.has(sig)) {
-        currentManualCustomSelected.delete(sig);
-        btn.classList.remove('active');
-      } else {
-        currentManualCustomSelected.add(sig);
-        btn.classList.add('active');
-      }
-      manualCustomRegions[currentManualCustomRegion] = Array.from(currentManualCustomSelected);
-      paintManualPreview(currentManualCustomRegion);
-      renderManualCustomEditor(currentManualCustomRegion);
-    };
-  });
+  updateManualRegionInfo();
+  return true;
+}
 
-  const saveBtn = document.getElementById('manualCustomSaveBtn');
-  if (saveBtn) {
-    saveBtn.onclick = () => {
-      manualCustomRegions[currentManualCustomRegion] = Array.from(currentManualCustomSelected);
-      saveManualCustomRegions();
-      paintManualPreview(currentManualCustomRegion);
-      renderManualCustomEditor(currentManualCustomRegion);
-      const t = document.getElementById('manualCustomSavedText');
-      if (t) t.textContent = '저장 완료: ' + (manualCustomRegions[currentManualCustomRegion].join(', ') || '없음');
-    };
+function saveCurrentManualRegion() {
+  if (!currentManualRegionName) {
+    alert('먼저 저장할 지역 버튼을 눌러주세요.');
+    return;
   }
-  refreshCustomText();
+  const ids = currentManualRegionPaths.map(pathRegionId);
+  saveManualRegionIds(currentManualRegionName, ids);
+  updateManualRegionInfo();
+  alert(currentManualRegionName + ' 구성을 저장했습니다.');
+}
+
+function resetCurrentManualRegion() {
+  if (!currentManualRegionName) {
+    alert('먼저 기본값으로 돌릴 지역 버튼을 눌러주세요.');
+    return;
+  }
+  clearSavedManualRegion(currentManualRegionName);
+  paintManualPreview(currentManualRegionName);
+  alert(currentManualRegionName + ' 기본값으로 복귀했습니다.');
 }
 
 function renderManualRegionButtons(zone) {
   clearManualPreviewPaint();
+  currentManualRegionName = '';
+  currentManualRegionPaths = [];
 
   document.querySelectorAll('#manualRegionZones button').forEach(b => {
     b.classList.toggle('active', b.dataset.zone === zone);
@@ -3867,9 +3948,6 @@ function renderManualRegionButtons(zone) {
       document.querySelectorAll('#manualRegionButtons button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       paintManualPreview(region);
-      if (MANUAL_CUSTOM_REGION_CANDIDATES[normText(region)]) {
-        renderManualCustomEditor(region);
-      }
     };
     box.appendChild(btn);
   });
@@ -3891,6 +3969,12 @@ function initManualRegionPanel() {
   document.querySelectorAll('#manualRegionZones button').forEach(btn => {
     btn.onclick = () => renderManualRegionButtons(btn.dataset.zone);
   });
+
+  const saveBtn = document.getElementById('manualRegionSaveBtn');
+  if (saveBtn) saveBtn.onclick = saveCurrentManualRegion;
+
+  const resetBtn = document.getElementById('manualRegionResetBtn');
+  if (resetBtn) resetBtn.onclick = resetCurrentManualRegion;
 }
 
 if (document.readyState === 'loading') {
