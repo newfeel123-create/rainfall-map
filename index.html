@@ -1168,7 +1168,7 @@
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.6.5-sound-b3</div>
+   <div class="app-version">Ver.1.6.5-sound-b2</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -4334,7 +4334,8 @@ function saveCurrentMapImage() {
         }
         const pngUrl = URL.createObjectURL(blob);
         const d = new Date();
-        const fileName = `kma_map_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.png`;
+        const mapMode = document.body.classList.contains('map-3d-enabled') ? '3d' : '2d';
+        const fileName = `kma_map_${mapMode}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.png`;
         const a = document.createElement('a');
         a.href = pngUrl;
         a.download = fileName;
