@@ -1163,7 +1163,7 @@
 
 
 
-/* ===== Ver.1.8.2-v6 SIDO: 지도 리마스터 + 고정 바다 배경 ===== */
+/* ===== Ver.1.8.2-v6.1 SIDO: 지도 리마스터 + 고정 바다 배경 ===== */
 .mapwrap {
   background:linear-gradient(180deg,#F8FCFF 0%,#EDF8FF 45%,#E4F3FF 100%) !important;
   border:1px solid rgba(160,180,205,.55) !important;
@@ -1210,12 +1210,12 @@ svg {
   filter:drop-shadow(0 .6px 0 rgba(255,255,255,.65));
 }
 .sido-boundary {
-  stroke:#111827 !important;
-  stroke-width:1.45 !important;
-  opacity:.96 !important;
+  stroke:#374151 !important;
+  stroke-width:1.15 !important;
+  opacity:.82 !important;
   stroke-linejoin:round !important;
   stroke-linecap:round !important;
-  filter:drop-shadow(0 .6px 0 rgba(255,255,255,.85));
+  filter:drop-shadow(0 .45px 0 rgba(255,255,255,.75));
 }
 .amount-label-box {
   stroke:#111827 !important;
@@ -1396,7 +1396,7 @@ svg {
 }
 
 
-/* Ver.1.8.2-v6 SIDO - subtle 1px optical left shift for KMA buttons */
+/* Ver.1.8.2-v6.1 SIDO - subtle 1px optical left shift for KMA buttons */
 @media (max-width:768px){
   .kma-day-buttons button,
   .kma-choice-buttons button{
@@ -1457,7 +1457,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.2-v6 SIDO</div>
+   <div class="app-version">Ver.1.8.2-v6.1 SIDO</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -4586,10 +4586,10 @@ function saveCurrentMapImage() {
       .amount-label { font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:18px; font-weight:900; fill:#ffffff; stroke:#000000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; dominant-baseline:middle; }
       .mountain-triangle { stroke:#000; stroke-width:0.8; vector-effect:non-scaling-stroke; }
       .mountain-text { fill:#fff; stroke:#000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; font-family:'Malgun Gothic','맑은 고딕'; font-weight:900; font-size:18px; text-anchor:middle; dominant-baseline:middle; }
-      .region { stroke:#C2CBD8 !important; stroke-width:0.22 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
+      .region { stroke:#D9E1EA !important; stroke-width:0.16 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
       .region.matched { stroke:#5B6675 !important; stroke-width:0.34 !important; }
       .coastline { stroke:#0F2A44 !important; stroke-width:1.05 !important; opacity:.96 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
-      .sido-boundary { stroke:#263241 !important; stroke-width:1.18 !important; opacity:.96 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
+      .sido-boundary { stroke:#374151 !important; stroke-width:1.15 !important; opacity:.82 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
       .amount-label-box { stroke:#111827 !important; stroke-width:1.25 !important; }
 
     `;
@@ -4725,7 +4725,7 @@ if (saveImageBtn) {
 }
 
 
-// Ver.1.8.2-v6 SIDO: 접기 가능한 지역 수동 매칭 미리보기
+// Ver.1.8.2-v6.1 SIDO: 접기 가능한 지역 수동 매칭 미리보기
 const MANUAL_REGION_MENU = {
   '수도권': ['서울','인천','김포','강화','경기','경기내륙','경기북부','경기남부','경기동부','경기서부','경기서해안','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안','서해5도'],
   '강원도': ['강원도','강원내륙','강원북부','강원중부','강원남부','강원북부내륙','강원중부내륙','강원남부내륙','강원동해안','강원북부동해안','강원중부동해안','강원남부동해안','강원산지','강원북부산지','강원중부산지','강원남부산지'],
