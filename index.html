@@ -1546,6 +1546,35 @@ svg {
     display:none !important;
   }
 
+
+
+/* v7.19 Windows/Desktop: 창 크기에 따라 인덱스(범례)도 함께 확대 */
+@media (min-width: 769px) {
+  #mapLegendBox {
+    padding: clamp(3px, 0.35vw, 8px) clamp(4px, 0.45vw, 10px) !important;
+  }
+  #rainLegend {
+    gap: clamp(1px, 0.12vw, 3px) !important;
+  }
+  #rainLegend .rain-row {
+    height: auto !important;
+    min-height: clamp(10px, 0.85vw, 18px) !important;
+    font-size: clamp(8.8px, 0.72vw, 15px) !important;
+    line-height: 1.05 !important;
+    gap: clamp(3px, 0.28vw, 7px) !important;
+  }
+  #rainLegend .chip {
+    width: clamp(9px, 0.75vw, 16px) !important;
+    height: clamp(8px, 0.62vw, 14px) !important;
+    min-width: clamp(9px, 0.75vw, 16px) !important;
+    flex: 0 0 clamp(9px, 0.75vw, 16px) !important;
+  }
+  #rainLegend .legend-unit {
+    font-size: clamp(7.5px, 0.58vw, 12px) !important;
+    margin-top: clamp(1px, 0.12vw, 3px) !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1555,7 +1584,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.12 No Units Final</div>
+   <div class="app-version">Ver.1.8.4-v7.20 Gangwon Heavy Fix</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2159,9 +2188,26 @@ function addHeavyMultiAreasFromText(parts, zone, amountText) {
   const areaPart = m[1];
   const heavyAmount = m[2];
 
+  // v7.20 보정: 많은 곳 강원북부내륙.산지 / 강원중부내륙.산지 / 강원남부내륙.산지
+  // '산지'가 단독으로 쪼개지면 강원산지 전체로 잡히므로, 앞의 북/중/남부를 산지에도 같이 적용합니다.
+  const areaCompactForHeavy = normText(areaPart).replace(/[,.\/()\s]/g, '');
+  if (zoneName(zone) === '강원도') {
+    if (areaCompactForHeavy.includes('강원북부내륙산지')) {
+      ['강원북부내륙','강원북부산지'].forEach(k => parts.push({ zone, area:k, amount: heavyAmount }));
+      return;
+    }
+    if (areaCompactForHeavy.includes('강원중부내륙산지')) {
+      ['강원중부내륙','강원중부산지'].forEach(k => parts.push({ zone, area:k, amount: heavyAmount }));
+      return;
+    }
+    if (areaCompactForHeavy.includes('강원남부내륙산지')) {
+      ['강원남부내륙','강원남부산지'].forEach(k => parts.push({ zone, area:k, amount: heavyAmount }));
+      return;
+    }
+  }
+
   // v7.13 치환 보정: 많은 곳 강원중.남부내륙 -> 강원중부내륙 + 강원남부내륙
   // 점(.)으로 축약된 표현은 split 전에 먼저 풀어줘야 '강원중'이 누락되지 않습니다.
-  const areaCompactForHeavy = normText(areaPart).replace(/[,.\/()\s]/g, '');
   if (zoneName(zone) === '강원도' && (areaCompactForHeavy.includes('강원중남부내륙') || areaCompactForHeavy.includes('강원중부남부내륙'))) {
     ['강원중부내륙','강원남부내륙'].forEach(k => parts.push({ zone, area:k, amount: heavyAmount }));
     return;
@@ -2357,7 +2403,7 @@ const KMA_REGION_GROUPS = {
   '전북내륙': ['전북중부내륙','전북북동내륙','전북남동내륙'],
   '전북서부': ['전북북서부','전북남서부','전북서해안'],
   '전북서해안': ['전북북부서해안','전북남부서해안'],
-  '전북북부': ['전북북서부','전북북동내륙','전북북부서해안'],
+  '전북북부': ['전북북서부','전북북동내륙','전북북부서해안','전북북부내륙'],
   '전북남부': ['전북남서부','전북남동내륙','전북남부서해안'],
   '전북동부': ['전북북동내륙','전북남동내륙'],
 
@@ -2426,6 +2472,7 @@ const KMA_REGION_SIGS = {
   '전북남서부': {sido:'전북', sigs:['정읍시','고창군','부안군']},
   '전북중부내륙': {sido:'전북', sigs:['전주시','완주군','임실군']},
   '전북북동내륙': {sido:'전북', sigs:['무주군','진안군','장수군']},
+  '전북북부내륙': {sido:'전북', sigs:['전주시','완주군']},
   '전북남동내륙': {sido:'전북', sigs:['남원시','순창군']},
   '전북북부서해안': {sido:'전북', sigs:['군산시','김제시']},
   '전북남부서해안': {sido:'전북', sigs:['고창군','부안군']},
