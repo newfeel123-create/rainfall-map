@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
+<html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
@@ -428,6 +426,8 @@
 
   body.map-move-enabled .mapwrap { touch-action:none; }
   body:not(.map-move-enabled) .mapwrap { touch-action:pan-y; }
+  body.map-move-enabled .mountain-icon-group { cursor: move; }
+  body:not(.map-move-enabled) .mountain-icon-group { cursor: default; }
 
 /* iPhone / mobile layout */
 @media (max-width: 768px) {
@@ -1584,7 +1584,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.31 Manual Index</div>
+   <div class="app-version">Ver.1.8.4-v7.35 Mountain 5 Only</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -3072,6 +3072,8 @@ function svgPointFromClient(evt) {
 
 
 // 산지 ▲ 아이콘 좌표. 현재 시군구 지도에는 산지 경계가 따로 없어서 대표 좌표에 삼각형으로 표시합니다.
+const DISPLAY_MOUNTAIN_KEYS = ['강원북부산지','강원중부산지','강원남부산지','경북북동산지','제주산지'];
+
 const MOUNTAIN_POINTS = {
   // 강원산지는 기상청 표현상 북부/중부/남부 산지로 나뉘어 보이는 경우가 많아 3개 ▲로 표시합니다.
   '강원북부산지': {lon:128.08, lat:38.11, label:'강원북부산지'},
@@ -3111,17 +3113,15 @@ function findMountainKeys(area, zone) {
     keys.push('강원중부산지');
     keys.push('강원남부산지');
   };
-  if (a.includes('지리산')) keys.push('지리산부근');
-  if (a.includes('덕유산')) keys.push('덕유산부근');
-  if (a.includes('소백산')) keys.push('소백산부근');
+  // v7.35: 지도에 표시하는 산지 ▲는 강원 3개, 경북북동산지, 제주산지 5개만 사용합니다.
   if (a.includes('경북북동산지') || a.includes('경북내륙북동산지') || a.includes('경북북동내륙산지') || (a.includes('북동산지') && z === '경상권') || (a.includes('경북북동') && a.includes('산지'))) keys.push('경북북동산지');
   if (a.includes('강원남부내륙산지') || a.includes('강원남부산지내륙') || (a.includes('강원남부') && a.includes('산지'))) keys.push('강원남부산지');
   else if (a.includes('강원산지') || (a.includes('산지') && z === '강원도')) addGangwonMountains();
   if (a.includes('제주산지') || (a.includes('산지') && z === '제주도')) keys.push('제주산지');
-  if (a.includes('중산간') && z === '제주도') keys.push('제주중산간');
+  // 제주중산간 ▲는 표시하지 않습니다.
   if (a === '산지' && z === '제주도') keys.push('제주산지');
   if (a === '산지' && z === '강원도') addGangwonMountains();
-  return Array.from(new Set(keys));
+  return Array.from(new Set(keys)).filter(key => DISPLAY_MOUNTAIN_KEYS.includes(key));
 }
 function addMountainIcon(area, zone, amount) {
   if (!isForecastAllowedAmount(amount)) return;
@@ -3135,9 +3135,12 @@ function addMountainIcon(area, zone, amount) {
 }
 function makeDraggableMountain(g, key, amount) {
   let draggingIcon = false, start = null, base = null;
+  function mountainMoveAllowed() {
+    return (typeof mapMoveEnabled !== 'undefined') && !!mapMoveEnabled;
+  }
   function currentPos() { return {x:parseFloat(g.dataset.x || '0'), y:parseFloat(g.dataset.y || '0')}; }
   function moveMountainToClientPoint(clientEvt) {
-    if (!draggingIcon || !start || !base) return;
+    if (!mountainMoveAllowed() || !draggingIcon || !start || !base) return;
     const pt = svgPointFromClient(clientEvt);
     const nx = base.x + (pt.x - start.x);
     const ny = base.y + (pt.y - start.y);
@@ -3151,6 +3154,7 @@ function makeDraggableMountain(g, key, amount) {
     saveMountainPos(key, amount, p.x, p.y);
   }
   g.addEventListener('mousedown', e => {
+    if (!mountainMoveAllowed()) return;
     e.stopPropagation();
     draggingIcon = true; start = svgPointFromClient(e); base = currentPos();
   });
@@ -3161,6 +3165,7 @@ function makeDraggableMountain(g, key, amount) {
 
   // iPhone/Safari: 길게 누른 상태로 움직여도 확실히 드래그되도록 Pointer Event를 추가합니다.
   g.addEventListener('pointerdown', e => {
+    if (!mountainMoveAllowed()) return;
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
     e.preventDefault();
     e.stopPropagation();
@@ -3191,6 +3196,7 @@ function makeDraggableMountain(g, key, amount) {
 
   // iPhone/Safari: 산지 ▲ 아이콘도 손가락으로 바로 움직일 수 있게 처리합니다.
   g.addEventListener('touchstart', e => {
+    if (!mountainMoveAllowed()) return;
     if (!e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3241,13 +3247,12 @@ function renderMountainIcons() {
     if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
       x = saved.x; y = saved.y;
     } else if (item.key.indexOf('강원') === 0 && item.key.indexOf('산지') >= 0) {
-      // 강원산지 3개는 중부산지를 중심으로 조금 붙여서 배치합니다.
-      // 기존처럼 너무 아래로 벌어지지 않게 하고, 그룹 전체는 살짝 위로 올립니다.
+      // 강원산지 3개는 기본 표시에서 서로 겹치지 않도록 넓게 벌려 배치합니다.
       const c = project([128.50, 37.62]);
       x = c[0];
-      y = c[1] - 12;
-      if (item.key === '강원북부산지') { x -= 13; y -= 24; }
-      else if (item.key === '강원남부산지') { x += 13; y += 24; }
+      y = c[1] - 10;
+      if (item.key === '강원북부산지') { x -= 24; y -= 52; }
+      else if (item.key === '강원남부산지') { x += 24; y += 52; }
     }
 
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -3429,6 +3434,7 @@ function makeDraggableLabel(g, rect, text, amount) {
 
   // iPhone/Safari: 수치 박스를 길게 누른 상태로 움직여도 확실히 드래그되도록 Pointer Event를 추가합니다.
   g.addEventListener('pointerdown', e => {
+    if (!mountainMoveAllowed()) return;
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
     e.preventDefault();
     e.stopPropagation();
@@ -3460,6 +3466,7 @@ function makeDraggableLabel(g, rect, text, amount) {
 
   // iPhone/Safari: 수치 박스를 한 번 누른 뒤 손가락으로 바로 움직일 수 있게 처리합니다.
   g.addEventListener('touchstart', e => {
+    if (!mountainMoveAllowed()) return;
     if (!e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     e.stopPropagation();
@@ -5649,6 +5656,110 @@ if (document.readyState === 'loading') {
 
 
 
+
+
+/* ===== v7.34 시작 시 산지 아이콘 기본 표시 =====
+   - 기존 자동 매칭/수동 인덱스/지역 수동 매칭 로직은 변경하지 않습니다.
+   - 예보 매칭 전에도 산지 대표 ▲만 보이게 합니다.
+   - 예보 매칭이 실행되어 실제 산지 수치가 생기면 기존 renderMountainIcons가 그대로 사용됩니다.
+*/
+(function(){
+  const STARTUP_MOUNTAIN_KEYS = [
+    '강원북부산지',
+    '강원중부산지',
+    '강원남부산지',
+    '경북북동산지',
+    '제주산지'
+  ];
+
+  function hasForecastMountainIcons(){
+    try {
+      return !!(typeof mountainIconGroups === 'object' && mountainIconGroups && Object.keys(mountainIconGroups).length);
+    } catch(_) { return false; }
+  }
+
+  window.renderStartupMountainMarkers = function renderStartupMountainMarkers(){
+    if (!mountainIconsG || typeof MOUNTAIN_POINTS !== 'object') return;
+    if (hasForecastMountainIcons()) return;
+    if (mountainIconsG.querySelector('.startup-mountain-icon')) return;
+
+    STARTUP_MOUNTAIN_KEYS.forEach(key => {
+      const info = MOUNTAIN_POINTS[key];
+      if (!info) return;
+      let p = project([info.lon, info.lat]);
+      let x = p[0], y = p[1];
+
+      // 강원산지 3개는 예보 매칭 때와 같은 위치감으로 넓게 벌려 보이게 맞춥니다.
+      if (key.indexOf('강원') === 0 && key.indexOf('산지') >= 0) {
+        const c = project([128.50, 37.62]);
+        x = c[0];
+        y = c[1] - 10;
+        if (key === '강원북부산지') { x -= 24; y -= 52; }
+        else if (key === '강원남부산지') { x += 24; y += 52; }
+      }
+
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('class','mountain-icon-group startup-mountain-icon');
+      g.dataset.mountain = key;
+      g.dataset.amount = '';
+      g.dataset.x = x;
+      g.dataset.y = y;
+      g.setAttribute('transform', `translate(${x} ${y})`);
+
+      const tri = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      tri.setAttribute('class','mountain-triangle');
+      tri.setAttribute('d','M 0 -16 L 17 14 L -17 14 Z');
+      tri.setAttribute('fill','#ffffff');
+      tri.setAttribute('stroke','#111');
+      tri.setAttribute('stroke-width','0.8');
+      g.appendChild(tri);
+
+      const title = document.createElementNS('http://www.w3.org/2000/svg','title');
+      title.textContent = info.label || key;
+      g.appendChild(title);
+
+      // 수동 인덱스가 선택된 상태에서 산지 ▲를 누르면 해당 색으로 칠하기/해제됩니다.
+      g.addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!selectedManualColor) return;
+        if (g.dataset.manualColor === selectedManualColor) {
+          tri.setAttribute('fill','#ffffff');
+          g.dataset.manualColor = '';
+          return;
+        }
+        tri.setAttribute('fill', selectedManualColor);
+        g.dataset.manualColor = selectedManualColor;
+      });
+
+      try { makeDraggableMountain(g, key, 'startup'); } catch(_) {}
+      mountainIconsG.appendChild(g);
+    });
+  };
+
+  const __oldClearRainMatch = window.clearRainMatch || (typeof clearRainMatch === 'function' ? clearRainMatch : null);
+  if (__oldClearRainMatch) {
+    window.clearRainMatch = clearRainMatch = function(){
+      __oldClearRainMatch.apply(this, arguments);
+      setTimeout(window.renderStartupMountainMarkers, 0);
+    };
+  }
+
+  const __oldRenderMountainIcons = window.renderMountainIcons || (typeof renderMountainIcons === 'function' ? renderMountainIcons : null);
+  if (__oldRenderMountainIcons) {
+    window.renderMountainIcons = renderMountainIcons = function(){
+      __oldRenderMountainIcons.apply(this, arguments);
+      if (!hasForecastMountainIcons()) setTimeout(window.renderStartupMountainMarkers, 0);
+    };
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(window.renderStartupMountainMarkers, 0));
+  } else {
+    setTimeout(window.renderStartupMountainMarkers, 0);
+  }
+})();
+
 </script>
-</body>
-</html>
+
+
+</body></html>
