@@ -1,4 +1,6 @@
-<html lang="ko"><head>
+<!doctype html>
+<html lang="ko">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
@@ -412,9 +414,9 @@
   }
 
   .kma-choice-buttons button {
-    flex:0 1 118px;
-    width:118px;
-    min-width:118px;
+    flex:0 1 128px;
+    width:128px;
+    min-width:128px;
     text-align:center;
   }
   .btns button {
@@ -439,7 +441,7 @@
   .kma-day-title { font-size:13px; margin-bottom:8px; }
   .kma-day-buttons { gap:8px; }
   .kma-day-buttons button { height:34px; font-size:14px; }
-  .kma-choice-buttons button { font-size:12px; padding:7px 8px; flex:0 1 98px; width:98px; min-width:98px; height:34px; }
+  .kma-choice-buttons button { font-size:12px; padding:7px 8px; flex:0 1 112px; width:112px; min-width:112px; height:34px; }
   textarea { height: 105px; font-size: 12px; border-radius:10px; }
   .btns { gap: 5px; margin-top:6px; justify-content:center; }
   .btns button { flex:1 1 calc(25% - 5px); width:auto; min-width:0; height:35px; padding:7px 4px; font-size:11.5px; }
@@ -596,7 +598,7 @@
 
 
 
-/* ===== Ver.1.5.3-b1 mobile UI polish: map first + manual matching below ===== */
+/* ===== Ver.1.8.20 mobile UI polish: map first + manual matching below ===== */
 :root {
   --ui-blue:#1976D2;
   --ui-blue2:#0D6EFD;
@@ -801,7 +803,7 @@
 }
 
 
-/* ===== Ver.1.5.0 extra mobile card layout ===== */
+/* ===== Ver.1.8.1 extra mobile card layout ===== */
 @media (max-width: 768px) {
   .side {
     border-bottom:0 !important;
@@ -852,7 +854,7 @@
 
 
 
-/* ===== Ver.1.6.0 mobile icon polish / app-like UI ===== */
+/* ===== Ver.1.8.1 mobile icon polish / app-like UI ===== */
 @media (max-width: 768px) {
   :root {
     --ui-deep:#0B1F4D;
@@ -980,7 +982,7 @@
   .manual-region-zones button[data-zone="제주도"]::before { content:'🌴'; }
 
   .manual-region-subtitle {
-    text-align:left !important;
+    text-align:center !important;
     padding-left:4px !important;
     color:var(--ui-deep) !important;
   }
@@ -1159,6 +1161,293 @@
     color:#555;
   }
 
+
+
+/* ===== Ver.1.8.4: 지도 리마스터 + 고정 바다 배경 ===== */
+.mapwrap {
+  background:linear-gradient(180deg,#F8FCFF 0%,#EDF8FF 45%,#E4F3FF 100%) !important;
+  border:1px solid rgba(160,180,205,.55) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95), 0 8px 22px rgba(31,71,130,.10) !important;
+}
+.mapwrap::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 18% 24%, rgba(255,255,255,.58) 0%, rgba(255,255,255,0) 36%),
+    radial-gradient(ellipse at 84% 72%, rgba(255,255,255,.38) 0%, rgba(255,255,255,0) 34%),
+    linear-gradient(180deg,#F8FCFF 0%,#EDF8FF 46%,#E4F3FF 100%);
+  opacity:.98;
+}
+svg {
+  position:relative;
+  z-index:1;
+  background:transparent !important;
+}
+.region {
+  stroke:#C2CBD8 !important;
+  stroke-width:0.22 !important;
+  stroke-linejoin:round !important;
+  stroke-linecap:round !important;
+}
+.region.matched {
+  stroke:#5B6675 !important;
+  stroke-width:0.34 !important;
+  filter:drop-shadow(0 0.55px 0 rgba(255,255,255,.72));
+}
+.region:hover {
+  stroke:#2563EB !important;
+  stroke-width:0.64 !important;
+}
+.coastline {
+  stroke:#0F2A44 !important;
+  stroke-width:1.05 !important;
+  opacity:.96 !important;
+  stroke-linejoin:round !important;
+  stroke-linecap:round !important;
+  filter:drop-shadow(0 .6px 0 rgba(255,255,255,.65));
+}
+.sido-boundary {
+  stroke:#263241 !important;
+  stroke-width:1.18 !important;
+  opacity:.92 !important;
+  stroke-linejoin:round !important;
+  stroke-linecap:round !important;
+  filter:drop-shadow(0 .6px 0 rgba(255,255,255,.85));
+}
+.amount-label-box {
+  stroke:#111827 !important;
+  stroke-width:1.25 !important;
+  filter:drop-shadow(0 2px 3px rgba(15,23,42,.22));
+}
+.amount-label,
+.mountain-text {
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.38));
+}
+.map-legend {
+  border:1px solid rgba(120,140,165,.55) !important;
+  border-radius:14px !important;
+  box-shadow:0 6px 18px rgba(15,23,42,.16) !important;
+}
+
+
+
+/* Compact KMA choice panel: match today/tomorrow/load card spacing */
+.kma-choice-panel {
+  min-height:0 !important;
+  margin-top:6px !important;
+  padding-top:6px !important;
+  border-top:1px solid #E5EDF8 !important;
+}
+.kma-choice-panel.no-buttons {
+  min-height:38px !important;
+  padding-top:0 !important;
+  margin-top:6px !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+.kma-choice-panel.no-buttons .kma-choice-title {
+  min-height:32px !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+.kma-choice-title {
+  margin-bottom:5px !important;
+  font-size:12px !important;
+  line-height:1.25 !important;
+}
+.kma-choice-buttons {
+  gap:6px !important;
+}
+.kma-choice-buttons button {
+  height:32px !important;
+  padding:5px 7px !important;
+  font-size:11.5px !important;
+}
+@media (max-width:768px) {
+  .kma-choice-panel {
+    margin-top:5px !important;
+    padding-top:5px !important;
+  }
+  .kma-choice-panel.no-buttons {
+    min-height:36px !important;
+  }
+  .kma-choice-title {
+    margin-bottom:4px !important;
+  }
+  .kma-choice-buttons {
+    gap:6px !important;
+  }
+  .kma-choice-buttons button {
+    height:31px !important;
+    padding:5px 6px !important;
+    font-size:11.5px !important;
+  }
+}
+
+
+/* ===== Text/icon center alignment fix ===== */
+@media (max-width:768px) {
+  .kma-day-buttons button,
+  .kma-choice-buttons button,
+  .btns button,
+  .manual-region-zones button,
+  .manual-region-buttons button,
+  .manual-region-actions button,
+  .manual-region-toggle {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+    line-height:1.15 !important;
+    box-sizing:border-box !important;
+  }
+
+  .kma-day-buttons button::before,
+  .kma-choice-buttons button::before {
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    line-height:1 !important;
+    margin:0 3px 0 0 !important;
+    transform:translateY(0) !important;
+  }
+
+  .btns button::before {
+    display:block !important;
+    line-height:1 !important;
+    margin:0 0 3px 0 !important;
+    transform:translateY(0) !important;
+  }
+
+  .btns button {
+    flex-direction:column !important;
+    gap:2px !important;
+  }
+
+  .manual-region-zones button::before {
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    line-height:1 !important;
+    margin:0 3px 0 0 !important;
+    transform:translateY(0) !important;
+  }
+}
+
+
+/* ===== Fixed choice box height + KMA button text position fix ===== */
+.kma-choice-panel {
+  height:86px !important;
+  min-height:86px !important;
+  max-height:86px !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+}
+.kma-choice-panel.active:not(.no-buttons) {
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+.kma-choice-panel.no-buttons {
+  height:86px !important;
+  min-height:86px !important;
+  max-height:86px !important;
+}
+.kma-choice-panel.active:not(.no-buttons) .kma-choice-title {
+  flex:0 0 auto !important;
+}
+.kma-choice-panel.active:not(.no-buttons) .kma-choice-buttons {
+  flex:0 0 auto !important;
+}
+
+@media (max-width:768px) {
+  .kma-choice-panel,
+  .kma-choice-panel.no-buttons {
+    height:86px !important;
+    min-height:86px !important;
+    max-height:86px !important;
+  }
+
+  .kma-day-buttons button,
+  .kma-choice-buttons button {
+    justify-content:center !important;
+    text-align:left !important;
+    padding-left:7px !important;
+    padding-right:6px !important;
+  }
+
+  .kma-day-buttons button::before,
+  .kma-choice-buttons button::before {
+    margin-right:3px !important;
+    flex:0 0 auto !important;
+  }
+}
+
+
+@media (max-width:768px){
+  .kma-day-buttons button span,
+  .kma-choice-buttons button span{
+    transform:translateX(-1px);
+  }
+}
+
+
+/* Ver.1.8.4 - subtle 1px optical left shift for KMA buttons */
+@media (max-width:768px){
+  .kma-day-buttons button,
+  .kma-choice-buttons button{
+    position:relative;
+    left:-1px;
+  }
+}
+
+
+/* Today button text micro-adjustment only */
+@media (max-width:768px){
+  #kmaTodayBtn{
+    transform:translateX(-2px);
+  }
+}
+
+
+/* Move KMA button labels 2px left */
+@media (max-width:768px){
+  #kmaTodayBtn,
+  #kmaTomorrowBtn,
+  #kmaLoadBtn,
+  #kmaChoiceRain,
+  #kmaChoiceShower,
+  #kmaChoiceBoth{
+    transform:translateX(-3px) !important;
+  }
+}
+
+
+/* KMA top/choice button content real left adjustment */
+@media (max-width:768px){
+  #kmaTodayBtn,
+  #kmaTomorrowBtn,
+  #kmaLoadBtn,
+  #kmaChoiceRain,
+  #kmaChoiceShower,
+  #kmaChoiceBoth{
+    text-indent:-5px !important;
+  }
+
+  #kmaTodayBtn::before,
+  #kmaTomorrowBtn::before,
+  #kmaLoadBtn::before,
+  #kmaChoiceRain::before,
+  #kmaChoiceShower::before,
+  #kmaChoiceBoth::before{
+    margin-left:-5px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1168,7 +1457,7 @@
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.7.0-sound</div>
+   <div class="app-version">Ver.1.8.4</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1458,12 +1747,13 @@ function render() {
     });
     p.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
     p.addEventListener('click', () => {
-      // 지역 수동 매칭에서 예보구역을 선택한 상태면 지도 클릭으로 지역을 추가/해제합니다.
-      if (typeof toggleManualRegionPathFromMap === 'function' && currentManualRegionName) {
+      // 지역 수동 매칭 패널이 열려 있고, 실제 지역 버튼을 선택한 상태에서만
+      // 지도 클릭으로 지역을 추가/해제합니다.
+      if (typeof toggleManualRegionPathFromMap === 'function' && isManualRegionEditModeActive()) {
         if (toggleManualRegionPathFromMap(p)) return;
       }
 
-      // Ver.1.3.5
+      // Ver.1.8.1
       // 수동 색상이 선택되지 않았을 때는 지도 클릭으로 색이 들어가지 않게 합니다.
       if (!selectedManualColor) return;
 
@@ -1666,15 +1956,87 @@ function zoneName(zone) {
 }
 
 
-// Ver.1.3.5: "많은 곳 A.B.C 100mm 이상" 다중 지역 처리
+// Ver.1.8.1: "많은 곳 A.B.C 100mm 이상" 다중 지역 처리
+
+function expandGangwonInlandMountainTokenForParts(zone, area, amount) {
+  const z = zoneName(zone);
+  const a = normText(area);
+  const result = [];
+
+  if (z !== '강원도') return null;
+
+  if (a === '강원북부내륙.산지' || a === '강원북부내륙산지') {
+    result.push({ zone, area:'강원북부내륙', amount });
+    result.push({ type:'mountain', zone, area:'강원북부산지', amount });
+    return result;
+  }
+
+  if (a === '강원중부내륙.산지' || a === '강원중부내륙산지') {
+    result.push({ zone, area:'강원중부내륙', amount });
+    result.push({ type:'mountain', zone, area:'강원중부산지', amount });
+    return result;
+  }
+
+  if (a === '강원남부내륙.산지' || a === '강원남부내륙산지') {
+    result.push({ zone, area:'강원남부내륙', amount });
+    result.push({ type:'mountain', zone, area:'강원남부산지', amount });
+    return result;
+  }
+
+  return null;
+}
+
 function addHeavyMultiAreasFromText(parts, zone, amountText) {
+  amountText = normalizeGangwonHeavyAreaColon(amountText);
   const z = zoneName(zone);
   const raw = normText(amountText);
   const m = raw.match(/많은곳(.+?)([0-9]+mm(?:이상|안팎|미만)?)/);
   if (!m) return;
 
-  const areaPart = m[1];
+  let areaPart = m[1];
   const heavyAmount = m[2];
+
+  // 강원도 산지 세부 치환
+  // split(/[,.\/]+/) 전에 먼저 바꿔야 합니다.
+  // 그렇지 않으면 강원북부내륙.산지가 '강원북부내륙' + '산지'로 쪼개져
+  // 산지가 강원산지 전체로 인식됩니다.
+  if (z === '강원도') {
+    areaPart = areaPart
+      .replace(/강원북부내륙\.?산지/g, '강원북부내륙,강원북부산지')
+      .replace(/강원중부내륙\.?산지/g, '강원중부내륙,강원중부산지')
+      .replace(/강원남부내륙\.?산지/g, '강원남부내륙,강원남부산지');
+  }
+
+  const pushHeavyArea = (scoped) => {
+    if (!scoped || scoped === '__NO_MATCH__' || scoped === '많은곳') return;
+
+    // 괄호 안 '많은 곳'은 기본 예보보다 나중에 칠해져야 하므로 parts 뒤에 추가합니다.
+    parts.push({ zone, area: scoped, amount: heavyAmount });
+
+    // 산지는 해당 산지 아이콘도 같은 수치로 나중에 덮어쓰기합니다.
+    if (/산지|지리산|덕유산|소백산|중산간/.test(scoped)) {
+      parts.push({ type:'mountain', zone, area: scoped, amount: heavyAmount });
+    }
+  };
+
+  // 강원도 괄호 안 '많은 곳' 전용 규칙.
+  // 예: (많은 곳 강원북부내륙.산지 80mm 이상)
+  // 여기서 '산지'는 강원산지 전체가 아니라 '강원북부산지'만 의미합니다.
+  if (z === '강원도') {
+    [
+      ['북부', '강원북부내륙', '강원북부산지'],
+      ['중부', '강원중부내륙', '강원중부산지'],
+      ['남부', '강원남부내륙', '강원남부산지']
+    ].forEach(([part, inlandToken, mountainToken]) => {
+      const re = new RegExp('강원' + part + '내륙\\.?산지', 'g');
+      if (re.test(areaPart)) {
+        pushHeavyArea(inlandToken);
+        pushHeavyArea(mountainToken);
+        // 뒤쪽 일반 split에서 '산지'가 다시 강원산지 전체로 들어가지 않도록 제거합니다.
+        areaPart = areaPart.replace(re, '');
+      }
+    });
+  }
 
   areaPart
     .replace(/[()]/g, '')
@@ -1682,6 +2044,12 @@ function addHeavyMultiAreasFromText(parts, zone, amountText) {
     .map(v => v.trim())
     .filter(Boolean)
     .forEach(area => {
+      const gangwonExpanded = expandGangwonInlandMountainTokenForParts(zone, area, heavyAmount);
+      if (gangwonExpanded) {
+        gangwonExpanded.forEach(p => parts.push(p));
+        return;
+      }
+
       let scoped = scopedToken(zone, area);
 
       // 권역별 짧은 해안 표현 보정
@@ -1693,20 +2061,21 @@ function addHeavyMultiAreasFromText(parts, zone, amountText) {
       if (area === '산지' && z === '제주도') scoped = '제주산지';
       if (area === '산지' && z === '강원도') scoped = '강원산지';
 
-      if (!scoped || scoped === '__NO_MATCH__' || scoped === '많은곳') return;
-
-      // 면 색칠용
-      parts.push({ zone, area: scoped, amount: heavyAmount });
-
-      // 산지/부근/중산간은 ▲ 아이콘도 추가
-      if (/산지|지리산|덕유산|소백산|중산간/.test(scoped)) {
-        parts.push({ type:'mountain', zone, area: scoped, amount: heavyAmount });
-      }
+      pushHeavyArea(scoped);
     });
 }
 
 
+
+function normalizeGangwonHeavyAreaColon(input) {
+  return String(input || '').replace(
+    /(많은\s*곳\s*)(강원(?:북부|중부|남부)내륙\s*[.]?\s*산지)\s+([0-9]+(?:\s*~\s*[0-9]+)?\s*m{1,2}\s*(?:이상|미만|안팎)?)/g,
+    '$1$2: $3'
+  );
+}
+
 function splitForecastParts(line) {
+  line = normalizeGangwonHeavyAreaColon(line);
   let text = line.replace(/^[-–]\s*/, '').trim();
   const zoneMatch = text.match(/^\s*(\([^)]*\))\s*/);
   const zone = zoneMatch ? zoneName(zoneMatch[1]) : '';
@@ -1728,9 +2097,23 @@ function splitForecastParts(line) {
     lastAmount = am || lastAmount;
     const cleanArea = normText(area);
     // 제주도산지/제주산지는 면 색칠이 아니라 ▲ 산지 수치로만 처리합니다.
-    // 제주도(산지 제외)는 아래 tokensFromArea에서 제주도__EXCEPT_산지로 처리합니다.
+    // 강원북부내륙.산지 / 강원중부내륙.산지 / 강원남부내륙.산지는
+    // 각각 해당 내륙 + 해당 산지 ▲로만 치환합니다.
     if (!/^(제주도산지|제주산지)$/.test(cleanArea)) {
-      parts.push({ zone, area: cleanArea, amount: am || lastAmount });
+      const gangwonExpanded = expandGangwonInlandMountainTokenForParts(zone, cleanArea, am || lastAmount);
+      if (gangwonExpanded) {
+        gangwonExpanded.forEach(p => parts.push(p));
+      } else {
+        parts.push({ zone, area: cleanArea, amount: am || lastAmount });
+      }
+    }
+
+    // 강원내륙.산지 기본 산지는 먼저 20~60 등 기본값으로 ▲ 표시합니다.
+    // 이후 괄호 안 많은 곳이 있으면 아래 heavy 처리에서 해당 권역 산지만 덮어씁니다.
+    if (zoneName(zone) === '강원도' && (cleanArea === '강원내륙.산지' || cleanArea === '강원내륙산지')) {
+      parts.push({ type:'mountain', zone, area:'강원북부산지', amount: am || lastAmount });
+      parts.push({ type:'mountain', zone, area:'강원중부산지', amount: am || lastAmount });
+      parts.push({ type:'mountain', zone, area:'강원남부산지', amount: am || lastAmount });
     }
 
     const heavyText = normText(amountText);
@@ -1748,7 +2131,8 @@ function splitForecastParts(line) {
     // 본문 지역명에 산지/부근이 있으면 같은 수치 ▲ 생성
     // 제주도(산지 제외), 경남내륙(지리산부근 제외)처럼 '제외'가 붙은 구역은
     // 산지/부근 아이콘을 추가로 만들지 않습니다.
-    if (/산지|지리산|덕유산|소백산|중산간/.test(cleanArea) && !/제외/.test(cleanArea)) {
+    if (!(zoneName(zone) === '강원도' && (cleanArea === '강원내륙.산지' || cleanArea === '강원내륙산지')) &&
+        /산지|지리산|덕유산|소백산|중산간/.test(cleanArea) && !/제외/.test(cleanArea)) {
       parts.push({ type:'mountain', zone, area: cleanArea, amount: am || lastAmount });
     }
   });
@@ -1759,7 +2143,7 @@ function scopedToken(zone, token) {
   token = normText(token);
   const z = zoneName(zone);
   if (!token) return '';
-  // Ver.1.3.5: 권역 안에서 짧게 쓰는 예보구역명을 표준명으로 보정
+  // Ver.1.8.1: 권역 안에서 짧게 쓰는 예보구역명을 표준명으로 보정
   if (z === '경상권') {
     if (token === '북서내륙') return '경남북서내륙';
     if (token === '남서내륙') return '경남남서내륙';
@@ -1811,7 +2195,7 @@ function inList(sido, sig, targetSido, arr) {
 }
 
 
-// Ver.1.3.5 기상청 예보구역 묶음 구조
+// Ver.1.8.1 기상청 예보구역 묶음 구조
 // 개별 시군을 직접 추가하는 방식이 아니라,
 // "경남내륙 = 경남북서내륙 + 경남남서내륙 + 경남중부내륙 + 경남동부내륙"처럼
 // 상위 예보구역이 하위 예보구역을 묶어서 칠해지도록 처리합니다.
@@ -1957,7 +2341,7 @@ function regionMatchesKmaGroup(sido, sig, token, seen) {
   seen = seen || new Set();
   if (!token || seen.has(token)) return false;
 
-  // Ver.1.3.5: 산지/중산간은 시군구 면을 덮어쓰지 않고 ▲ 아이콘으로만 표시
+  // Ver.1.8.1: 산지/중산간은 시군구 면을 덮어쓰지 않고 ▲ 아이콘으로만 표시
   // 예: 강원내륙 5~30 / 강원산지.동해안 30~80 에서 산지가 내륙을 덮지 않게 함
   if (/산지|중산간/.test(token)) return false;
 
@@ -1973,7 +2357,7 @@ function regionMatchesKmaGroup(sido, sig, token, seen) {
 }
 
 
-// Ver.1.3.5 예보구역 직접 매칭 테이블
+// Ver.1.8.1 예보구역 직접 매칭 테이블
 // 복잡한 조건문보다 "예보구역명 -> 실제 시군"을 우선 적용합니다.
 const REGION_DIRECT_MATCH = {
   '경북동해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']},
@@ -2029,20 +2413,20 @@ function regionMatchesToken(sido, sig, token, code) {
   const savedManualMatch = regionMatchesSavedManualOverride(sido, sig, code, token);
   if (savedManualMatch !== null) return savedManualMatch;
 
-  // Ver.1.3.5: 예보구역 직접 매칭 우선
+  // Ver.1.8.1: 예보구역 직접 매칭 우선
   if (regionMatchesDirectMap(sido, sig, token)) return true;
 
 
-  // Ver.1.3.5: 경북동해안 직접 매칭 고정
+  // Ver.1.8.1: 경북동해안 직접 매칭 고정
   if (token === '경북동해안' || token === '경북해안') {
     return inList(sido, sig, '경북', ['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']);
   }
 
 
-  // Ver.1.3.5: 산지/중산간은 면 색칠이 아니라 ▲ 아이콘 전용
+  // Ver.1.8.1: 산지/중산간은 면 색칠이 아니라 ▲ 아이콘 전용
   if (/산지|중산간/.test(token)) return false;
 
-  // Ver.1.3.5: 기상청 예보구역 묶음 우선 매칭
+  // Ver.1.8.1: 기상청 예보구역 묶음 우선 매칭
   if (regionMatchesKmaGroup(sido, sig, token)) return true;
 
   // 광역 단위
@@ -2141,7 +2525,7 @@ function expandCompoundTokens(a, zone) {
   const out = [];
   const add = v => { if (v) out.push(v); };
 
-  // Ver.1.3.5: 기상청 예보구역 묶음 표현 직접 인식
+  // Ver.1.8.1: 기상청 예보구역 묶음 표현 직접 인식
   [
     '경기내륙','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안',
     '강원북부내륙','강원중부내륙','강원남부내륙','강원북부동해안','강원중부동해안','강원남부동해안','강원북부산지','강원중부산지','강원남부산지',
@@ -2169,7 +2553,7 @@ function expandCompoundTokens(a, zone) {
   if (a.includes('전남남부서해안')) add('전남남부서해안');
 
 
-  // Ver.1.3.5: 괄호 제외 표현을 표준 예보구역으로 단순 치환
+  // Ver.1.8.1: 괄호 제외 표현을 표준 예보구역으로 단순 치환
   // 예: 대구.경북(동해안.북동산지 제외) => 대구 + 경북내륙
   const compactExcept = a.replace(/[,.\/()\s]/g, '');
   if (compactExcept.includes('대구경북') && compactExcept.includes('동해안북동산지제외')) {
@@ -2191,7 +2575,7 @@ function expandCompoundTokens(a, zone) {
 }
 
 
-// Ver.1.3.7: 권역별 생략 표현 자동 완성
+// Ver.1.8.1: 권역별 생략 표현 자동 완성
 function addZoneImpliedTokens(areaText, zone, addToken) {
   const z = zoneName(zone);
   const parts = normText(areaText)
@@ -2368,7 +2752,7 @@ function tokensFromArea(areaText, zone) {
   }
 
 
-  // Ver.1.3.5: 대구.경북(동해안.북동산지 제외)은 대구 + 경북내륙만 남김
+  // Ver.1.8.1: 대구.경북(동해안.북동산지 제외)은 대구 + 경북내륙만 남김
   if (a.replace(/[,.\/()\s]/g, '').includes('대구경북동해안북동산지제외')) {
     filtered = filtered.filter(t => !['대구경북','경북','경북동해안','경북북동산지','동해안','북동산지'].includes(t));
     if (!filtered.includes('대구')) filtered.push('대구');
@@ -2379,20 +2763,20 @@ function tokensFromArea(areaText, zone) {
   }
 
 
-  // Ver.1.3.5: 경북동해안.북동산지 표현에서 동해안 면 색칠 보장
+  // Ver.1.8.1: 경북동해안.북동산지 표현에서 동해안 면 색칠 보장
   if (z === '경상권' && (a.includes('경북동해안.북동산지') || a.includes('경북동해안북동산지'))) {
     if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
     if (!filtered.includes('경북북동산지')) filtered.push('경북북동산지');
   }
 
 
-  // Ver.1.3.5: area 원문에 경북동해안이 있으면 무조건 색칠 토큰 유지
+  // Ver.1.8.1: area 원문에 경북동해안이 있으면 무조건 색칠 토큰 유지
   if (z === '경상권' && a.includes('경북동해안')) {
     if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
   }
 
 
-  // Ver.1.3.5: 경북동해안 원문 포함 시 직접 토큰 유지
+  // Ver.1.8.1: 경북동해안 원문 포함 시 직접 토큰 유지
   if (z === '경상권' && a.includes('경북동해안')) {
     if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
   }
@@ -2474,25 +2858,48 @@ function findMountainKeys(area, zone) {
     keys.push('강원중부산지');
     keys.push('강원남부산지');
   };
+
   if (a.includes('지리산')) keys.push('지리산부근');
   if (a.includes('덕유산')) keys.push('덕유산부근');
   if (a.includes('소백산')) keys.push('소백산부근');
-  if (a.includes('경북북동산지') || a.includes('경북내륙북동산지') || a.includes('경북북동내륙산지') || (a.includes('북동산지') && z === '경상권') || (a.includes('경북북동') && a.includes('산지'))) keys.push('경북북동산지');
-  if (a.includes('강원남부내륙산지') || a.includes('강원남부산지내륙') || (a.includes('강원남부') && a.includes('산지'))) keys.push('강원남부산지');
-  else if (a.includes('강원산지') || (a.includes('산지') && z === '강원도')) addGangwonMountains();
+
+  if (a.includes('경북북동산지') || a.includes('경북내륙북동산지') || a.includes('경북북동내륙산지') || (a.includes('북동산지') && z === '경상권') || (a.includes('경북북동') && a.includes('산지'))) {
+    keys.push('경북북동산지');
+  }
+
+  // 강원도 산지는 각각 독립 처리합니다.
+  // 예: 강원내륙.강원남부산지.강원중부산지
+  // → 강원내륙 면 색칠 + 강원남부산지 ▲ + 강원중부산지 ▲
+  // 여러 산지가 같이 들어와도 하나만 잡히지 않게 else-if를 쓰지 않습니다.
+  let hasSpecificGangwonMountain = false;
+
+  if (a.includes('강원북부내륙산지') || a.includes('강원북부산지') || (a.includes('강원북부') && a.includes('산지'))) {
+    keys.push('강원북부산지');
+    hasSpecificGangwonMountain = true;
+  }
+  if (a.includes('강원중부내륙산지') || a.includes('강원중부산지') || (a.includes('강원중부') && a.includes('산지'))) {
+    keys.push('강원중부산지');
+    hasSpecificGangwonMountain = true;
+  }
+  if (a.includes('강원남부내륙산지') || a.includes('강원남부산지') || (a.includes('강원남부') && a.includes('산지'))) {
+    keys.push('강원남부산지');
+    hasSpecificGangwonMountain = true;
+  }
+
+  // 특정 북/중/남부 산지가 아니라 강원산지 또는 산지 단독일 때만 전체 산지 처리
+  if (!hasSpecificGangwonMountain && (a.includes('강원산지') || (a.includes('산지') && z === '강원도') || a === '산지')) {
+    addGangwonMountains();
+  }
+
   if (a.includes('제주산지') || (a.includes('산지') && z === '제주도')) keys.push('제주산지');
   if (a.includes('중산간') && z === '제주도') keys.push('제주중산간');
   if (a === '산지' && z === '제주도') keys.push('제주산지');
-  if (a === '산지' && z === '강원도') addGangwonMountains();
+
   return Array.from(new Set(keys));
 }
 function addMountainIcon(area, zone, amount) {
   findMountainKeys(area, zone).forEach(key => {
-    // 같은 산지 아이콘은 한 번만 생성합니다.
-    // 예: 제주도산지 + 제주도(산지 제외) 입력 시 제주산지가 2개 생기지 않게 방지.
-    if (!mountainIconGroups[key]) {
-      mountainIconGroups[key] = {key, amount};
-    }
+    mountainIconGroups[key] = {key, amount};
   });
 }
 function makeDraggableMountain(g, key, amount) {
@@ -3024,6 +3431,8 @@ function clearRainMatch() {
   if (mountainIconsG) mountainIconsG.innerHTML = '';
 }
 
+
+
 function rebuildAmountLabelGroupsFromMap() {
   amountLabelGroups = {};
   document.querySelectorAll('.region').forEach(el => {
@@ -3069,6 +3478,8 @@ function applyForecastMatch() {
     });
   });
 
+  // 강원내륙.산지 + 많은 곳 강원○부내륙.산지 조합은
+  // 최종 색칠 직전에 강원도만 다시 정리해서 원하는 방송 표출 형태로 고정합니다.
   // 최종 칠해진 지도 기준으로 수치 박스를 다시 만들기 때문에
   // 지도 색과 박스 색이 서로 다르게 나오는 문제가 없습니다.
   rebuildAmountLabelGroupsFromMap();
@@ -3080,7 +3491,7 @@ function applyForecastMatch() {
     ? `매칭 완료: ${matchedCount}개 지역<br>${summaries.join('<br>')}`
     : '매칭된 지역이 없습니다. 지역명 표기를 확인해 주세요.';
 
-  // Ver.1.7.0: 지도 매칭 적용 완료/실패 효과음
+  // Ver.1.8.1: 지도 매칭 적용 완료/실패 효과음
   if (matchedCount > 0 && typeof window.playUiDoneSound === 'function') {
     window.playUiDoneSound();
   } else if (matchedCount === 0 && typeof window.playUiErrorSound === 'function') {
@@ -4256,7 +4667,7 @@ function saveCurrentMapImage() {
     // 아이폰에서도 화면에 보이는 비율과 위치가 그대로 나오도록 DPR은 선명도에만 사용합니다.
     const S = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     const isMobileExport = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
-    // Ver.1.1.4: 휴대폰 저장 때만 한반도를 1.25배로 저장합니다.
+    // Ver.1.8.1: 휴대폰 저장 때만 한반도를 1.25배로 저장합니다.
     const EXPORT_MOBILE_ZOOM = 1.25;
     const EXPORT_ZOOM = isMobileExport ? EXPORT_MOBILE_ZOOM : 1;
     const EXPORT_CENTER_X = WIDTH / 2;
@@ -4296,6 +4707,12 @@ function saveCurrentMapImage() {
       .amount-label { font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:18px; font-weight:900; fill:#ffffff; stroke:#000000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; dominant-baseline:middle; }
       .mountain-triangle { stroke:#000; stroke-width:0.8; vector-effect:non-scaling-stroke; }
       .mountain-text { fill:#fff; stroke:#000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; font-family:'Malgun Gothic','맑은 고딕'; font-weight:900; font-size:18px; text-anchor:middle; dominant-baseline:middle; }
+      .region { stroke:#C2CBD8 !important; stroke-width:0.22 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
+      .region.matched { stroke:#5B6675 !important; stroke-width:0.34 !important; }
+      .coastline { stroke:#0F2A44 !important; stroke-width:1.05 !important; opacity:.96 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
+      .sido-boundary { stroke:#263241 !important; stroke-width:1.18 !important; opacity:.92 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
+      .amount-label-box { stroke:#111827 !important; stroke-width:1.25 !important; }
+
     `;
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
@@ -4429,7 +4846,7 @@ if (saveImageBtn) {
 }
 
 
-// Ver.1.3.7: 접기 가능한 지역 수동 매칭 미리보기
+// Ver.1.8.4: 접기 가능한 지역 수동 매칭 미리보기
 const MANUAL_REGION_MENU = {
   '수도권': ['서울','인천','김포','강화','경기','경기내륙','경기북부','경기남부','경기동부','경기서부','경기서해안','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안','서해5도'],
   '강원도': ['강원도','강원내륙','강원북부','강원중부','강원남부','강원북부내륙','강원중부내륙','강원남부내륙','강원동해안','강원북부동해안','강원중부동해안','강원남부동해안','강원산지','강원북부산지','강원중부산지','강원남부산지'],
@@ -4567,6 +4984,39 @@ function findPathById(id) {
   return allRegionPaths().find(p => pathRegionId(p) === id) || null;
 }
 
+
+function regionMatchesTokenForManualRegion(sido, sig, token, code) {
+  token = resolveManualRegionCanonical(normText(token));
+  if (!token || token === '__NO_MATCH__') return false;
+
+  // 수동매칭에서는 산지/중산간도 검정색으로 미리 확인할 수 있게 허용합니다.
+  // 자동 예보 매칭은 기존처럼 ▲ 아이콘 전용 로직을 유지합니다.
+  const seen = new Set();
+  const matchGroupForManual = (t) => {
+    t = normText(t);
+    if (!t || seen.has(t)) return false;
+    seen.add(t);
+
+    const sigRule = KMA_REGION_SIGS[t];
+    if (sigRule && inList(sido, sig, sigRule.sido, sigRule.sigs)) return true;
+
+    const directRule = REGION_DIRECT_MATCH[t];
+    if (directRule && inList(sido, sig, directRule.sido, directRule.sigs)) return true;
+
+    const children = KMA_REGION_GROUPS[t];
+    if (children && children.some(child => matchGroupForManual(child))) return true;
+
+    return false;
+  };
+
+  if (/산지|중산간/.test(token)) {
+    return matchGroupForManual(token);
+  }
+
+  return regionMatchesToken(sido, sig, token, code);
+}
+
+
 function getDefaultManualRegionPaths(regionName) {
   const token = resolveManualRegionCanonical(normText(regionName));
   const paths = [];
@@ -4609,7 +5059,63 @@ function clearSavedManualRegion(regionName) {
   try { localStorage.removeItem(manualRegionStorageKey(regionName)); } catch(e) {}
 }
 
+
+function clearManualMountainPreview() {
+  if (!mountainIconsG) return;
+  mountainIconsG.querySelectorAll('.manual-mountain-preview').forEach(el => el.remove());
+}
+
+function drawManualMountainPreviewIcon(key) {
+  if (!mountainIconsG) return;
+  const ptInfo = MOUNTAIN_POINTS[key];
+  if (!ptInfo) return;
+
+  const basePt = project([ptInfo.lon, ptInfo.lat]);
+  let x = basePt[0], y = basePt[1];
+
+  if (key.indexOf('강원') === 0 && key.indexOf('산지') >= 0) {
+    const c = project([128.50, 37.62]);
+    x = c[0];
+    y = c[1] - 12;
+    if (key === '강원북부산지') { x -= 13; y -= 24; }
+    else if (key === '강원남부산지') { x += 13; y += 24; }
+  }
+
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('class', 'mountain-icon-group manual-mountain-preview');
+  g.dataset.mountain = key;
+  g.setAttribute('transform', `translate(${x} ${y})`);
+
+  const tri = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  tri.setAttribute('class', 'mountain-triangle');
+  tri.setAttribute('d', 'M 0 -16 L 17 14 L -17 14 Z');
+  tri.setAttribute('fill', '#000000');
+  tri.setAttribute('stroke', '#000000');
+  tri.setAttribute('stroke-width', '1.1');
+
+  const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  t.setAttribute('class', 'mountain-text');
+  t.setAttribute('x', '0');
+  t.setAttribute('y', '2');
+  t.textContent = '▲';
+
+  g.appendChild(tri);
+  mountainIconsG.appendChild(g);
+}
+
+function paintManualMountainPreview(regionName) {
+  clearManualMountainPreview();
+  findMountainKeys(regionName, '').forEach(drawManualMountainPreviewIcon);
+}
+
+function isManualMountainRegion(regionName) {
+  const a = normText(regionName);
+  return /산지|중산간|지리산|덕유산|소백산/.test(a);
+}
+
+
 function clearManualPreviewPaint() {
+  clearManualMountainPreview();
   document.querySelectorAll('.region').forEach(p => {
     if (p.dataset.manualPreview === '1') {
       p.style.fill = p.dataset.manualOldFill || '';
@@ -4667,6 +5173,15 @@ function updateManualRegionInfo() {
   const saved = getSavedManualRegionIds(currentManualRegionName) ? ' <span style="color:#d00;font-weight:900;">저장됨</span>' : '';
   const displayName = manualRegionDisplayName(currentManualRegionName);
   info.style.display = 'block';
+
+  if (isManualMountainRegion(currentManualRegionName)) {
+    const mNames = findMountainKeys(currentManualRegionName, '').join(', ');
+    info.innerHTML = '<b>' + displayName + '</b>' + saved + '<br>' +
+      (mNames ? '▲ ' + mNames : '▲ 산지') +
+      '<br><span style="color:#666;">산지는 지도 위 검정 ▲ 아이콘으로 표시됩니다.</span>';
+    return;
+  }
+
   info.innerHTML = '<b>' + displayName + '</b>' + saved + '<br>' +
     (names.length ? names.join(', ') : '매칭 지역 없음') +
     '<br><span style="color:#666;">지도에서 시군구를 누르면 추가/해제됩니다.</span>';
@@ -4676,14 +5191,26 @@ function updateManualRegionInfo() {
 function paintManualPreview(regionName) {
   clearManualPreviewPaint();
   currentManualRegionName = regionName;
-  currentManualRegionPaths = getManualRegionPaths(regionName);
 
+  if (isManualMountainRegion(regionName)) {
+    currentManualRegionPaths = [];
+    paintManualMountainPreview(regionName);
+    updateManualRegionInfo();
+    return;
+  }
+
+  currentManualRegionPaths = getManualRegionPaths(regionName);
   currentManualRegionPaths.forEach(p => paintOneManualPath(p));
   updateManualRegionInfo();
 }
 
+function isManualRegionEditModeActive() {
+  const body = document.getElementById('manualRegionBody');
+  return !!(body && body.style.display !== 'none' && currentManualRegionName);
+}
+
 function toggleManualRegionPathFromMap(p) {
-  if (!currentManualRegionName) return false;
+  if (!isManualRegionEditModeActive()) return false;
 
   const id = pathRegionId(p);
   const idx = currentManualRegionPaths.findIndex(x => pathRegionId(x) === id);
@@ -4766,6 +5293,10 @@ function initManualRegionPanel() {
         updateManualRegionInfo();
       } else {
         clearManualPreviewPaint();
+        currentManualRegionName = '';
+        currentManualRegionPaths = [];
+        document.querySelectorAll('#manualRegionButtons button').forEach(b => b.classList.remove('active'));
+        updateManualRegionInfo();
       }
     };
   }
@@ -4792,7 +5323,7 @@ if (document.readyState === 'loading') {
 
 
 
-// Ver.1.7.0: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
+// Ver.1.8.1: 달력 아이콘 숫자 자동 변경 + 안전형 2.5D 엠보싱 토글
 function updateCalendarIconDay() {
   const title = document.getElementById('kmaForecastTime');
   if (!title) return;
@@ -4807,7 +5338,7 @@ if (document.readyState === 'loading') {
 
 
 
-// ===== Ver.1.7.0 버튼 효과음 =====
+// ===== Ver.1.8.1 버튼 효과음 =====
 (function initButtonSound(){
   const KEY = 'rainMapButtonSoundEnabled';
   let soundEnabled = localStorage.getItem(KEY);
@@ -4901,6 +5432,5 @@ if (document.readyState === 'loading') {
   }, true);
 })();
 </script>
-
-
-</body></html>
+</body>
+</html>
