@@ -1584,7 +1584,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.21 Chungnam East</div>
+   <div class="app-version">Ver.1.8.4-v7.31 Manual Index</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1614,6 +1614,14 @@ svg {
       <button id="clearBtn" type="button">초기화</button>
       <button id="saveImageBtn" type="button">이미지 저장</button>
       <button id="mapMoveToggle" type="button" class="map-locked">지도 이동 OFF</button>
+    </div>
+
+    <div class="manual-color-panel" id="manualColorPanel">
+      <div class="manual-color-title">
+        <span>수동 인덱스</span>
+        <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
+      </div>
+      <div class="manual-color-grid" id="manualColorGrid"></div>
     </div>
 
     <div class="manual-region-panel" id="manualRegionPanel">
@@ -2073,21 +2081,29 @@ if (manualColorOff) manualColorOff.addEventListener('click', clearManualColorSel
 
 
 function relocateManualPanelsForMobile() {
+  const colorPanel = document.getElementById('manualColorPanel');
   const regionPanel = document.getElementById('manualRegionPanel');
   const side = document.querySelector('.side');
   const mapcol = document.querySelector('.mapcol');
   const btns = document.querySelector('.btns');
-  if (!regionPanel || !side || !mapcol || !btns) return;
+  if (!colorPanel || !regionPanel || !side || !mapcol || !btns) return;
 
   if (window.matchMedia('(max-width: 768px)').matches) {
-    // 휴대폰: 지도 아래에 지역 수동 매칭 표시
-    if (regionPanel.parentElement !== mapcol.parentElement || regionPanel.previousElementSibling !== mapcol) {
-      mapcol.parentElement.insertBefore(regionPanel, mapcol.nextSibling);
+    // 휴대폰: 지도 아래에 수동 인덱스 → 지역 수동 매칭 순서로 표시
+    const parent = mapcol.parentElement;
+    if (colorPanel.parentElement !== parent || colorPanel.previousElementSibling !== mapcol) {
+      parent.insertBefore(colorPanel, mapcol.nextSibling);
+    }
+    if (regionPanel.parentElement !== parent || regionPanel.previousElementSibling !== colorPanel) {
+      parent.insertBefore(regionPanel, colorPanel.nextSibling);
     }
   } else {
-    // PC: 왼쪽 버튼 바로 아래에 지역 수동 매칭 표시
-    if (regionPanel.parentElement !== side || regionPanel.previousElementSibling !== btns) {
-      side.insertBefore(regionPanel, btns.nextSibling);
+    // PC: 왼쪽 버튼 바로 아래에 수동 인덱스 → 지역 수동 매칭 순서로 표시
+    if (colorPanel.parentElement !== side || colorPanel.previousElementSibling !== btns) {
+      side.insertBefore(colorPanel, btns.nextSibling);
+    }
+    if (regionPanel.parentElement !== side || regionPanel.previousElementSibling !== colorPanel) {
+      side.insertBefore(regionPanel, colorPanel.nextSibling);
     }
   }
 }
@@ -2500,7 +2516,6 @@ const KMA_REGION_SIGS = {
   '충남중부내륙': {sido:'충남', sigs:['공주시','계룡시','청양군','홍성군']},
   '충남남동내륙': {sido:'충남', sigs:['논산시','금산군']},
   '충남남서내륙': {sido:'충남', sigs:['부여군']},
-  '충남동부': {sido:'충남', sigs:['천안시','아산시','공주시','계룡시','논산시','금산군','부여군','청양군']},
   '충남북부서해안': {sido:'충남', sigs:['당진시','서산시','태안군']},
   '충남남부서해안': {sido:'충남', sigs:['보령시','서천군']},
   '충북북부': {sido:'충북', sigs:['충주시','제천시','단양군']},
@@ -2579,7 +2594,6 @@ function regionMatchesKmaGroup(sido, sig, token, seen) {
 // Ver.1.8.1 예보구역 직접 매칭 테이블
 // 복잡한 조건문보다 "예보구역명 -> 실제 시군"을 우선 적용합니다.
 const REGION_DIRECT_MATCH = {
-  '충남동부': {sido:'충남', sigs:['천안시','아산시','공주시','계룡시','논산시','금산군','부여군','청양군']},
   '경북동해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']},
   '경북해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']},
   '경북북부동해안': {sido:'경북', sigs:['영덕군','울진군']},
@@ -5621,6 +5635,20 @@ if (document.readyState === 'loading') {
     playTone('click');
   }, true);
 })();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </script>
 </body>
 </html>
