@@ -2158,6 +2158,15 @@ function addHeavyMultiAreasFromText(parts, zone, amountText) {
 
   const areaPart = m[1];
   const heavyAmount = m[2];
+
+  // v7.13 치환 보정: 많은 곳 강원중.남부내륙 -> 강원중부내륙 + 강원남부내륙
+  // 점(.)으로 축약된 표현은 split 전에 먼저 풀어줘야 '강원중'이 누락되지 않습니다.
+  const areaCompactForHeavy = normText(areaPart).replace(/[,.\/()\s]/g, '');
+  if (zoneName(zone) === '강원도' && (areaCompactForHeavy.includes('강원중남부내륙') || areaCompactForHeavy.includes('강원중부남부내륙'))) {
+    ['강원중부내륙','강원남부내륙'].forEach(k => parts.push({ zone, area:k, amount: heavyAmount }));
+    return;
+  }
+
   // 많은 곳 200mm 이상처럼 지역명이 없는 경우는 별도 지역으로 만들지 않습니다.
   // 이 경우 splitForecastParts에서 기본 수치와 묶어 80~150(200↑) 형태로 처리합니다.
   if (!areaPart || /^[0-9]+$/.test(areaPart)) return;
@@ -2267,6 +2276,7 @@ function scopedToken(zone, token) {
     if (token === '남부동해안') return '경북남부동해안';
   }
   if (z === '강원도') {
+    if (token === '강원중') return '강원중부내륙';
     if (token === '북부내륙') return '강원북부내륙';
     if (token === '중부내륙') return '강원중부내륙';
     if (token === '남부내륙') return '강원남부내륙';
@@ -2589,6 +2599,10 @@ function regionMatchesToken(sido, sig, token, code) {
   // 전라
   if (token === '전남남해안') return inList(sido,sig,'전남',JEONNAM_SOUTH_COAST);
   if (token === '전남__EXCEPT_남해안') return sido === '전남' && !JEONNAM_SOUTH_COAST.includes(sig);
+  if (token === '전남__EXCEPT_북서부') {
+    const nw = (KMA_REGION_SIGS['전남북서부'] && KMA_REGION_SIGS['전남북서부'].sigs) || [];
+    return sido === '전남' && !nw.some(v => sig === v || sig.startsWith(v));
+  }
   if (token === '전남서해안' || token === '전남남부서해안') return inList(sido,sig,'전남',JEONNAM_WEST_COAST);
   if (token === '전남동부') return inList(sido,sig,'전남',JEONNAM_EAST);
   if (token === '전남서부') return inList(sido,sig,'전남',JEONNAM_WEST);
@@ -2651,7 +2665,10 @@ function expandCompoundTokens(a, zone) {
   // 중.남부 / 중.북부 / 남.동부 형태 보정
   if (a.includes('강원남부내륙.산지') || a.includes('강원남부내륙산지') || a.includes('강원남부산지내륙')) { add('강원남부내륙'); add('강원남부산지'); }
   if (a.includes('강원남부동해안')) add('강원남부동해안');
-  if (a.includes('강원중.남부') || a.includes('강원중남부')) add('강원중남부');
+  if (a.includes('강원중.남부내륙') || a.includes('강원중남부내륙')) {
+    add('강원중부내륙');
+    add('강원남부내륙');
+  } else if (a.includes('강원중.남부') || a.includes('강원중남부')) add('강원중남부');
   if (a.includes('강원중.북부') || a.includes('강원중북부')) { add('강원중부'); add('강원북부'); }
   if (a.includes('경북중.북부') || a.includes('경북중북부')) add('경북북부');
   if (z === '경상권' && /(^|[,.])북동산지/.test(a)) add('경북북동산지');
@@ -2677,6 +2694,7 @@ function expandCompoundTokens(a, zone) {
   // 괄호 제외 표현
   if (a.includes('제주도') && a.includes('산지제외')) add('제주도__EXCEPT_산지');
   if (a.includes('전남') && a.includes('남해안제외')) add('전남__EXCEPT_남해안');
+  if (a.includes('전남') && a.includes('북서부제외')) add('전남__EXCEPT_북서부');
   if (a.includes('경남') && a.includes('서부남해안제외')) add('경남__EXCEPT_서부남해안');
   if (a.includes('경남내륙') && a.includes('지리산부근제외')) add('경남내륙__EXCEPT_지리산부근');
 
@@ -2830,6 +2848,11 @@ function tokensFromArea(areaText, zone) {
     filtered = filtered.filter(t => t !== '전남');
     if (!filtered.includes('전남__EXCEPT_남해안')) filtered.push('전남__EXCEPT_남해안');
   }
+  // v7.13: 광주.전남(북서부 제외) => 광주 + 전남 전체에서 전남북서부 제외
+  if (a.includes('전남') && a.includes('북서부제외')) {
+    filtered = filtered.filter(t => t !== '전남' && t !== '전남북서부');
+    if (!filtered.includes('전남__EXCEPT_북서부')) filtered.push('전남__EXCEPT_북서부');
+  }
   if (a.includes('경남') && a.includes('서부남해안제외')) {
     filtered = filtered.filter(t => t !== '경남' && t !== '경남남해안' && t !== '경남서부남해안');
     if (!filtered.includes('경남__EXCEPT_서부남해안')) filtered.push('경남__EXCEPT_서부남해안');
@@ -2837,6 +2860,12 @@ function tokensFromArea(areaText, zone) {
   // 강원남부내륙.산지는 전체 강원산지가 아니라 남부내륙 + 남부산지 아이콘만 적용
   if (a.includes('강원남부내륙.산지') || a.includes('강원남부내륙산지') || a.includes('강원남부산지내륙')) {
     filtered = filtered.filter(t => t !== '강원산지' && t !== '강원남부산지' && t !== '강원남부내륙산지' && t !== '강원남부산지내륙');
+    filtered.push('강원남부내륙');
+  }
+  // v7.13: 강원중.남부내륙은 강원중부내륙 + 강원남부내륙만 적용합니다.
+  if (z === '강원도' && (a.includes('강원중.남부내륙') || a.includes('강원중남부내륙'))) {
+    filtered = filtered.filter(t => !['강원중남부','강원중부','강원남부','강원내륙','강원중','남부내륙'].includes(t));
+    filtered.push('강원중부내륙');
     filtered.push('강원남부내륙');
   }
   // 대구.경북내륙.북동산지는 대구 + 경북내륙 + 경북북동산지로 해석
@@ -5041,7 +5070,8 @@ function getManualRegionAliases(regionName) {
   const key = normText(regionName);
   const base = DEFAULT_MANUAL_REGION_ALIASES[key] || [];
   const saved = getSavedManualRegionAliases(key);
-  return Array.from(new Set([...base, ...saved].map(normText).filter(Boolean).filter(v => v !== key)));
+  const hiddenAliases = new Set(['강원중.남부내륙','강원중남부내륙']);
+  return Array.from(new Set([...base, ...saved].map(normText).filter(Boolean).filter(v => v !== key).filter(v => !hiddenAliases.has(v))));
 }
 
 function saveManualRegionAliases(regionName, aliases) {
