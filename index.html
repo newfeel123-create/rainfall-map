@@ -1555,7 +1555,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.11 Legend Combo</div>
+   <div class="app-version">Ver.1.8.4-v7.12 No Units Final</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1637,20 +1637,16 @@ svg {
 <script src="map_data.js"></script>
 <script>
 
-function __mapAmountOnly(v) {
-  return String(v ?? "").replace(/\s*m{1,3}\s*$/i, "");
-}
 function displayAmountNoMm(v) {
-  // 지도 라벨/인덱스 표기용
-  // - 범례/수치 항목의 mm, m, 밀리미터는 전부 제거
+  // 지도 라벨/인덱스 표기용 최종 규칙
+  // - 범례 항목/수치 박스에서는 m, mm, 밀리미터를 전부 제거
+  // - (단위:mm)는 범례 하단에서만 별도로 유지
   // - 이상/초과만 ↑로 표시
   // - 미만/안팎은 한글 그대로 표시
   let s = String(v ?? "")
     .replace(/[∼－–—]/g, "~")
     .replace(/밀리미터/gi, "")
-    .replace(/㎜/gi, "")
-    .replace(/mm/gi, "")
-    .replace(/m/gi, "")
+    .replace(/m{1,2}/gi, "")
     .replace(/\s+/g, "")
     .replace(/많은곳/g, "")
     .replace(/초과/g, "이상")
@@ -1660,6 +1656,9 @@ function displayAmountNoMm(v) {
   // 잘못 잡힌 빈 최대값(예: 00↑)은 범례에 표시하지 않습니다.
   if (/^0+↑$/.test(s) || /^00+/.test(s)) return "";
   return s;
+}
+function __mapAmountOnly(v) {
+  return displayAmountNoMm(v);
 }
 function __indexAmountWithMm(v) {
   return displayAmountNoMm(v);
@@ -4752,9 +4751,11 @@ window.addEventListener('touchcancel', () => { if (touchMode) saveMapView(); tou
 
 (function(){
   function fixMapLabelsNoMm(){
+    // 지도 수치 박스와 산지 수치에서 m/mm/밀리미터를 전부 제거합니다.
     document.querySelectorAll('#amountLabels text, #mountainIcons text, .amount-label, .mountain-text').forEach(el=>{
       el.textContent = displayAmountNoMm(el.textContent);
     });
+    // 범례 항목에서도 수치 뒤 단위는 제거하되, (단위:mm) 줄은 그대로 둡니다.
     document.querySelectorAll('#rainLegend .rain-row span:last-child').forEach(el=>{
       el.textContent = displayAmountNoMm(el.textContent);
     });
