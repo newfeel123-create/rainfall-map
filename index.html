@@ -558,6 +558,7 @@
     display:flex;
     gap:5px;
     margin-top:6px;
+    flex-wrap:wrap;
   }
   .manual-region-actions button {
     flex:1 1 0;
@@ -1723,6 +1724,30 @@ input[type="range"] {
   }
 }
 
+
+/* v7.69: GitHub Pages region_replace.json 자동 불러오기 상태 */
+.manual-region-json-status {
+  margin-top:6px;
+  font-size:10.5px;
+  line-height:1.35;
+  color:#475569;
+  background:#fff;
+  border:1px solid #e2e8f0;
+  border-radius:7px;
+  padding:5px 6px;
+  word-break:keep-all;
+}
+.manual-region-json-status.ok { color:#0f5132; border-color:#badbcc; background:#f0fff4; }
+.manual-region-json-status.warn { color:#664d03; border-color:#ffecb5; background:#fff8e1; }
+.manual-region-json-status.err { color:#842029; border-color:#f5c2c7; background:#fff5f5; }
+@media (max-width:768px) {
+  .manual-region-json-status {
+    font-size:11.5px !important;
+    padding:7px 8px !important;
+    border-radius:11px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1804,6 +1829,10 @@ input[type="range"] {
           <button id="manualRegionAliasBtn" type="button">지역 치환 수정</button>
           <button id="manualRegionSaveBtn" type="button" class="manual-region-save">현재 선택 저장</button>
           <button id="manualRegionResetBtn" type="button" class="manual-region-reset">기본값 복귀</button>
+          <button id="manualRegionExportBtn" type="button" class="manual-region-reset">치환 내보내기</button>
+          <button id="manualRegionImportBtn" type="button" class="manual-region-reset">치환 불러오기</button>
+          <input id="manualRegionImportFile" type="file" accept="application/json,.json" style="display:none;">
+          <div id="manualRegionJsonStatus" class="manual-region-json-status">치환 데이터: 기본값/개인 저장값 사용 중</div>
         </div>
       </div>
     </div>
@@ -6125,6 +6154,200 @@ function renderManualRegionButtons(zone) {
   });
 }
 
+
+function __manualRegionBackupNowString() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes());
+}
+
+function collectManualRegionBackupData() {
+  const data = {
+    app: 'kma-rain-map',
+    type: 'manual-region-backup',
+    version: 1,
+    savedAt: new Date().toISOString(),
+    aliases: {},
+    overrides: {}
+  };
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) || '';
+      if (key.startsWith('kmaManualRegionAliases_v2_')) {
+        data.aliases[key.replace('kmaManualRegionAliases_v2_', '')] = JSON.parse(localStorage.getItem(key) || '[]');
+      } else if (key.startsWith('kmaManualRegionOverride_v1_')) {
+        data.overrides[key.replace('kmaManualRegionOverride_v1_', '')] = JSON.parse(localStorage.getItem(key) || '[]');
+      }
+    }
+  } catch(e) {}
+  return data;
+}
+
+function setManualRegionJsonStatus(message, state) {
+  const el = document.getElementById('manualRegionJsonStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('ok','warn','err');
+  if (state) el.classList.add(state);
+}
+
+function refreshManualRegionPanelAfterImport() {
+  try {
+    const activeZone = document.querySelector('#manualRegionZones button.active');
+    const selectedRegion = currentManualRegionName;
+    if (activeZone) renderManualRegionButtons(activeZone.dataset.zone);
+    if (selectedRegion) paintManualPreview(selectedRegion);
+    updateManualRegionInfo();
+  } catch(e) {}
+}
+
+function applyManualRegionBackupObject(data, options) {
+  options = options || {};
+  if (typeof localStorage === 'undefined') {
+    if (!options.silent) alert('이 브라우저에서는 저장소를 사용할 수 없습니다.');
+    setManualRegionJsonStatus('치환 데이터: 브라우저 저장소 사용 불가', 'err');
+    return false;
+  }
+  const normalized = normalizeManualRegionBackupData(data);
+  const aliasCount = Object.keys(normalized.aliases).length;
+  const overrideCount = Object.keys(normalized.overrides).length;
+  if (!aliasCount && !overrideCount) {
+    if (!options.silent) alert('가져올 지역 치환/수동 매칭 데이터가 없습니다.');
+    if (options.source === 'auto') setManualRegionJsonStatus('치환 데이터: region_replace.json은 있으나 적용할 데이터 없음', 'warn');
+    return false;
+  }
+
+  Object.keys(normalized.aliases).forEach(k => {
+    localStorage.setItem('kmaManualRegionAliases_v2_' + normText(k), JSON.stringify(normalized.aliases[k]));
+  });
+  Object.keys(normalized.overrides).forEach(k => {
+    localStorage.setItem('kmaManualRegionOverride_v1_' + normText(k), JSON.stringify(normalized.overrides[k]));
+  });
+
+  refreshManualRegionPanelAfterImport();
+
+  const savedAt = data && data.savedAt ? String(data.savedAt).replace('T',' ').replace(/\..*$/,'') : '';
+  const suffix = savedAt ? ' / ' + savedAt : '';
+  if (options.source === 'auto') {
+    setManualRegionJsonStatus('치환 데이터: GitHub region_replace.json 자동 적용' + suffix, 'ok');
+  } else {
+    setManualRegionJsonStatus('치환 데이터: 파일 불러오기 적용' + suffix, 'ok');
+  }
+  return true;
+}
+
+function autoLoadManualRegionBackupJson() {
+  // GitHub Pages에 region_replace.json을 같이 올려두면 모바일/PC에서 자동 적용됩니다.
+  // 파일이 없으면 기존 localStorage 개인 저장값 또는 기본값을 그대로 사용합니다.
+  if (location.protocol === 'file:') {
+    setManualRegionJsonStatus('치환 데이터: 로컬 파일 실행 중 · GitHub 자동 불러오기 제외', 'warn');
+    return;
+  }
+  fetch('region_replace.json?ts=' + Date.now(), { cache:'no-store' })
+    .then(res => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(data => applyManualRegionBackupObject(data, { source:'auto', silent:true }))
+    .catch(() => {
+      setManualRegionJsonStatus('치환 데이터: region_replace.json 없음 · 개인 저장값/기본값 사용', 'warn');
+    });
+}
+
+function exportManualRegionBackup() {
+  if (typeof localStorage === 'undefined') {
+    alert('이 브라우저에서는 저장소를 사용할 수 없습니다.');
+    return;
+  }
+  const data = collectManualRegionBackupData();
+  const hasData = Object.keys(data.aliases).length || Object.keys(data.overrides).length;
+  if (!hasData && !confirm('저장된 지역 치환/수동 매칭값이 없습니다. 빈 백업 파일을 만들까요?')) return;
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'region_replace.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+function normalizeManualRegionBackupData(data) {
+  const result = { aliases:{}, overrides:{} };
+  if (!data || typeof data !== 'object') return result;
+
+  if (data.aliases && typeof data.aliases === 'object') {
+    Object.keys(data.aliases).forEach(k => {
+      if (Array.isArray(data.aliases[k])) result.aliases[normText(k)] = data.aliases[k].map(normText).filter(Boolean);
+    });
+  }
+  if (data.overrides && typeof data.overrides === 'object') {
+    Object.keys(data.overrides).forEach(k => {
+      if (Array.isArray(data.overrides[k])) result.overrides[normText(k)] = data.overrides[k].map(String).filter(Boolean);
+    });
+  }
+
+  // 혹시 전체 localStorage 형식으로 백업한 파일도 받을 수 있게 처리합니다.
+  if (data.localStorage && typeof data.localStorage === 'object') {
+    Object.keys(data.localStorage).forEach(key => {
+      try {
+        const val = JSON.parse(data.localStorage[key]);
+        if (key.startsWith('kmaManualRegionAliases_v2_') && Array.isArray(val)) {
+          result.aliases[normText(key.replace('kmaManualRegionAliases_v2_', ''))] = val.map(normText).filter(Boolean);
+        }
+        if (key.startsWith('kmaManualRegionOverride_v1_') && Array.isArray(val)) {
+          result.overrides[normText(key.replace('kmaManualRegionOverride_v1_', ''))] = val.map(String).filter(Boolean);
+        }
+      } catch(e) {}
+    });
+  }
+  return result;
+}
+
+function importManualRegionBackupFromObject(data) {
+  if (typeof localStorage === 'undefined') {
+    alert('이 브라우저에서는 저장소를 사용할 수 없습니다.');
+    return;
+  }
+  const normalized = normalizeManualRegionBackupData(data);
+  const aliasCount = Object.keys(normalized.aliases).length;
+  const overrideCount = Object.keys(normalized.overrides).length;
+  if (!aliasCount && !overrideCount) {
+    alert('가져올 지역 치환/수동 매칭 데이터가 없습니다.');
+    return;
+  }
+
+  if (!confirm('지역 치환/수동 매칭 백업을 불러올까요?\n기존 같은 지역 저장값은 백업 파일 내용으로 교체됩니다.')) return;
+
+  if (applyManualRegionBackupObject(data, { source:'file', silent:true })) {
+    alert('지역 치환/수동 매칭 백업을 불러왔습니다.\n다음 매칭부터 적용됩니다.');
+  }
+}
+
+function openManualRegionImportFile() {
+  const input = document.getElementById('manualRegionImportFile');
+  if (input) {
+    input.value = '';
+    input.click();
+  }
+}
+
+function handleManualRegionImportFile(ev) {
+  const file = ev && ev.target && ev.target.files ? ev.target.files[0] : null;
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(String(reader.result || ''));
+      importManualRegionBackupFromObject(data);
+    } catch(e) {
+      alert('JSON 파일을 읽지 못했습니다. 파일을 확인해주세요.');
+    }
+  };
+  reader.onerror = () => alert('파일을 읽지 못했습니다.');
+  reader.readAsText(file, 'utf-8');
+}
+
 function initManualRegionPanel() {
   const toggle = document.getElementById('manualRegionToggle');
   const body = document.getElementById('manualRegionBody');
@@ -6158,6 +6381,17 @@ function initManualRegionPanel() {
 
   const resetBtn = document.getElementById('manualRegionResetBtn');
   if (resetBtn) resetBtn.onclick = resetCurrentManualRegion;
+
+  const exportBtn = document.getElementById('manualRegionExportBtn');
+  if (exportBtn) exportBtn.onclick = exportManualRegionBackup;
+
+  const importBtn = document.getElementById('manualRegionImportBtn');
+  if (importBtn) importBtn.onclick = openManualRegionImportFile;
+
+  const importFile = document.getElementById('manualRegionImportFile');
+  if (importFile) importFile.onchange = handleManualRegionImportFile;
+
+  autoLoadManualRegionBackupJson();
 }
 
 if (document.readyState === 'loading') {
