@@ -1732,7 +1732,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.64 Left Label Stack Test</div>
+   <div class="app-version">Ver.1.8.4-v7.67 Mobile Label Drag Fix</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -3825,8 +3825,8 @@ function makeDraggableLabel(g, rect, text, amount) {
   window.addEventListener('mouseup', finishLabelDrag);
 
   // iPhone/Safari: 수치 박스를 길게 누른 상태로 움직여도 확실히 드래그되도록 Pointer Event를 추가합니다.
+  // 수치 박스는 휴대폰에서도 지도 이동 ON/OFF와 관계없이 바로 이동되게 합니다.
   g.addEventListener('pointerdown', e => {
-    if (!mountainMoveAllowed()) return;
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
     e.preventDefault();
     e.stopPropagation();
@@ -3860,8 +3860,8 @@ function makeDraggableLabel(g, rect, text, amount) {
   }, {passive:false});
 
   // iPhone/Safari: 수치 박스를 한 번 누른 뒤 손가락으로 바로 움직일 수 있게 처리합니다.
+  // 수치 박스는 휴대폰에서도 지도 이동 ON/OFF와 관계없이 바로 이동되게 합니다.
   g.addEventListener('touchstart', e => {
-    if (!mountainMoveAllowed()) return;
     if (!e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     e.stopPropagation();
