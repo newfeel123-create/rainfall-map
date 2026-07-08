@@ -1577,6 +1577,15 @@ svg {
   }
 }
 
+
+/* Android/Samsung range slider touch fix */
+input[type="range"] {
+  touch-action: pan-x !important;
+  pointer-events: auto !important;
+  -webkit-user-select: auto !important;
+  user-select: auto !important;
+}
+
 </style>
 </head>
 <body>
@@ -1719,6 +1728,11 @@ const sidoBoundariesG = document.getElementById('sidoBoundaries');
 const amountLabelsG = document.getElementById('amountLabels');
 const mountainIconsG = document.getElementById('mountainIcons');
 const tooltip = document.getElementById('tooltip');
+
+function isRangeSliderTarget(target) {
+  return !!(target && target.closest && target.closest('input[type="range"]'));
+}
+
 
 let selectedManualColor = '';
 const MANUAL_COLOR_PALETTE = [
@@ -3180,12 +3194,14 @@ function makeDraggableMountain(g, key, amount) {
     try { g.setPointerCapture(e.pointerId); } catch(_) {}
   }, {passive:false});
   g.addEventListener('pointermove', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingIcon) return;
     e.preventDefault();
     e.stopPropagation();
     moveMountainToClientPoint(e);
   }, {passive:false});
   g.addEventListener('pointerup', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingIcon) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3193,6 +3209,7 @@ function makeDraggableMountain(g, key, amount) {
     try { g.releasePointerCapture(e.pointerId); } catch(_) {}
   }, {passive:false});
   g.addEventListener('pointercancel', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingIcon) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3210,17 +3227,20 @@ function makeDraggableMountain(g, key, amount) {
     base = currentPos();
   }, {passive:false});
   g.addEventListener('touchmove', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingIcon || !e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     e.stopPropagation();
     moveMountainToClientPoint(e.touches[0]);
   }, {passive:false});
   g.addEventListener('touchend', e => {
+    if (isRangeSliderTarget(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
     finishMountainDrag();
   }, {passive:false});
   g.addEventListener('touchcancel', e => {
+    if (isRangeSliderTarget(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
     finishMountainDrag();
@@ -3456,12 +3476,14 @@ function makeDraggableLabel(g, rect, text, amount) {
     try { g.setPointerCapture(e.pointerId); } catch(_) {}
   }, {passive:false});
   g.addEventListener('pointermove', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingLabel) return;
     e.preventDefault();
     e.stopPropagation();
     moveLabelToClientPoint(e);
   }, {passive:false});
   g.addEventListener('pointerup', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingLabel) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3469,6 +3491,7 @@ function makeDraggableLabel(g, rect, text, amount) {
     try { g.releasePointerCapture(e.pointerId); } catch(_) {}
   }, {passive:false});
   g.addEventListener('pointercancel', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingLabel) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3487,6 +3510,7 @@ function makeDraggableLabel(g, rect, text, amount) {
   }, {passive:false});
 
   g.addEventListener('touchmove', e => {
+    if (isRangeSliderTarget(e.target)) return;
     if (!draggingLabel || !e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3494,12 +3518,14 @@ function makeDraggableLabel(g, rect, text, amount) {
   }, {passive:false});
 
   g.addEventListener('touchend', e => {
+    if (isRangeSliderTarget(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
     finishLabelDrag();
   }, {passive:false});
 
   g.addEventListener('touchcancel', e => {
+    if (isRangeSliderTarget(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
     finishLabelDrag();
@@ -4814,6 +4840,7 @@ document.addEventListener('gesturechange', e => e.preventDefault(), {passive:fal
 document.addEventListener('gestureend', e => e.preventDefault(), {passive:false});
 
 svg.addEventListener('wheel', e => {
+  if (isRangeSliderTarget(e.target)) return;
   if (!mapMoveEnabled) return;
   e.preventDefault();
   const factor = e.deltaY < 0 ? 1.12 : 0.88;
@@ -4850,6 +4877,7 @@ window.addEventListener('mouseup', () => { if (dragging) saveMapView(); dragging
 
 let lastTapTime = 0;
 svg.addEventListener('touchend', e => {
+  if (isRangeSliderTarget(e.target)) return;
   if (!mapMoveEnabled || touchMode === 'pinch') return;
   const now = Date.now();
   if (now - lastTapTime < 280 && e.changedTouches && e.changedTouches.length) {
@@ -4870,6 +4898,7 @@ let touchMode = null, touchLast = null, touchStartDist = 0, touchStartK = 1;
 function touchPoint(t){ return {x:t.clientX, y:t.clientY}; }
 function touchDistance(a,b){ return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
 svg.addEventListener('touchstart', e => {
+  if (isRangeSliderTarget(e.target)) return;
   if (!mapMoveEnabled) return;
   if (labelMoveMode) { e.preventDefault(); return; }
   if (e.target.closest && (e.target.closest('.amount-label-group') || e.target.closest('.mountain-icon-group'))) return;
@@ -4884,6 +4913,7 @@ svg.addEventListener('touchstart', e => {
   }
 }, {passive:false});
 svg.addEventListener('touchmove', e => {
+  if (isRangeSliderTarget(e.target)) return;
   if (!touchMode) return;
   e.preventDefault();
   const rect = svg.getBoundingClientRect();
