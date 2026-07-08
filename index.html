@@ -1584,7 +1584,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.35 Mountain 5 Only</div>
+   <div class="app-version">Ver.1.8.4-v7.39 Jirisan Mountain</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -3072,7 +3072,7 @@ function svgPointFromClient(evt) {
 
 
 // 산지 ▲ 아이콘 좌표. 현재 시군구 지도에는 산지 경계가 따로 없어서 대표 좌표에 삼각형으로 표시합니다.
-const DISPLAY_MOUNTAIN_KEYS = ['강원북부산지','강원중부산지','강원남부산지','경북북동산지','제주산지'];
+const DISPLAY_MOUNTAIN_KEYS = ['강원북부산지','강원중부산지','강원남부산지','경북북동산지','제주산지','지리산부근'];
 
 const MOUNTAIN_POINTS = {
   // 강원산지는 기상청 표현상 북부/중부/남부 산지로 나뉘어 보이는 경우가 많아 3개 ▲로 표시합니다.
@@ -3113,10 +3113,11 @@ function findMountainKeys(area, zone) {
     keys.push('강원중부산지');
     keys.push('강원남부산지');
   };
-  // v7.35: 지도에 표시하는 산지 ▲는 강원 3개, 경북북동산지, 제주산지 5개만 사용합니다.
+  // v7.39: 지도에 표시하는 산지 ▲는 강원 3개, 경북북동산지, 제주산지, 지리산부근을 사용합니다.
   if (a.includes('경북북동산지') || a.includes('경북내륙북동산지') || a.includes('경북북동내륙산지') || (a.includes('북동산지') && z === '경상권') || (a.includes('경북북동') && a.includes('산지'))) keys.push('경북북동산지');
   if (a.includes('강원남부내륙산지') || a.includes('강원남부산지내륙') || (a.includes('강원남부') && a.includes('산지'))) keys.push('강원남부산지');
   else if (a.includes('강원산지') || (a.includes('산지') && z === '강원도')) addGangwonMountains();
+  if (a.includes('지리산부근') || a.includes('지리산')) keys.push('지리산부근');
   if (a.includes('제주산지') || (a.includes('산지') && z === '제주도')) keys.push('제주산지');
   // 제주중산간 ▲는 표시하지 않습니다.
   if (a === '산지' && z === '제주도') keys.push('제주산지');
@@ -5669,7 +5670,8 @@ if (document.readyState === 'loading') {
     '강원중부산지',
     '강원남부산지',
     '경북북동산지',
-    '제주산지'
+    '제주산지',
+    '지리산부근'
   ];
 
   function hasForecastMountainIcons(){
