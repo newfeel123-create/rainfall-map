@@ -1585,6 +1585,26 @@ input[type="range"] {
 }
 
 
+/* v7.61 Galaxy scroll fix: 제목/사이드 영역에서는 세로 스크롤 허용 */
+.side,
+.side h1,
+.app-version,
+.kma-day-panel,
+textarea,
+.manual-color-panel,
+.manual-merge-panel,
+.manual-region-panel {
+  touch-action: pan-y !important;
+  overscroll-behavior: auto !important;
+}
+
+/* 지도 영역에서만 지도 이동 터치 제어 유지 */
+.mapwrap,
+svg {
+  overscroll-behavior: contain;
+}
+
+
 /* v7.53 수치 병합 패널: 매칭 이후 후처리 전용 */
 .manual-merge-panel {
   border:1px solid #d0d7de;
@@ -1600,6 +1620,7 @@ input[type="range"] {
   padding:6px 8px;
   border-radius:8px;
   background:#fff;
+  margin:2px 0 0 0;
 }
 .manual-merge-body { margin-top:7px; display:none; }
 .manual-merge-desc { font-size:10.5px; color:#555; line-height:1.35; margin-bottom:6px; }
