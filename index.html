@@ -1884,6 +1884,63 @@ input[type="range"] {
   #manualMergePanel .manual-merge-list { max-height:150px !important; }
 }
 
+
+
+/* v7.60: 수치 병합 클릭 시 수동 인덱스 숨김 + 병합 목록 세로 표시 */
+.manual-color-panel.merge-mode .manual-color-title {
+  margin-bottom:5px !important;
+}
+.manual-color-panel.merge-mode #manualColorTitleText::after {
+  content:'';
+}
+.manual-color-panel.merge-mode #manualColorGrid {
+  display:none !important;
+}
+.manual-color-panel.merge-mode #manualColorOff {
+  display:none !important;
+}
+.manual-color-panel.merge-mode #manualMergePanel {
+  display:block !important;
+}
+#manualMergePanel .manual-merge-list {
+  display:block !important;
+  max-height:155px !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border:1px solid #e1e4e8 !important;
+  border-radius:7px !important;
+  padding:5px !important;
+}
+#manualMergePanel .manual-merge-row {
+  display:flex !important;
+  align-items:center !important;
+  gap:5px !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+  border:1px solid #d0d7de !important;
+  background:#fff !important;
+  border-radius:7px !important;
+  padding:4px 6px !important;
+  margin:0 0 4px 0 !important;
+  font-size:11px !important;
+  white-space:nowrap !important;
+}
+#manualMergePanel .manual-merge-row:last-child { margin-bottom:0 !important; }
+#manualMergePanel .manual-merge-actions {
+  display:flex !important;
+  gap:5px !important;
+  margin-top:5px !important;
+}
+#manualMergePanel .manual-merge-actions button {
+  flex:1 1 0 !important;
+  padding:5px 4px !important;
+  font-size:11px !important;
+  border-radius:7px !important;
+}
+@media (max-width:768px){
+  #manualMergePanel .manual-merge-list { max-height:180px !important; }
+}
+
 </style>
 </head>
 <body>
@@ -2429,9 +2486,13 @@ function setManualMergePanelOpen(opened) {
   const panel = document.getElementById('manualMergePanel');
   const body = document.getElementById('manualMergeBody');
   const toggle = document.getElementById('manualMergeToggle');
+  const colorPanel = document.getElementById('manualColorPanel');
+  const titleText = document.getElementById('manualColorTitleText');
   if (panel) panel.style.display = opened ? 'block' : 'none';
   if (body) body.style.display = opened ? 'block' : 'none';
   if (toggle) toggle.textContent = opened ? '▼ 수치 병합' : '▶ 수치 병합';
+  if (colorPanel) colorPanel.classList.toggle('merge-mode', !!opened);
+  if (titleText) titleText.textContent = opened ? '수치 병합' : '수동 인덱스';
   if (opened) refreshManualMergeList();
 }
 function findCanonicalAmountByKey(key) {
