@@ -1979,6 +1979,70 @@ input[type="range"] {
   box-shadow:0 0 0 3px rgba(255,214,0,.35) !important;
 }
 
+
+/* v7.60d: Samsung/Galaxy mobile full-page scroll fix
+   제목부터 지역 수동 매칭까지 같은 흐름으로 세로 스크롤 허용 */
+@media (max-width:768px){
+  html,
+  body{
+    height:auto !important;
+    min-height:100% !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    touch-action:pan-y !important;
+    overscroll-behavior:auto !important;
+  }
+
+  .app,
+  .side,
+  .mapcol{
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:visible !important;
+    touch-action:pan-y !important;
+    overscroll-behavior:auto !important;
+  }
+
+  .side,
+  .side *,
+  .manual-color-panel,
+  .manual-color-panel *,
+  #manualMergeOpenBtn,
+  #manualMergePanel,
+  #manualMergePanel *,
+  .manual-region-panel,
+  .manual-region-panel *{
+    touch-action:pan-y !important;
+  }
+
+  button,
+  input,
+  textarea,
+  select,
+  label{
+    touch-action:manipulation !important;
+  }
+
+  input[type="range"]{
+    touch-action:pan-x !important;
+  }
+
+  .mapwrap,
+  .mapwrap *,
+  svg{
+    overscroll-behavior:contain !important;
+  }
+
+  body.map-move-enabled .mapwrap{
+    touch-action:none !important;
+  }
+
+  body:not(.map-move-enabled) .mapwrap{
+    touch-action:pan-y !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -6528,5 +6592,28 @@ if (document.readyState === 'loading') {
 })();
 
 </script>
+
+<script>
+/* v7.60d: 모바일 삼성 스크롤 보호 - 지도 이동 중이 아닐 때 사이드 영역 터치 스크롤 허용 */
+(function(){
+  function isInsideMap(el){
+    return !!(el && el.closest && el.closest('.mapwrap'));
+  }
+  function isScrollableSide(el){
+    return !!(el && el.closest && (
+      el.closest('.side') ||
+      el.closest('.manual-color-panel') ||
+      el.closest('#manualMergePanel') ||
+      el.closest('.manual-region-panel')
+    ));
+  }
+  document.addEventListener('touchmove', function(e){
+    if (isScrollableSide(e.target) && !isInsideMap(e.target)) {
+      return true;
+    }
+  }, {passive:true});
+})();
+</script>
+
 </body>
 </html>
