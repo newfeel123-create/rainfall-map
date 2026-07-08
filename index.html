@@ -1586,6 +1586,128 @@ input[type="range"] {
   user-select: auto !important;
 }
 
+
+/* v7.53 수치 병합 패널: 매칭 이후 후처리 전용 */
+.manual-merge-panel {
+  border:1px solid #d0d7de;
+  background:#f8fafc;
+  border-radius:10px;
+  padding:7px 8px;
+  margin:7px 0 0 0;
+}
+.manual-merge-toggle {
+  width:100%;
+  font-size:12px;
+  font-weight:900;
+  padding:6px 8px;
+  border-radius:8px;
+  background:#fff;
+}
+.manual-merge-body { margin-top:7px; display:none; }
+.manual-merge-desc { font-size:10.5px; color:#555; line-height:1.35; margin-bottom:6px; }
+.manual-merge-list {
+  max-height:130px;
+  overflow:auto;
+  background:#fff;
+  border:1px solid #e1e4e8;
+  border-radius:7px;
+  padding:5px;
+}
+.manual-merge-row {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:11px;
+  line-height:1.25;
+  padding:3px 2px;
+  white-space:nowrap;
+}
+.manual-merge-row .chip {
+  width:12px;
+  height:10px;
+  margin:0;
+  border-radius:2px;
+  flex:0 0 auto;
+}
+.manual-merge-row input { margin:0; }
+.manual-merge-actions {
+  display:flex;
+  gap:5px;
+  margin-top:6px;
+}
+.manual-merge-actions button {
+  flex:1 1 0;
+  font-size:11px;
+  padding:5px 4px;
+  border-radius:7px;
+  white-space:nowrap;
+}
+.manual-merge-apply { background:#111 !important; color:#fff !important; border-color:#000 !important; }
+.manual-merge-empty { color:#777; font-size:11px; text-align:center; padding:8px 4px; }
+@media (max-width:768px) {
+  .manual-merge-panel {
+    width:calc(100% - 16px) !important;
+    margin:8px !important;
+    box-sizing:border-box !important;
+    background:linear-gradient(180deg,#FFFFFF 0%,#F8FBFF 100%) !important;
+    border:1px solid var(--ui-line) !important;
+    border-radius:20px !important;
+    padding:10px !important;
+    box-shadow:0 6px 18px rgba(31,71,130,.10) !important;
+  }
+  .manual-merge-toggle {
+    height:40px !important;
+    background:#FFFFFF !important;
+    border:1px solid #C8D6E8 !important;
+    color:var(--ui-blue) !important;
+    font-size:14px !important;
+    border-radius:15px !important;
+  }
+  .manual-merge-list { max-height:170px !important; }
+}
+
+
+/* v7.54-A: 지도 안 작은 수치 병합 팝업 */
+.mapwrap .manual-merge-panel {
+  position:absolute !important;
+  right:8px !important;
+  top:8px !important;
+  z-index:30 !important;
+  width:auto !important;
+  max-width:220px !important;
+  margin:0 !important;
+  padding:4px !important;
+  border:1px solid rgba(80,90,100,.65) !important;
+  border-radius:8px !important;
+  background:rgba(255,255,255,.96) !important;
+  box-shadow:0 3px 10px rgba(0,0,0,.14) !important;
+}
+.mapwrap .manual-merge-panel.merge-open { width:220px !important; }
+.mapwrap .manual-merge-toggle {
+  width:auto !important;
+  min-width:48px !important;
+  height:24px !important;
+  padding:3px 7px !important;
+  font-size:11px !important;
+  line-height:1 !important;
+  border-radius:6px !important;
+}
+.mapwrap .manual-merge-body { margin-top:5px !important; }
+.mapwrap .manual-merge-desc { display:none !important; }
+.mapwrap .manual-merge-list { max-height:145px !important; }
+@media (max-width:768px) {
+  .mapwrap .manual-merge-panel {
+    width:auto !important;
+    max-width:205px !important;
+    margin:0 !important;
+    padding:4px !important;
+    border-radius:8px !important;
+    box-shadow:0 3px 10px rgba(0,0,0,.14) !important;
+  }
+  .mapwrap .manual-merge-panel.merge-open { width:205px !important; }
+  .mapwrap .manual-merge-toggle { height:24px !important; font-size:11px !important; border-radius:6px !important; }
+}
+
 </style>
 </head>
 <body>
@@ -1595,7 +1717,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.42 Alias Reverse Fix</div>
+   <div class="app-version">Ver.1.8.4-v7.54 Merge Map Popup</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1633,6 +1755,18 @@ input[type="range"] {
         <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
       </div>
       <div class="manual-color-grid" id="manualColorGrid"></div>
+    </div>
+
+    <div class="manual-merge-panel" id="manualMergePanel">
+      <button id="manualMergeToggle" type="button" class="manual-merge-toggle">▶ 수치 병합</button>
+      <div id="manualMergeBody" class="manual-merge-body">
+        <div class="manual-merge-desc">매칭 후 표시된 수치만 선택해서 같은 색으로 병합합니다. 대표는 ● 선택 항목입니다.</div>
+        <div id="manualMergeList" class="manual-merge-list"></div>
+        <div class="manual-merge-actions">
+          <button id="manualMergeRefreshBtn" type="button">목록 새로고침</button>
+          <button id="manualMergeApplyBtn" type="button" class="manual-merge-apply">병합 적용</button>
+        </div>
+      </div>
     </div>
 
     <div class="manual-region-panel" id="manualRegionPanel">
@@ -2063,6 +2197,102 @@ function renderRainLegend() {
 }
 renderRainLegend();
 
+// ===== v7.53 수치 병합: 기존 매칭 후 후처리만 수행 =====
+const manualMergeState = { opened:false };
+function getManualMergeActiveAmounts() {
+  const activeKeys = getActivePaintedAmountKeys();
+  const list = [];
+  (amountColorOrder || []).forEach(amount => {
+    const key = normalizeAmountKey(amount);
+    if (key && activeKeys.has(key) && !list.some(v => normalizeAmountKey(v) === key)) list.push(amount);
+  });
+  return list.sort((a,b) => {
+    const av = legendAmountSortValue(a), bv = legendAmountSortValue(b);
+    if (av !== bv) return av - bv;
+    return String(a).localeCompare(String(b),'ko');
+  });
+}
+function refreshManualMergeList() {
+  const listBox = document.getElementById('manualMergeList');
+  if (!listBox) return;
+  const amounts = getManualMergeActiveAmounts();
+  if (!amounts.length) {
+    listBox.innerHTML = '<div class="manual-merge-empty">매칭 후 표시된 수치가 없습니다.</div>';
+    return;
+  }
+  listBox.innerHTML = amounts.map((amount, idx) => {
+    const id = 'mergeAmount_' + idx;
+    const rid = 'mergeRep_' + idx;
+    const color = amountColorMap[normalizeAmountKey(amount)] || amountColorMap[amount] || amountColor(amount);
+    const label = displayAmountNoMm(amount) || amount;
+    return `<label class="manual-merge-row" for="${id}">
+      <input id="${id}" type="checkbox" class="manual-merge-check" data-amount="${String(amount).replace(/"/g,'&quot;')}">
+      <input id="${rid}" type="radio" name="manualMergeRep" class="manual-merge-rep" data-amount="${String(amount).replace(/"/g,'&quot;')}" ${idx===0?'checked':''} title="대표 수치">
+      <span class="chip" style="background:${color}"></span><span>${label}</span>
+    </label>`;
+  }).join('');
+}
+function setManualMergePanelOpen(opened) {
+  manualMergeState.opened = !!opened;
+  const body = document.getElementById('manualMergeBody');
+  const toggle = document.getElementById('manualMergeToggle');
+  const panel = document.getElementById('manualMergePanel');
+  if (body) body.style.display = opened ? 'block' : 'none';
+  if (panel) panel.classList.toggle('merge-open', !!opened);
+  if (toggle) toggle.textContent = opened ? '닫기' : '병합';
+  if (opened) refreshManualMergeList();
+}
+function findCanonicalAmountByKey(key) {
+  key = normalizeAmountKey(key);
+  return (amountColorOrder || []).find(a => normalizeAmountKey(a) === key) || key;
+}
+function applyManualAmountMerge() {
+  const checks = Array.from(document.querySelectorAll('.manual-merge-check:checked'));
+  if (checks.length < 2) {
+    alert('병합할 수치를 2개 이상 선택해 주세요.');
+    return;
+  }
+  const selectedKeys = new Set(checks.map(ch => normalizeAmountKey(ch.dataset.amount || '')).filter(Boolean));
+  let repEl = document.querySelector('.manual-merge-rep:checked');
+  let repKey = normalizeAmountKey(repEl ? repEl.dataset.amount : checks[0].dataset.amount);
+  if (!selectedKeys.has(repKey)) repKey = normalizeAmountKey(checks[0].dataset.amount);
+  const repAmount = findCanonicalAmountByKey(repKey);
+  const repColor = amountColor(repAmount);
+
+  document.querySelectorAll('.region').forEach(el => {
+    const key = normalizeAmountKey(el.dataset.amount || '');
+    if (selectedKeys.has(key)) {
+      el.dataset.amount = repAmount;
+      if (el.classList.contains('matched')) el.style.fill = repColor;
+    }
+  });
+
+  if (typeof mountainIconGroups === 'object' && mountainIconGroups) {
+    Object.values(mountainIconGroups).forEach(item => {
+      if (item && selectedKeys.has(normalizeAmountKey(item.amount || ''))) item.amount = repAmount;
+    });
+  }
+
+  // 이미 매칭된 결과에서 수치/색만 다시 구성합니다. 기존 매칭 로직은 다시 실행하지 않습니다.
+  rebuildAmountLabelGroupsFromMap();
+  renderAmountLabels();
+  renderMountainIcons();
+  renderRainLegend();
+  refreshManualMergeList();
+}
+function initManualMergePanel() {
+  const openBtn = document.getElementById('manualMergeOpenBtn');
+  const toggle = document.getElementById('manualMergeToggle');
+  const refresh = document.getElementById('manualMergeRefreshBtn');
+  const apply = document.getElementById('manualMergeApplyBtn');
+  if (openBtn) openBtn.addEventListener('click', () => setManualMergePanelOpen(!manualMergeState.opened));
+  if (toggle) toggle.addEventListener('click', () => setManualMergePanelOpen(!manualMergeState.opened));
+  if (refresh) refresh.addEventListener('click', refreshManualMergeList);
+  if (apply) apply.addEventListener('click', applyManualAmountMerge);
+}
+initManualMergePanel();
+
+
 function renderManualColorPalette() {
   const grid = document.getElementById('manualColorGrid');
   if (!grid) return;
@@ -2098,14 +2328,20 @@ if (manualColorOff) manualColorOff.addEventListener('click', clearManualColorSel
 
 function relocateManualPanelsForMobile() {
   const colorPanel = document.getElementById('manualColorPanel');
+  const mergePanel = document.getElementById('manualMergePanel');
   const regionPanel = document.getElementById('manualRegionPanel');
   const side = document.querySelector('.side');
   const mapcol = document.querySelector('.mapcol');
+  const mapwrap = document.querySelector('.mapwrap');
   const btns = document.querySelector('.btns');
-  if (!colorPanel || !regionPanel || !side || !mapcol || !btns) return;
+  if (!colorPanel || !mergePanel || !regionPanel || !side || !mapcol || !mapwrap || !btns) return;
+
+  // 수치 병합은 항상 지도 안 오른쪽 상단 작은 팝업으로 유지합니다.
+  if (mergePanel.parentElement !== mapwrap) {
+    mapwrap.appendChild(mergePanel);
+  }
 
   if (window.matchMedia('(max-width: 768px)').matches) {
-    // 휴대폰: 지도 아래에 수동 인덱스 → 지역 수동 매칭 순서로 표시
     const parent = mapcol.parentElement;
     if (colorPanel.parentElement !== parent || colorPanel.previousElementSibling !== mapcol) {
       parent.insertBefore(colorPanel, mapcol.nextSibling);
@@ -2114,7 +2350,6 @@ function relocateManualPanelsForMobile() {
       parent.insertBefore(regionPanel, colorPanel.nextSibling);
     }
   } else {
-    // PC: 왼쪽 버튼 바로 아래에 수동 인덱스 → 지역 수동 매칭 순서로 표시
     if (colorPanel.parentElement !== side || colorPanel.previousElementSibling !== btns) {
       side.insertBefore(colorPanel, btns.nextSibling);
     }
@@ -3758,6 +3993,7 @@ function applyForecastMatch() {
   renderAmountLabels({ignoreSaved:true});
   renderMountainIcons();
   renderRainLegend();
+  if (manualMergeState && manualMergeState.opened) refreshManualMergeList();
 
   const box = document.getElementById('matchResult');
   box.innerHTML = matchedCount
