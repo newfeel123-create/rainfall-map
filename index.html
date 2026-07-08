@@ -3625,6 +3625,7 @@ function makeDraggableMountain(g, key, amount) {
     moveMountainToClientPoint(e.touches[0]);
   }, {passive:false});
   g.addEventListener('touchend', e => {
+    if (usingPointerDrag) return;
     if (isRangeSliderTarget(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3857,6 +3858,8 @@ function makeDraggableLabel(g, rect, text, amount) {
   let draggingLabel = false;
   let start = null;
   let base = null;
+  let dragOffset = null;
+  let usingPointerDrag = false;
   let labelPointerMoved = false;
   let labelSuppressClick = false;
   let labelDownClient = null;
@@ -3902,14 +3905,34 @@ function makeDraggableLabel(g, rect, text, amount) {
   }
 
   function moveLabelToClientPoint(clientEvt) {
-    if (!draggingLabel || !start || !base) return;
+    if (!draggingLabel || !clientEvt) return;
     markLabelMove(clientEvt);
     const pt = svgPointFromClient(clientEvt);
-    const nx = base.x + (pt.x - start.x);
-    const ny = base.y + (pt.y - start.y);
+    let nx, ny;
+    // v7.74: 잡은 손가락 위치와 박스 위치의 차이를 고정해서 이동 중 밀림을 방지합니다.
+    if (dragOffset) {
+      nx = pt.x + dragOffset.x;
+      ny = pt.y + dragOffset.y;
+    } else if (start && base) {
+      nx = base.x + (pt.x - start.x);
+      ny = base.y + (pt.y - start.y);
+    } else {
+      return;
+    }
     g.dataset.x = nx;
     g.dataset.y = ny;
     g.setAttribute('transform', `translate(${nx} ${ny})`);
+  }
+
+  function beginLabelDragFromClient(clientEvt) {
+    draggingLabel = true;
+    labelPointerMoved = false;
+    labelSuppressClick = false;
+    labelDownClient = {x:clientEvt.clientX || 0, y:clientEvt.clientY || 0};
+    start = svgPointFromClient(clientEvt);
+    base = currentPos();
+    dragOffset = { x: base.x - start.x, y: base.y - start.y };
+    startLabelHoldFocus();
   }
 
   function finishLabelDrag() {
@@ -3917,6 +3940,10 @@ function makeDraggableLabel(g, rect, text, amount) {
     const wasMoved = labelPointerMoved;
     draggingLabel = false;
     labelSuppressClick = wasMoved;
+    usingPointerDrag = false;
+    start = null;
+    base = null;
+    dragOffset = null;
     const p = currentPos();
     saveLabelPos(amount, p.x, p.y);
     if (wasMoved) {
@@ -3930,13 +3957,7 @@ function makeDraggableLabel(g, rect, text, amount) {
 
   g.addEventListener('mousedown', e => {
     e.stopPropagation();
-    draggingLabel = true;
-    labelPointerMoved = false;
-    labelSuppressClick = false;
-    labelDownClient = {x:e.clientX || 0, y:e.clientY || 0};
-    start = svgPointFromClient(e);
-    base = currentPos();
-    startLabelHoldFocus();
+    beginLabelDragFromClient(e);
   });
 
   window.addEventListener('mousemove', e => {
@@ -3951,14 +3972,9 @@ function makeDraggableLabel(g, rect, text, amount) {
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
     e.preventDefault();
     e.stopPropagation();
-    draggingLabel = true;
-    labelPointerMoved = false;
-    labelSuppressClick = false;
-    labelDownClient = {x:e.clientX || 0, y:e.clientY || 0};
-    start = svgPointFromClient(e);
-    base = currentPos();
+    usingPointerDrag = true;
+    beginLabelDragFromClient(e);
     activeLabelPointerId = e.pointerId;
-    startLabelHoldFocus();
     g.classList.add('hover-focus');
     try { g.setPointerCapture(e.pointerId); } catch(_) {}
   }, {passive:false});
@@ -4018,19 +4034,16 @@ function makeDraggableLabel(g, rect, text, amount) {
   // iPhone/Safari: 수치 박스를 한 번 누른 뒤 손가락으로 바로 움직일 수 있게 처리합니다.
   // 수치 박스는 휴대폰에서도 지도 이동 ON/OFF와 관계없이 바로 이동되게 합니다.
   g.addEventListener('touchstart', e => {
+    // PointerEvent가 동작하는 모바일에서는 중복 touch 이벤트로 인한 미세 밀림을 막습니다.
+    if (usingPointerDrag) return;
     if (!e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     e.stopPropagation();
-    draggingLabel = true;
-    labelPointerMoved = false;
-    labelSuppressClick = false;
-    labelDownClient = {x:e.touches[0].clientX || 0, y:e.touches[0].clientY || 0};
-    start = svgPointFromClient(e.touches[0]);
-    base = currentPos();
-    startLabelHoldFocus();
+    beginLabelDragFromClient(e.touches[0]);
   }, {passive:false});
 
   g.addEventListener('touchmove', e => {
+    if (usingPointerDrag) return;
     if (isRangeSliderTarget(e.target)) return;
     if (!draggingLabel || !e.touches || e.touches.length !== 1) return;
     e.preventDefault();
@@ -4039,6 +4052,7 @@ function makeDraggableLabel(g, rect, text, amount) {
   }, {passive:false});
 
   g.addEventListener('touchend', e => {
+    if (usingPointerDrag) return;
     if (isRangeSliderTarget(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
@@ -4056,6 +4070,7 @@ function makeDraggableLabel(g, rect, text, amount) {
 
   // v7.73: 손가락이 수치 박스 밖/다른 지역 위로 이동해도 window에서 계속 드래그와 필터를 유지합니다.
   window.addEventListener('touchmove', e => {
+    if (usingPointerDrag) return;
     if (!draggingLabel || !e.touches || e.touches.length !== 1) return;
     e.preventDefault();
     e.stopPropagation();
@@ -4064,6 +4079,7 @@ function makeDraggableLabel(g, rect, text, amount) {
   }, {passive:false});
 
   window.addEventListener('touchend', e => {
+    if (usingPointerDrag) return;
     if (!draggingLabel) return;
     e.preventDefault();
     e.stopPropagation();
