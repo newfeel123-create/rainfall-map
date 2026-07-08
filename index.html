@@ -1587,33 +1587,13 @@ input[type="range"] {
 }
 
 
-/* v7.61 Galaxy scroll fix: 제목/사이드 영역에서는 세로 스크롤 허용 */
-.side,
-.side h1,
-.app-version,
-.kma-day-panel,
-textarea,
-.manual-color-panel,
-.manual-merge-panel,
-.manual-region-panel {
-  touch-action: pan-y !important;
-  overscroll-behavior: auto !important;
-}
-
-/* 지도 영역에서만 지도 이동 터치 제어 유지 */
-.mapwrap,
-svg {
-  overscroll-behavior: contain;
-}
-
-
 /* v7.53 수치 병합 패널: 매칭 이후 후처리 전용 */
 .manual-merge-panel {
   border:1px solid #d0d7de;
   background:#f8fafc;
   border-radius:10px;
   padding:7px 8px;
-  margin:2px 0 0 0;
+  margin:7px 0 0 0;
 }
 .manual-merge-toggle {
   width:100%;
@@ -1622,7 +1602,6 @@ svg {
   padding:6px 8px;
   border-radius:8px;
   background:#fff;
-  margin:2px 0 0 0;
 }
 .manual-merge-body { margin-top:7px; display:none; }
 .manual-merge-desc { font-size:10.5px; color:#555; line-height:1.35; margin-bottom:6px; }
@@ -1964,47 +1943,6 @@ svg {
   #manualMergePanel .manual-merge-list { max-height:180px !important; }
 }
 
-
-
-/* v7.63 관리자 모드: 소리 ON/OFF 버튼 5회 연속 누르면 패널 위치 이동/저장 */
-body.admin-panel-mode #manualColorPanel,
-body.admin-panel-mode #manualMergeOpenBtn,
-body.admin-panel-mode #manualMergePanel,
-body.admin-panel-mode #manualRegionPanel {
-  outline:2px dashed #ff9800 !important;
-  outline-offset:2px !important;
-  cursor:move !important;
-  z-index:2500 !important;
-  touch-action:pan-y !important;
-  user-select:none !important;
-  -webkit-user-select:none !important;
-  box-shadow:0 6px 18px rgba(0,0,0,.22) !important;
-}
-body.admin-panel-mode .app-version {
-  background:#fff3cd !important;
-  color:#111 !important;
-  border:1px solid #ffb300 !important;
-  cursor:pointer !important;
-}
-.kma-admin-toast {
-  position:fixed;
-  left:50%;
-  top:12px;
-  transform:translateX(-50%);
-  z-index:99999;
-  background:rgba(0,0,0,.82);
-  color:#fff;
-  padding:7px 12px;
-  border-radius:999px;
-  font-size:12px;
-  font-weight:900;
-  pointer-events:none;
-  opacity:0;
-  transition:opacity .18s ease;
-  white-space:nowrap;
-}
-.kma-admin-toast.show { opacity:1; }
-
 </style>
 </head>
 <body>
@@ -2014,7 +1952,7 @@ body.admin-panel-mode .app-version {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.65 Admin Scroll Fix</div>
+   <div class="app-version">Ver.1.8.4-v7.56 Merge High Color</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2116,204 +2054,6 @@ body.admin-panel-mode .app-version {
 </div>
 
 <script src="map_data.js"></script>
-<script>
-
-/* ===== v7.64 관리자 모드: 소리 ON/OFF 버튼 5회 연속 누르면 패널 이동/저장 ===== */
-(function(){
-  const STORAGE_KEY = 'kmaAdminPanelPositionsV762';
-  const PANEL_IDS = ['manualColorPanel','manualMergeOpenBtn','manualMergePanel','manualRegionPanel'];
-  let adminMode = false;
-  let longPressTimer = null;
-  let soundAdminClickCount = 0;
-  let soundAdminClickTimer = null;
-  let toastTimer = null;
-
-  function panels(){
-    return PANEL_IDS.map(id => document.getElementById(id)).filter(Boolean);
-  }
-
-  function showToast(msg){
-    let box = document.getElementById('kmaAdminToast');
-    if (!box) {
-      box = document.createElement('div');
-      box.id = 'kmaAdminToast';
-      box.className = 'kma-admin-toast';
-      document.body.appendChild(box);
-    }
-    box.textContent = msg;
-    box.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => box.classList.remove('show'), 1400);
-  }
-
-  function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
-
-  function setPanelFixed(el, left, top, width){
-    const maxLeft = Math.max(0, window.innerWidth - 40);
-    const maxTop = Math.max(0, window.innerHeight - 40);
-    el.style.position = 'fixed';
-    el.style.left = clamp(left, 0, maxLeft) + 'px';
-    el.style.top = clamp(top, 0, maxTop) + 'px';
-    if (width) el.style.width = Math.min(width, Math.max(120, window.innerWidth - 12)) + 'px';
-    el.style.margin = '0';
-    el.style.boxSizing = 'border-box';
-    el.style.zIndex = '1600';
-  }
-
-  function loadPositions(){
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(_) { saved = {}; }
-    panels().forEach(el => {
-      const p = saved[el.id];
-      if (!p) return;
-      setPanelFixed(el, Number(p.left) || 0, Number(p.top) || 0, Number(p.width) || el.getBoundingClientRect().width);
-    });
-  }
-
-  function convertCurrentToFixed(){
-    panels().forEach(el => {
-      const r = el.getBoundingClientRect();
-      const w = r.width || el.offsetWidth || 180;
-      setPanelFixed(el, r.left, r.top, w);
-    });
-  }
-
-  function savePositions(){
-    const data = {};
-    panels().forEach(el => {
-      const r = el.getBoundingClientRect();
-      data[el.id] = { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width) };
-    });
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(_) {}
-  }
-
-  function toggleAdminMode(){
-    adminMode = !adminMode;
-    document.body.classList.toggle('admin-panel-mode', adminMode);
-    if (adminMode) {
-      convertCurrentToFixed();
-      showToast('관리자 모드 ON - 패널 이동 가능');
-    } else {
-      savePositions();
-      showToast('관리자 모드 OFF - 위치 저장');
-    }
-  }
-
-  function bindVersionLongPress(){
-    const version = document.querySelector('.app-version');
-    if (!version) return;
-    // 삼성 갤럭시에서 길게 누르면 글자 복사 메뉴가 뜨므로,
-    // 버전 5초 길게 누르기 방식은 비활성화하고 안내만 변경합니다.
-    version.title = '소리 ON/OFF 버튼을 5회 연속 누르면 관리자 모드 ON/OFF';
-  }
-
-  function bindSoundAdminClicks(){
-    const btn = document.getElementById('soundToggle');
-    if (!btn) return;
-    btn.title = '소리 ON/OFF · 5회 연속 누르면 관리자 모드 ON/OFF';
-    btn.addEventListener('click', function(){
-      soundAdminClickCount += 1;
-      clearTimeout(soundAdminClickTimer);
-      soundAdminClickTimer = setTimeout(function(){
-        soundAdminClickCount = 0;
-      }, 2500);
-
-      if (soundAdminClickCount >= 5) {
-        soundAdminClickCount = 0;
-        clearTimeout(soundAdminClickTimer);
-        setTimeout(toggleAdminMode, 0);
-      }
-    }, true);
-  }
-
-  function bindDrag(){
-    let active = null;
-
-    function isAdminPanelTarget(target){
-      return target && target.closest && target.closest('#manualColorPanel,#manualMergeOpenBtn,#manualMergePanel,#manualRegionPanel');
-    }
-
-    document.addEventListener('pointerdown', function(e){
-      if (!adminMode) return;
-      const el = isAdminPanelTarget(e.target);
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      active = {
-        el,
-        pointerId:e.pointerId,
-        pointerType:e.pointerType || '',
-        startX:e.clientX,
-        startY:e.clientY,
-        dx:e.clientX-r.left,
-        dy:e.clientY-r.top,
-        dragging:false
-      };
-      // 마우스는 바로 이동 시작, 터치는 스크롤과 구분하기 위해 조금 움직인 뒤 판단합니다.
-      if (active.pointerType !== 'touch') {
-        active.dragging = true;
-        el.setPointerCapture && el.setPointerCapture(e.pointerId);
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
-
-    document.addEventListener('pointermove', function(e){
-      if (!active) return;
-
-      if (!active.dragging) {
-        const moveX = e.clientX - active.startX;
-        const moveY = e.clientY - active.startY;
-        if (Math.abs(moveX) + Math.abs(moveY) < 8) return;
-
-        // 삼성/안드로이드에서 세로 스크롤하려는 동작이면 패널 이동을 취소하고 스크롤을 그대로 둡니다.
-        if (active.pointerType === 'touch' && Math.abs(moveY) > Math.abs(moveX) * 1.15) {
-          active = null;
-          return;
-        }
-
-        active.dragging = true;
-        try { active.el.setPointerCapture && active.el.setPointerCapture(active.pointerId); } catch(_) {}
-      }
-
-      const el = active.el;
-      const r = el.getBoundingClientRect();
-      const left = clamp(e.clientX - active.dx, 0, Math.max(0, window.innerWidth - Math.min(40, r.width)));
-      const top = clamp(e.clientY - active.dy, 0, Math.max(0, window.innerHeight - 40));
-      el.style.left = left + 'px';
-      el.style.top = top + 'px';
-      e.preventDefault();
-      e.stopPropagation();
-    }, true);
-
-    document.addEventListener('pointerup', function(e){
-      if (!active) return;
-      const wasDragging = !!active.dragging;
-      try { active.el.releasePointerCapture && active.el.releasePointerCapture(e.pointerId); } catch(_) {}
-      if (wasDragging) savePositions();
-      active = null;
-      if (wasDragging) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
-
-    document.addEventListener('pointercancel', function(){
-      active = null;
-    }, true);
-  }
-
-  function init(){
-    loadPositions();
-    bindVersionLongPress();
-    bindSoundAdminClicks();
-    bindDrag();
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-})();
-
-</script>
 <script>
 
 function displayAmountNoMm(v) {
