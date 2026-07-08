@@ -1964,7 +1964,7 @@ svg {
 
 
 
-/* v7.62 관리자 모드: 버전 5초 길게 누르면 패널 위치 이동/저장 */
+/* v7.63 관리자 모드: 소리 ON/OFF 버튼 5회 연속 누르면 패널 위치 이동/저장 */
 body.admin-panel-mode #manualColorPanel,
 body.admin-panel-mode #manualMergeOpenBtn,
 body.admin-panel-mode #manualMergePanel,
@@ -2012,7 +2012,7 @@ body.admin-panel-mode .app-version {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.62 Admin Panel Move</div>
+   <div class="app-version">Ver.1.8.4-v7.63 Sound Admin Mode</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2115,12 +2115,14 @@ body.admin-panel-mode .app-version {
 
 <script src="map_data.js">
 
-/* ===== v7.62 관리자 모드: 버전 5초 길게 누르면 패널 이동/저장 ===== */
+/* ===== v7.63 관리자 모드: 소리 ON/OFF 버튼 5회 연속 누르면 패널 이동/저장 ===== */
 (function(){
   const STORAGE_KEY = 'kmaAdminPanelPositionsV762';
   const PANEL_IDS = ['manualColorPanel','manualMergeOpenBtn','manualMergePanel','manualRegionPanel'];
   let adminMode = false;
   let longPressTimer = null;
+  let soundAdminClickCount = 0;
+  let soundAdminClickTimer = null;
   let toastTimer = null;
 
   function panels(){
@@ -2197,20 +2199,28 @@ body.admin-panel-mode .app-version {
   function bindVersionLongPress(){
     const version = document.querySelector('.app-version');
     if (!version) return;
-    const start = function(e){
-      clearTimeout(longPressTimer);
-      longPressTimer = setTimeout(toggleAdminMode, 5000);
-    };
-    const cancel = function(){
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    };
-    version.addEventListener('pointerdown', start);
-    version.addEventListener('pointerup', cancel);
-    version.addEventListener('pointercancel', cancel);
-    version.addEventListener('pointerleave', cancel);
-    version.addEventListener('contextmenu', function(e){ e.preventDefault(); });
-    version.title = '5초 길게 누르면 관리자 모드 ON/OFF';
+    // 삼성 갤럭시에서 길게 누르면 글자 복사 메뉴가 뜨므로,
+    // 버전 5초 길게 누르기 방식은 비활성화하고 안내만 변경합니다.
+    version.title = '소리 ON/OFF 버튼을 5회 연속 누르면 관리자 모드 ON/OFF';
+  }
+
+  function bindSoundAdminClicks(){
+    const btn = document.getElementById('soundToggle');
+    if (!btn) return;
+    btn.title = '소리 ON/OFF · 5회 연속 누르면 관리자 모드 ON/OFF';
+    btn.addEventListener('click', function(){
+      soundAdminClickCount += 1;
+      clearTimeout(soundAdminClickTimer);
+      soundAdminClickTimer = setTimeout(function(){
+        soundAdminClickCount = 0;
+      }, 2500);
+
+      if (soundAdminClickCount >= 5) {
+        soundAdminClickCount = 0;
+        clearTimeout(soundAdminClickTimer);
+        setTimeout(toggleAdminMode, 0);
+      }
+    }, true);
   }
 
   function bindDrag(){
@@ -2249,6 +2259,7 @@ body.admin-panel-mode .app-version {
   function init(){
     loadPositions();
     bindVersionLongPress();
+    bindSoundAdminClicks();
     bindDrag();
   }
 
