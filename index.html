@@ -1690,6 +1690,27 @@ input[type="range"] {
 .manual-color-panel .manual-merge-list { max-height:145px !important; }
 
 
+/* v7.75: PC/모바일 고화질 저장 토글 */
+#saveQualityToggle.quality-on {
+  background:linear-gradient(180deg,#E8F5E9,#C8E6C9) !important;
+  border-color:#66BB6A !important;
+  color:#1B5E20 !important;
+}
+#saveQualityToggle.quality-off {
+  background:#F2F5F9 !important;
+  color:#5C6675 !important;
+}
+@media (max-width:768px) {
+  #saveQualityToggle::before {
+    content:'✨';
+    display:block;
+    font-size:20px;
+    line-height:1;
+    margin-bottom:2px;
+  }
+}
+
+
 /* v7.57: 지도 우측 상단 많은 곳 자동 묶기 토글 */
 .heavy-group-toggle {
   position:absolute;
@@ -1757,7 +1778,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.67 Mobile Label Drag Fix</div>
+   <div class="app-version">Ver.1.8.4-v7.77 Gyeongbuk SE + Custom Region</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1829,6 +1850,7 @@ input[type="range"] {
           <button id="manualRegionAliasBtn" type="button">지역 치환 수정</button>
           <button id="manualRegionSaveBtn" type="button" class="manual-region-save">현재 선택 저장</button>
           <button id="manualRegionResetBtn" type="button" class="manual-region-reset">기본값 복귀</button>
+          <button id="manualRegionAddBtn" type="button" class="manual-region-reset">지역 버튼 추가</button>
           <button id="manualRegionExportBtn" type="button" class="manual-region-reset">치환 내보내기</button>
           <button id="manualRegionImportBtn" type="button" class="manual-region-reset">치환 불러오기</button>
           <input id="manualRegionImportFile" type="file" accept="application/json,.json" style="display:none;">
@@ -2883,6 +2905,7 @@ const KMA_REGION_GROUPS = {
   '경북서부': ['경북북서내륙','경북남서내륙','경북서부내륙'],
   '경북북부': ['경북북부내륙','경북북부동해안','경북북동산지'],
   '경북남부': ['경북남서내륙','경북남동내륙','경북남부동해안'],
+  '경북남동부': ['경북남동내륙','경북남부동해안'],
   '경북남부내륙': ['경북남서내륙','경북남동내륙'],
   '경북해안': ['경북북부동해안','경북남부동해안'],
   '경북동해안': ['경북북부동해안','경북남부동해안'],
@@ -2958,6 +2981,7 @@ const KMA_REGION_SIGS = {
   '경북서부내륙': {sido:'경북', sigs:['김천시','구미시','상주시','문경시','예천군','성주군','칠곡군']},
   '경북남서내륙': {sido:'경북', sigs:['김천시','구미시','고령군','성주군','칠곡군']},
   '경북남동내륙': {sido:'경북', sigs:['영천시','경산시','청도군','군위군']},
+  '경북남동부': {sido:'경북', sigs:['영천시','경산시','청도군','군위군','포항시','포항시남구','포항시북구','경주시']},
   '경북북부동해안': {sido:'경북', sigs:['영덕군','울진군']},
   '경북남부동해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시']},
   '경북북동산지': {sido:'경북', sigs:['봉화군','울진군','영양군','청송군']},
@@ -3005,6 +3029,7 @@ const REGION_DIRECT_MATCH = {
   '경북해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시','영덕군','울진군']},
   '경북북부동해안': {sido:'경북', sigs:['영덕군','울진군']},
   '경북남부동해안': {sido:'경북', sigs:['포항시','포항시남구','포항시북구','경주시']},
+  '경북남동부': {sido:'경북', sigs:['영천시','경산시','청도군','군위군','포항시','포항시남구','포항시북구','경주시']},
 
   // 경북내륙은 동해안(포항·경주·영덕·울진)을 제외한 내륙 중심
   '경북내륙': {sido:'경북', sigs:['김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시','군위군','의성군','청송군','영양군','청도군','고령군','성주군','칠곡군','예천군','봉화군']},
@@ -5725,6 +5750,15 @@ document.addEventListener('contextmenu', e => {
 }, {passive:false});
 
 
+
+// v7.76: PC/모바일 항상 고화질 저장
+function getImageSaveScale() {
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  // PC는 항상 3배, 모바일은 기기 해상도 기준 최소 3배~최대 4배로 저장합니다.
+  return isMobile ? Math.max(3, Math.min(4, dpr)) : 3;
+}
+
 // ===== 지도 이미지 저장 =====
 // 사용자가 올려준 예시처럼 PC/휴대폰 모두 같은 비율의 PNG로 저장합니다.
 // 화면에 보이는 모바일 CSS 크기가 아니라 SVG 지도 전체 + 수치 + 산지 아이콘을 기준으로 저장합니다.
@@ -5751,7 +5785,7 @@ function saveCurrentMapImage() {
     const outH = Math.max(1, Math.round(rect.height || originalSvg.clientHeight || 520));
 
     // 아이폰에서도 화면에 보이는 비율과 위치가 그대로 나오도록 DPR은 선명도에만 사용합니다.
-    const S = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const S = (typeof getImageSaveScale === "function") ? getImageSaveScale() : Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     const isMobileExport = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
     // Ver.1.8.1: 휴대폰 저장 때만 한반도를 1.25배로 저장합니다.
     const EXPORT_MOBILE_ZOOM = 1.25;
@@ -5820,6 +5854,8 @@ function saveCurrentMapImage() {
       canvas.width = Math.round(outW * S);
       canvas.height = Math.round(outH * S);
       const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // CSS 픽셀 좌표계로 그립니다. 그래서 화면 박스와 저장 이미지가 1:1로 맞습니다.
       ctx.setTransform(S, 0, 0, S, 0, 0);
@@ -5955,9 +5991,77 @@ const MANUAL_REGION_MENU = {
   '강원도': ['강원도','강원내륙','강원북부','강원중부','강원남부','강원북부내륙','강원중부내륙','강원남부내륙','강원동해안','강원북부동해안','강원중부동해안','강원남부동해안','강원산지','강원북부산지','강원중부산지','강원남부산지'],
   '충청권': ['대전','세종','충남','충북','충남내륙','충남북부','충남남부','충남동부','충남서해안','충남북부내륙','충남중부내륙','충남남동내륙','충남남서내륙','충남북부서해안','충남남부서해안','충북북부','충북중부','충북남부'],
   '전라권': ['광주','전남','전북','전남남서부','전북남서부','전남내륙','전남해안','전남북부','전남남부','전남동부','전남서해안','전남중부서해안','전남남해안','전남북서부','전남북동부','전남중부내륙','전남동부내륙','전남남부서해안','전남중부남해안','전남서부남해안','전남동부남해안','전북내륙','전북서부','전북동부','전북북부','전북남부','전북서해안','전북북동내륙','전북남동내륙','전북중부내륙','전북북부서해안','전북남부서해안'],
-  '경상권': ['부산','울산','대구','경북','경남','경북내륙','경북북부','경북남부','경북서부','경북해안','경북동해안','경북북부내륙','경북중북부내륙','경북북서내륙','경북북동내륙','경북서부내륙','경북남서내륙','경북남동내륙','경북남부내륙','경북북부동해안','경북남부동해안','경북북동산지','경남내륙','경남서부','경남중부','경남북서내륙','경남남서내륙','경남중부내륙','경남동부내륙','경남서부내륙','경남남해안','경남서부남해안','경남중부남해안','지리산부근','남해군'],
+  '경상권': ['부산','울산','대구','경북','경남','경북내륙','경북북부','경북남부','경북서부','경북해안','경북동해안','경북북부내륙','경북중북부내륙','경북북서내륙','경북북동내륙','경북서부내륙','경북남서내륙','경북남동내륙','경북남동부','경북남부내륙','경북북부동해안','경북남부동해안','경북북동산지','경남내륙','경남서부','경남중부','경남북서내륙','경남남서내륙','경남중부내륙','경남동부내륙','경남서부내륙','경남남해안','경남서부남해안','경남중부남해안','지리산부근','남해군'],
   '제주도': ['제주도','제주도북부','제주도남부','제주도동부','제주도서부','제주도산지','제주도중산간','북부중산간','남부중산간']
 };
+
+// Ver.1.8.4-v7.77: 프로그램 안에서 수동 매칭 지역 버튼 추가
+// - 추가한 버튼은 현재 브라우저 localStorage에 저장됩니다.
+// - 치환 내보내기/불러오기(region_replace.json)에 같이 포함됩니다.
+// - 새로 만든 버튼을 누른 뒤 지도에서 시군구를 선택하고 "현재 선택 저장"을 누르면 자동 매칭에도 적용됩니다.
+const MANUAL_REGION_CUSTOM_MENU_KEY = 'kmaManualRegionCustomMenu_v1';
+
+function getManualRegionCustomMenu() {
+  try {
+    const raw = localStorage.getItem(MANUAL_REGION_CUSTOM_MENU_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch(e) {
+    return {};
+  }
+}
+
+function saveManualRegionCustomMenu(obj) {
+  try { localStorage.setItem(MANUAL_REGION_CUSTOM_MENU_KEY, JSON.stringify(obj || {})); } catch(e) {}
+}
+
+function applyManualRegionCustomMenu(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  Object.keys(obj).forEach(zone => {
+    const z = zoneName(zone);
+    if (!MANUAL_REGION_MENU[z]) return;
+    const arr = Array.isArray(obj[zone]) ? obj[zone] : [];
+    arr.map(normText).filter(Boolean).forEach(name => {
+      if (!MANUAL_REGION_MENU[z].map(normText).includes(name)) MANUAL_REGION_MENU[z].push(name);
+    });
+  });
+}
+
+function loadManualRegionCustomMenu() {
+  applyManualRegionCustomMenu(getManualRegionCustomMenu());
+}
+loadManualRegionCustomMenu();
+
+function addManualRegionButton() {
+  const activeZoneBtn = document.querySelector('#manualRegionZones button.active');
+  const zone = activeZoneBtn ? zoneName(activeZoneBtn.dataset.zone) : '';
+  if (!zone || !MANUAL_REGION_MENU[zone]) {
+    alert('먼저 추가할 권역을 선택해주세요.\n예: 경상권을 누른 뒤 지역 버튼 추가');
+    return;
+  }
+  const input = prompt(zone + '에 추가할 지역 버튼 이름을 입력하세요.\n예: 경북남동부', '');
+  if (input === null) return;
+  const name = normText(input);
+  if (!name) return;
+
+  if (!MANUAL_REGION_MENU[zone].map(normText).includes(name)) {
+    MANUAL_REGION_MENU[zone].push(name);
+  }
+
+  const custom = getManualRegionCustomMenu();
+  const list = Array.isArray(custom[zone]) ? custom[zone].map(normText).filter(Boolean) : [];
+  if (!list.includes(name)) list.push(name);
+  custom[zone] = list;
+  saveManualRegionCustomMenu(custom);
+
+  renderManualRegionButtons(zone);
+  // 방금 추가한 버튼을 바로 선택합니다.
+  setTimeout(() => {
+    const btn = Array.from(document.querySelectorAll('#manualRegionButtons button')).find(b => normText(b.dataset.region) === name);
+    if (btn) btn.click();
+  }, 0);
+  alert(name + ' 버튼을 추가했습니다.\n지도에서 포함할 시군구를 선택한 뒤 "현재 선택 저장"을 눌러주세요.');
+}
 
 // 수동매칭 별칭: 예보문에 다른 표현이 와도 대표 예보구역으로 인식합니다.
 // 예: 충남남동내륙 (충남동부) (충남동부내륙)
@@ -6355,7 +6459,8 @@ function collectManualRegionBackupData() {
     version: 1,
     savedAt: new Date().toISOString(),
     aliases: {},
-    overrides: {}
+    overrides: {},
+    customMenu: getManualRegionCustomMenu()
   };
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -6398,7 +6503,8 @@ function applyManualRegionBackupObject(data, options) {
   const normalized = normalizeManualRegionBackupData(data);
   const aliasCount = Object.keys(normalized.aliases).length;
   const overrideCount = Object.keys(normalized.overrides).length;
-  if (!aliasCount && !overrideCount) {
+  const customCount = Object.keys(normalized.customMenu || {}).reduce((n,k)=>n + ((normalized.customMenu[k] || []).length), 0);
+  if (!aliasCount && !overrideCount && !customCount) {
     if (!options.silent) alert('가져올 지역 치환/수동 매칭 데이터가 없습니다.');
     if (options.source === 'auto') setManualRegionJsonStatus('치환 데이터: region_replace.json은 있으나 적용할 데이터 없음', 'warn');
     return false;
@@ -6410,6 +6516,17 @@ function applyManualRegionBackupObject(data, options) {
   Object.keys(normalized.overrides).forEach(k => {
     localStorage.setItem('kmaManualRegionOverride_v1_' + normText(k), JSON.stringify(normalized.overrides[k]));
   });
+  if (normalized.customMenu && Object.keys(normalized.customMenu).length) {
+    const currentCustom = getManualRegionCustomMenu();
+    Object.keys(normalized.customMenu).forEach(zone => {
+      const z = zoneName(zone);
+      const base = Array.isArray(currentCustom[z]) ? currentCustom[z].map(normText).filter(Boolean) : [];
+      const merged = Array.from(new Set([...base, ...(normalized.customMenu[zone] || []).map(normText).filter(Boolean)]));
+      currentCustom[z] = merged;
+    });
+    saveManualRegionCustomMenu(currentCustom);
+    applyManualRegionCustomMenu(currentCustom);
+  }
 
   refreshManualRegionPanelAfterImport();
 
@@ -6447,7 +6564,7 @@ function exportManualRegionBackup() {
     return;
   }
   const data = collectManualRegionBackupData();
-  const hasData = Object.keys(data.aliases).length || Object.keys(data.overrides).length;
+  const hasData = Object.keys(data.aliases).length || Object.keys(data.overrides).length || Object.keys(data.customMenu || {}).length;
   if (!hasData && !confirm('저장된 지역 치환/수동 매칭값이 없습니다. 빈 백업 파일을 만들까요?')) return;
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json;charset=utf-8'});
@@ -6460,7 +6577,7 @@ function exportManualRegionBackup() {
 }
 
 function normalizeManualRegionBackupData(data) {
-  const result = { aliases:{}, overrides:{} };
+  const result = { aliases:{}, overrides:{}, customMenu:{} };
   if (!data || typeof data !== 'object') return result;
 
   if (data.aliases && typeof data.aliases === 'object') {
@@ -6471,6 +6588,14 @@ function normalizeManualRegionBackupData(data) {
   if (data.overrides && typeof data.overrides === 'object') {
     Object.keys(data.overrides).forEach(k => {
       if (Array.isArray(data.overrides[k])) result.overrides[normText(k)] = data.overrides[k].map(String).filter(Boolean);
+    });
+  }
+  if (data.customMenu && typeof data.customMenu === 'object') {
+    Object.keys(data.customMenu).forEach(k => {
+      const z = zoneName(k);
+      if (MANUAL_REGION_MENU[z] && Array.isArray(data.customMenu[k])) {
+        result.customMenu[z] = data.customMenu[k].map(normText).filter(Boolean);
+      }
     });
   }
 
@@ -6484,6 +6609,11 @@ function normalizeManualRegionBackupData(data) {
         }
         if (key.startsWith('kmaManualRegionOverride_v1_') && Array.isArray(val)) {
           result.overrides[normText(key.replace('kmaManualRegionOverride_v1_', ''))] = val.map(String).filter(Boolean);
+        }
+        if (key === MANUAL_REGION_CUSTOM_MENU_KEY && val && typeof val === 'object') {
+          Object.keys(val).forEach(z => {
+            if (Array.isArray(val[z])) result.customMenu[zoneName(z)] = val[z].map(normText).filter(Boolean);
+          });
         }
       } catch(e) {}
     });
@@ -6499,7 +6629,8 @@ function importManualRegionBackupFromObject(data) {
   const normalized = normalizeManualRegionBackupData(data);
   const aliasCount = Object.keys(normalized.aliases).length;
   const overrideCount = Object.keys(normalized.overrides).length;
-  if (!aliasCount && !overrideCount) {
+  const customCount = Object.keys(normalized.customMenu || {}).reduce((n,k)=>n + ((normalized.customMenu[k] || []).length), 0);
+  if (!aliasCount && !overrideCount && !customCount) {
     alert('가져올 지역 치환/수동 매칭 데이터가 없습니다.');
     return;
   }
@@ -6568,6 +6699,9 @@ function initManualRegionPanel() {
 
   const resetBtn = document.getElementById('manualRegionResetBtn');
   if (resetBtn) resetBtn.onclick = resetCurrentManualRegion;
+
+  const addBtn = document.getElementById('manualRegionAddBtn');
+  if (addBtn) addBtn.onclick = addManualRegionButton;
 
   const exportBtn = document.getElementById('manualRegionExportBtn');
   if (exportBtn) exportBtn.onclick = exportManualRegionBackup;
