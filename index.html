@@ -1953,6 +1953,32 @@ input[type="range"] {
   top:-3px !important;
 }
 
+
+/* v7.60b: 수치 병합 버튼 토글 + 뒤로 버튼 제거 */
+.manual-color-panel.merge-mode #manualMergeOpenBtn{
+  display:block !important;
+}
+#manualMergeBackBtn{
+  display:none !important;
+}
+#manualMergeOpenBtn.btn-active{
+  background:#ffe66d !important;
+  border-color:#f1b900 !important;
+  box-shadow:0 0 0 3px rgba(255,214,0,.35) !important;
+}
+
+
+/* v7.60c: 수치 병합 활성 노란색 강제 적용 */
+#manualMergeOpenBtn.manual-merge-active,
+#manualMergeOpenBtn.btn-active,
+#manualMergeOpenBtn.manual-merge-open-standalone.manual-merge-active,
+#manualMergeOpenBtn.manual-merge-open-standalone.btn-active{
+  background:#ffe66d !important;
+  border-color:#f1b900 !important;
+  color:#111 !important;
+  box-shadow:0 0 0 3px rgba(255,214,0,.35) !important;
+}
+
 </style>
 </head>
 <body>
@@ -2500,6 +2526,11 @@ function setManualMergePanelOpen(opened) {
   const toggle = document.getElementById('manualMergeToggle');
   const colorPanel = document.getElementById('manualColorPanel');
   const titleText = document.getElementById('manualColorTitleText');
+  const openBtn = document.getElementById('manualMergeOpenBtn');
+  if (openBtn) {
+    openBtn.classList.toggle('btn-active', !!opened);
+    openBtn.classList.toggle('manual-merge-active', !!opened);
+  }
   if (panel) panel.style.display = opened ? 'block' : 'none';
   if (body) body.style.display = opened ? 'block' : 'none';
   if (toggle) toggle.textContent = opened ? '▼ 수치 병합' : '▶ 수치 병합';
@@ -2639,7 +2670,7 @@ function initManualMergePanel() {
   const apply = document.getElementById('manualMergeApplyBtn');
   const colorOnly = document.getElementById('manualMergeColorOnlyBtn');
   const back = document.getElementById('manualMergeBackBtn');
-  if (openBtn) openBtn.addEventListener('click', () => setManualMergePanelOpen(true));
+  if (openBtn) openBtn.addEventListener('click', () => setManualMergePanelOpen(!manualMergeState.opened));
   if (toggle) toggle.addEventListener('click', () => setManualMergePanelOpen(!manualMergeState.opened));
   if (apply) apply.addEventListener('click', applyManualAmountMerge);
   if (colorOnly) colorOnly.addEventListener('click', applyManualAmountHighColorOnly);
