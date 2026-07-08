@@ -1973,7 +1973,7 @@ body.admin-panel-mode #manualRegionPanel {
   outline-offset:2px !important;
   cursor:move !important;
   z-index:2500 !important;
-  touch-action:none !important;
+  touch-action:pan-y !important;
   user-select:none !important;
   -webkit-user-select:none !important;
   box-shadow:0 6px 18px rgba(0,0,0,.22) !important;
@@ -2012,7 +2012,7 @@ body.admin-panel-mode .app-version {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="소리 ON/OFF · 5회 연속 누르면 관리자 모드 ON/OFF">🔊 ON</button>
     </div>
-   <div class="app-version" title="소리 ON/OFF 버튼을 5회 연속 누르면 관리자 모드 ON/OFF">Ver.1.8.4-v7.64 Sound Admin Fix</div>
+   <div class="app-version" title="소리 ON/OFF 버튼을 5회 연속 누르면 관리자 모드 ON/OFF">Ver.1.8.4-v7.65 Admin Scroll Fix</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2226,19 +2226,53 @@ body.admin-panel-mode .app-version {
 
   function bindDrag(){
     let active = null;
+
+    function isAdminPanelTarget(target){
+      return target && target.closest && target.closest('#manualColorPanel,#manualMergeOpenBtn,#manualMergePanel,#manualRegionPanel');
+    }
+
     document.addEventListener('pointerdown', function(e){
       if (!adminMode) return;
-      const el = e.target.closest('#manualColorPanel,#manualMergeOpenBtn,#manualMergePanel,#manualRegionPanel');
+      const el = isAdminPanelTarget(e.target);
       if (!el) return;
       const r = el.getBoundingClientRect();
-      active = { el, dx:e.clientX-r.left, dy:e.clientY-r.top };
-      el.setPointerCapture && el.setPointerCapture(e.pointerId);
-      e.preventDefault();
-      e.stopPropagation();
+      active = {
+        el,
+        pointerId:e.pointerId,
+        pointerType:e.pointerType || '',
+        startX:e.clientX,
+        startY:e.clientY,
+        dx:e.clientX-r.left,
+        dy:e.clientY-r.top,
+        dragging:false
+      };
+      // 마우스는 바로 이동 시작, 터치는 스크롤과 구분하기 위해 조금 움직인 뒤 판단합니다.
+      if (active.pointerType !== 'touch') {
+        active.dragging = true;
+        el.setPointerCapture && el.setPointerCapture(e.pointerId);
+        e.preventDefault();
+        e.stopPropagation();
+      }
     }, true);
 
     document.addEventListener('pointermove', function(e){
       if (!active) return;
+
+      if (!active.dragging) {
+        const moveX = e.clientX - active.startX;
+        const moveY = e.clientY - active.startY;
+        if (Math.abs(moveX) + Math.abs(moveY) < 8) return;
+
+        // 삼성/안드로이드에서 세로 스크롤하려는 동작이면 패널 이동을 취소하고 스크롤을 그대로 둡니다.
+        if (active.pointerType === 'touch' && Math.abs(moveY) > Math.abs(moveX) * 1.15) {
+          active = null;
+          return;
+        }
+
+        active.dragging = true;
+        try { active.el.setPointerCapture && active.el.setPointerCapture(active.pointerId); } catch(_) {}
+      }
+
       const el = active.el;
       const r = el.getBoundingClientRect();
       const left = clamp(e.clientX - active.dx, 0, Math.max(0, window.innerWidth - Math.min(40, r.width)));
@@ -2246,14 +2280,23 @@ body.admin-panel-mode .app-version {
       el.style.left = left + 'px';
       el.style.top = top + 'px';
       e.preventDefault();
+      e.stopPropagation();
     }, true);
 
     document.addEventListener('pointerup', function(e){
       if (!active) return;
+      const wasDragging = !!active.dragging;
       try { active.el.releasePointerCapture && active.el.releasePointerCapture(e.pointerId); } catch(_) {}
-      savePositions();
+      if (wasDragging) savePositions();
       active = null;
-      e.preventDefault();
+      if (wasDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+
+    document.addEventListener('pointercancel', function(){
+      active = null;
     }, true);
   }
 
