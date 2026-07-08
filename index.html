@@ -1,4 +1,6 @@
-<html lang="ko"><head>
+<!doctype html>
+<html lang="ko">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
@@ -1584,7 +1586,7 @@ svg {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.39 Jirisan Mountain</div>
+   <div class="app-version">Ver.1.8.4-v7.42 Alias Reverse Fix</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2517,6 +2519,7 @@ const KMA_REGION_SIGS = {
   '충남남동내륙': {sido:'충남', sigs:['논산시','금산군']},
   '충남남서내륙': {sido:'충남', sigs:['부여군']},
   '충남북부서해안': {sido:'충남', sigs:['당진시','서산시','태안군']},
+  '충남동부': {sido:'충남', sigs:['천안시','아산시','공주시','계룡시','논산시','금산군','예산군']},
   '충남남부서해안': {sido:'충남', sigs:['보령시','서천군']},
   '충북북부': {sido:'충북', sigs:['충주시','제천시','단양군']},
   '충북중부': {sido:'충북', sigs:['증평군','진천군','괴산군','음성군']},
@@ -2623,8 +2626,8 @@ function regionMatchesDirectMap(sido, sig, token) {
 
 // 수동매칭에서 저장한 예보구역 구성은 자동 예보문 매칭에도 우선 적용합니다.
 // 예: '서울' 버튼에서 다른 시군을 추가하고 저장하면, 예보문 '서울: 5mm' 입력 시 저장된 지역을 칠합니다.
-function regionMatchesSavedManualOverride(sido, sig, code, token) {
-  token = resolveManualRegionCanonical(normText(token));
+function regionMatchesSavedManualOverride(sido, sig, code, token, noAlias) {
+  token = noAlias ? resolveManualRegionCanonical(normText(token)) : resolveForecastRegionCanonical(normText(token));
   if (!token || typeof localStorage === 'undefined') return null;
 
   try {
@@ -2640,11 +2643,12 @@ function regionMatchesSavedManualOverride(sido, sig, code, token) {
   }
 }
 
-function regionMatchesToken(sido, sig, token, code) {
-  token = resolveManualRegionCanonical(normText(token));
+function regionMatchesToken(sido, sig, token, code, opts) {
+  const noAlias = !!(opts && opts.noAlias);
+  token = noAlias ? resolveManualRegionCanonical(normText(token)) : resolveForecastRegionCanonical(normText(token));
   if (!token || token === '__NO_MATCH__') return false;
 
-  const savedManualMatch = regionMatchesSavedManualOverride(sido, sig, code, token);
+  const savedManualMatch = regionMatchesSavedManualOverride(sido, sig, code, token, noAlias);
   if (savedManualMatch !== null) return savedManualMatch;
 
   // Ver.1.8.1: 예보구역 직접 매칭 우선
@@ -3034,7 +3038,7 @@ function tokensFromArea(areaText, zone) {
     if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
   }
 
-  return Array.from(new Set(filtered));
+  return Array.from(new Set(filtered.map(t => resolveForecastRegionCanonical(t, z))));
 }
 
 
@@ -3239,6 +3243,9 @@ function hasRegionLabelForAmount(amount) {
 function renderMountainIcons() {
   if (!mountainIconsG) return;
   mountainIconsG.innerHTML = '';
+  // 같은 수치의 산지가 여러 개 표시될 때 수치 박스는 하나만 표시합니다.
+  // 예: 강원북부산지/강원중부산지/강원남부산지가 모두 50~100이면 ▲는 3개, 수치는 1개만 표시.
+  const renderedMountainValueAmounts = new Set();
   Object.values(mountainIconGroups).forEach(item => {
     const ptInfo = MOUNTAIN_POINTS[item.key];
     if (!ptInfo) return;
@@ -3270,11 +3277,14 @@ function renderMountainIcons() {
 
     // 산지 수치가 일반 지역 수치박스와 같은 값이면 지도에는 삼각형만 표시합니다.
     // 예: 부산·경남남해안·지리산부근 모두 30~80mm이면 30~80mm 박스는 하나만 보이고, 지리산은 ▲만 표시.
-    const hideTextBecauseSameAmount = hasRegionLabelForAmount(item.amount);
+    // 같은 수치의 산지가 여러 개 있을 때도 수치 박스는 한 번만 표시합니다.
+    const mountainValueAmountKey = normalizeAmountKey(item.amount);
+    const hideTextBecauseSameAmount = hasRegionLabelForAmount(item.amount) || renderedMountainValueAmounts.has(mountainValueAmountKey);
 
     g.appendChild(tri);
 
     if (!hideTextBecauseSameAmount) {
+      renderedMountainValueAmounts.add(mountainValueAmountKey);
       // 산지 ▲와 산지 수치 박스를 분리합니다.
       // ▲는 mountainIcons 레이어에서 따로 움직이고,
       // 수치 박스는 amountLabels 레이어에서 일반 수치와 같은 방식으로 따로 움직입니다.
@@ -5206,20 +5216,62 @@ function saveManualRegionAliases(regionName, aliases) {
   } catch(e) {}
 }
 
-function manualRegionDisplayName(regionName) {
+function cleanupManualRegionAliasesOnce() {
+  // 기존 브라우저 저장값에 남아 있던 대전 치환명(서울/중구)만 제거합니다.
+  // 다른 지역/기능/저장값은 건드리지 않습니다.
+  try {
+    const key = manualRegionAliasStorageKey('대전');
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return;
+    const removeSet = new Set(['서울', '중구']);
+    const cleaned = arr.map(normText).filter(v => v && !removeSet.has(v));
+    localStorage.setItem(key, JSON.stringify(Array.from(new Set(cleaned))));
+  } catch(e) {}
+}
+cleanupManualRegionAliasesOnce();
+
+function manualRegionAliasDisplayList(regionName) {
   const key = normText(regionName);
   const aliases = getManualRegionAliases(key);
-  return key + aliases.map(a => ' (' + a + ')').join('');
+
+  // 시군구 구성값이 실수로 치환명에 남아 있으면 제목 옆에는 표시하지 않습니다.
+  // 예: 충남동부 (천안시) (아산시) ... 처럼 보이는 문제 방지
+  const hidden = new Set([key]);
+  try {
+    const info = KMA_REGION_SIGS[key];
+    if (info && Array.isArray(info.sigs)) {
+      info.sigs.forEach(v => hidden.add(normText(v)));
+    }
+    getManualRegionPaths(key).map(getPathDisplayName).forEach(v => hidden.add(normText(v)));
+  } catch(e) {}
+
+  return Array.from(new Set(aliases.map(normText).filter(Boolean).filter(v => !hidden.has(v))));
+}
+
+function manualRegionDisplayName(regionName) {
+  const key = normText(regionName);
+  const aliases = manualRegionAliasDisplayList(key);
+  return key + (aliases.length ? ' ' + aliases.map(v => '(' + v + ')').join(' ') : '');
 }
 
 function manualRegionButtonName(regionName) {
-  return normText(regionName);
+  return manualRegionDisplayName(regionName);
 }
 
 function allManualRegionNames() {
   const names = [];
   Object.keys(MANUAL_REGION_MENU).forEach(zone => (MANUAL_REGION_MENU[zone] || []).forEach(name => names.push(normText(name))));
   return Array.from(new Set(names));
+}
+
+function manualRegionZoneName(regionName) {
+  const key = normText(regionName);
+  for (const zone of Object.keys(MANUAL_REGION_MENU)) {
+    if ((MANUAL_REGION_MENU[zone] || []).map(normText).includes(key)) return zoneName(zone);
+  }
+  return '';
 }
 
 function resolveManualRegionCanonical(token) {
@@ -5230,6 +5282,23 @@ function resolveManualRegionCanonical(token) {
   for (const name of names) {
     if (getManualRegionAliases(name).includes(t)) return name;
   }
+  return t;
+}
+
+function resolveForecastRegionCanonical(token, zone) {
+  const t = normText(token);
+  if (!t) return t;
+  const z = zoneName(zone || '');
+  const names = allManualRegionNames();
+  // 치환은 사용자가 선택한 지역으로 들어가야 하므로
+  // 예보문 매칭에서는 치환명을 대표 지역명보다 먼저 확인합니다.
+  // 단, 애매한 치환명(예: 중부내륙)은 예보문 권역 안에서만 적용합니다.
+  // 예: 강원도 권역의 중부내륙 -> 강원중부내륙, 충청권 권역의 중부내륙 -> 충청권 내부 지역만 확인
+  const scopedNames = z ? names.filter(name => manualRegionZoneName(name) === z) : names;
+  for (const name of scopedNames) {
+    if (getManualRegionAliases(name).includes(t)) return name;
+  }
+  if (names.includes(t)) return t;
   return t;
 }
 
@@ -5310,7 +5379,7 @@ function getDefaultManualRegionPaths(regionName) {
     const sig = p.dataset.sig || p.dataset.name || '';
 
     let ok = false;
-    try { ok = regionMatchesToken(sido, sig, token); } catch(e) { ok = false; }
+    try { ok = regionMatchesToken(sido, sig, token, '', {noAlias:true}); } catch(e) { ok = false; }
 
     if (!ok) {
       const sidoAlias = token === '강원도' ? '강원' : (token === '제주도' ? '제주' : token);
@@ -5761,7 +5830,31 @@ if (document.readyState === 'loading') {
   }
 })();
 
+
+/* ===== v7.46 산지 없음 매칭 시 기본 산지 숨김 =====
+   - 기존 기능은 건드리지 않고, 예보 매칭 후 산지 항목이 없으면 시작용 산지 ▲를 다시 띄우지 않습니다.
+   - 예보문에 산지/지리산부근 등 산지 항목이 있으면 기존 산지 ▲만 표시됩니다.
+*/
+(function(){
+  window.__kmaForecastMatchAppliedForMountain = false;
+
+  const __prevApplyForecastMatch = window.applyForecastMatch || (typeof applyForecastMatch === 'function' ? applyForecastMatch : null);
+  if (__prevApplyForecastMatch) {
+    window.applyForecastMatch = applyForecastMatch = function(){
+      window.__kmaForecastMatchAppliedForMountain = true;
+      return __prevApplyForecastMatch.apply(this, arguments);
+    };
+  }
+
+  const __prevRenderStartupMountainMarkers = window.renderStartupMountainMarkers;
+  if (typeof __prevRenderStartupMountainMarkers === 'function') {
+    window.renderStartupMountainMarkers = function(){
+      if (window.__kmaForecastMatchAppliedForMountain) return;
+      return __prevRenderStartupMountainMarkers.apply(this, arguments);
+    };
+  }
+})();
+
 </script>
-
-
-</body></html>
+</body>
+</html>
