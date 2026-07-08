@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
+<html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
@@ -1667,45 +1665,223 @@ input[type="range"] {
 }
 
 
-/* v7.54-A: 지도 안 작은 수치 병합 팝업 */
-.mapwrap .manual-merge-panel {
-  position:absolute !important;
-  right:8px !important;
-  top:8px !important;
-  z-index:30 !important;
-  width:auto !important;
-  max-width:220px !important;
-  margin:0 !important;
-  padding:4px !important;
-  border:1px solid rgba(80,90,100,.65) !important;
-  border-radius:8px !important;
-  background:rgba(255,255,255,.96) !important;
-  box-shadow:0 3px 10px rgba(0,0,0,.14) !important;
+/* v7.55: 수동 인덱스 영역을 수치 병합 화면으로 전환 */
+.manual-color-panel.merge-mode #manualColorGrid { display:none !important; }
+.manual-color-panel.merge-mode #manualColorOff { display:none !important; }
+.manual-color-panel.merge-mode #manualMergeOpenBtn { display:none !important; }
+#manualMergeOpenBtn {
+  width:100%;
+  margin:0 0 7px 0;
 }
-.mapwrap .manual-merge-panel.merge-open { width:220px !important; }
-.mapwrap .manual-merge-toggle {
+.manual-color-panel #manualMergePanel {
+  display:none;
+  border:0 !important;
+  background:transparent !important;
+  padding:0 !important;
+  margin:6px 0 0 0 !important;
+  box-shadow:none !important;
+}
+.manual-color-panel.merge-mode #manualMergePanel { display:block !important; }
+.manual-color-panel #manualMergeToggle { display:none !important; }
+.manual-color-panel #manualMergeBody { display:block !important; margin-top:0 !important; }
+.manual-color-panel .manual-merge-list { max-height:145px !important; }
+
+
+/* v7.57 수치 병합 UI: 버튼은 수동 인덱스 박스 위, 목록은 가로 태그형 */
+#manualMergeOpenBtn.manual-merge-open-standalone {
+  width:100%;
+  margin:7px 0 5px 0;
+  text-align:center;
+}
+.manual-color-panel.merge-mode #manualColorTitleText {
+  font-weight:900;
+}
+.manual-color-panel .manual-merge-panel {
+  border:none !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  padding:0 !important;
+  margin:0 !important;
+}
+.manual-color-panel .manual-merge-desc {
+  display:none !important;
+}
+.manual-color-panel .manual-merge-list {
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:5px !important;
+  align-items:flex-start !important;
+  max-height:150px !important;
+  overflow:auto !important;
+  padding:6px !important;
+}
+.manual-color-panel .manual-merge-row {
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:4px !important;
   width:auto !important;
-  min-width:48px !important;
-  height:24px !important;
-  padding:3px 7px !important;
+  border:1px solid #d0d7de !important;
+  background:#fff !important;
+  border-radius:999px !important;
+  padding:4px 7px !important;
+  margin:0 !important;
   font-size:11px !important;
-  line-height:1 !important;
+  white-space:nowrap !important;
+}
+.manual-color-panel .manual-merge-row input[type="checkbox"],
+.manual-color-panel .manual-merge-row input[type="radio"] {
+  width:13px !important;
+  height:13px !important;
+}
+.manual-color-panel .manual-merge-actions {
+  display:flex !important;
+  gap:5px !important;
+}
+.manual-color-panel .manual-merge-actions button {
+  flex:1 1 0 !important;
+}
+@media (max-width:768px){
+  #manualMergeOpenBtn.manual-merge-open-standalone {
+    width:calc(100% - 16px) !important;
+    margin:8px 8px 6px 8px !important;
+    min-height:40px !important;
+    border-radius:15px !important;
+  }
+  .manual-color-panel .manual-merge-list {
+    max-height:170px !important;
+  }
+}
+
+
+
+/* v7.58 수치 병합 버튼/박스 얇게: 지도 쪽 공간을 덜 차지하도록 간격 축소 */
+#manualMergeOpenBtn.manual-merge-open-standalone {
+  margin:3px 0 3px 0 !important;
+  padding:4px 8px !important;
+  min-height:28px !important;
+  height:28px !important;
+  font-size:11px !important;
+  line-height:1.1 !important;
+  border-radius:7px !important;
+}
+.manual-color-panel {
+  margin-top:3px !important;
+  padding-top:6px !important;
+}
+.manual-color-panel .manual-merge-list {
+  padding:4px !important;
+  gap:4px !important;
+  max-height:118px !important;
+}
+.manual-color-panel .manual-merge-row {
+  padding:3px 6px !important;
+  font-size:10.5px !important;
+}
+.manual-color-panel .manual-merge-actions {
+  margin-top:4px !important;
+  gap:4px !important;
+}
+.manual-color-panel .manual-merge-actions button {
+  padding:4px 3px !important;
+  font-size:10.5px !important;
   border-radius:6px !important;
 }
-.mapwrap .manual-merge-body { margin-top:5px !important; }
-.mapwrap .manual-merge-desc { display:none !important; }
-.mapwrap .manual-merge-list { max-height:145px !important; }
-@media (max-width:768px) {
-  .mapwrap .manual-merge-panel {
-    width:auto !important;
-    max-width:205px !important;
-    margin:0 !important;
-    padding:4px !important;
-    border-radius:8px !important;
-    box-shadow:0 3px 10px rgba(0,0,0,.14) !important;
+@media (max-width:768px){
+  #manualMergeOpenBtn.manual-merge-open-standalone {
+    width:calc(100% - 16px) !important;
+    margin:4px 8px 3px 8px !important;
+    min-height:30px !important;
+    height:30px !important;
+    padding:4px 8px !important;
+    border-radius:12px !important;
   }
-  .mapwrap .manual-merge-panel.merge-open { width:205px !important; }
-  .mapwrap .manual-merge-toggle { height:24px !important; font-size:11px !important; border-radius:6px !important; }
+  .manual-color-panel {
+    margin-top:3px !important;
+    padding-top:7px !important;
+  }
+  .manual-color-panel .manual-merge-list {
+    max-height:125px !important;
+  }
+}
+
+
+
+/* v7.59: 수치 병합을 수동 인덱스 아래에서 가로 태그형으로 표시 */
+#manualMergeOpenBtn.manual-merge-open-standalone {
+  width:100% !important;
+  margin:7px 0 5px 0 !important;
+  padding:6px 8px !important;
+  min-height:32px !important;
+  height:auto !important;
+  font-size:12px !important;
+  border-radius:8px !important;
+}
+#manualMergePanel {
+  display:none;
+  margin:5px 0 7px 0 !important;
+  padding:6px 7px !important;
+}
+#manualMergePanel #manualMergeToggle { display:none !important; }
+#manualMergePanel #manualMergeBody { display:block !important; margin-top:0 !important; }
+#manualMergePanel .manual-merge-desc { display:none !important; }
+#manualMergePanel .manual-merge-list {
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:5px !important;
+  align-items:flex-start !important;
+  max-height:125px !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border:1px solid #e1e4e8 !important;
+  border-radius:7px !important;
+  padding:6px !important;
+}
+#manualMergePanel .manual-merge-row {
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:4px !important;
+  width:auto !important;
+  border:1px solid #d0d7de !important;
+  background:#fff !important;
+  border-radius:999px !important;
+  padding:4px 7px !important;
+  margin:0 !important;
+  font-size:11px !important;
+  white-space:nowrap !important;
+}
+#manualMergePanel .manual-merge-row input[type="checkbox"],
+#manualMergePanel .manual-merge-row input[type="radio"] {
+  width:13px !important;
+  height:13px !important;
+}
+#manualMergePanel .manual-merge-actions {
+  display:flex !important;
+  gap:5px !important;
+  margin-top:5px !important;
+}
+#manualMergePanel .manual-merge-actions button {
+  flex:1 1 0 !important;
+  padding:5px 4px !important;
+  font-size:11px !important;
+  border-radius:7px !important;
+}
+.manual-color-panel.merge-mode #manualColorGrid { display:grid !important; }
+.manual-color-panel.merge-mode #manualColorOff { display:inline-block !important; }
+.manual-color-panel.merge-mode #manualMergeOpenBtn { display:block !important; }
+@media (max-width:768px){
+  #manualMergeOpenBtn.manual-merge-open-standalone {
+    width:calc(100% - 16px) !important;
+    margin:8px 8px 6px 8px !important;
+    min-height:38px !important;
+    border-radius:14px !important;
+  }
+  #manualMergePanel {
+    width:calc(100% - 16px) !important;
+    margin:0 8px 8px 8px !important;
+    box-sizing:border-box !important;
+    border-radius:16px !important;
+  }
+  #manualMergePanel .manual-merge-list { max-height:150px !important; }
 }
 
 </style>
@@ -1717,7 +1893,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.54 Merge Map Popup</div>
+   <div class="app-version">Ver.1.8.4-v7.56 Merge High Color</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1749,22 +1925,16 @@ input[type="range"] {
       <button id="mapMoveToggle" type="button" class="map-locked">지도 이동 OFF</button>
     </div>
 
-    <div class="manual-color-panel" id="manualColorPanel">
-      <div class="manual-color-title">
-        <span>수동 인덱스</span>
-        <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
-      </div>
-      <div class="manual-color-grid" id="manualColorGrid"></div>
-    </div>
-
+    <button id="manualMergeOpenBtn" type="button" class="manual-color-off manual-merge-open-standalone">수치 병합</button>
     <div class="manual-merge-panel" id="manualMergePanel">
       <button id="manualMergeToggle" type="button" class="manual-merge-toggle">▶ 수치 병합</button>
       <div id="manualMergeBody" class="manual-merge-body">
-        <div class="manual-merge-desc">매칭 후 표시된 수치만 선택해서 같은 색으로 병합합니다. 대표는 ● 선택 항목입니다.</div>
+        <div class="manual-merge-desc">매칭 후 수치를 선택합니다. ●는 기준 색입니다.</div>
         <div id="manualMergeList" class="manual-merge-list"></div>
         <div class="manual-merge-actions">
-          <button id="manualMergeRefreshBtn" type="button">목록 새로고침</button>
-          <button id="manualMergeApplyBtn" type="button" class="manual-merge-apply">병합 적용</button>
+          <button id="manualMergeApplyBtn" type="button" class="manual-merge-apply">전체 병합</button>
+          <button id="manualMergeColorOnlyBtn" type="button">큰수치 색만</button>
+          <button id="manualMergeBackBtn" type="button">뒤로</button>
         </div>
       </div>
     </div>
@@ -2197,8 +2367,22 @@ function renderRainLegend() {
 }
 renderRainLegend();
 
-// ===== v7.53 수치 병합: 기존 매칭 후 후처리만 수행 =====
+// ===== v7.55 수치 병합: 기존 매칭 후 후처리만 수행 =====
 const manualMergeState = { opened:false };
+// v7.56 큰수치 색만 병합: 복합 수치의 괄호 안 큰수치 색상만 따로 기억합니다.
+const manualMergeHighColorMap = {};
+const manualMergeHighInnerKeyMap = {};
+function escapeHtmlTextForMerge(v) {
+  return String(v ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+}
+function getDisplayHeavyInnerKey(amount) {
+  const label = displayAmountNoMm(amount);
+  const m = String(label || '').match(/\(([^()]+)\)/);
+  return m ? normalizeAmountKey(m[1]) : '';
+}
+function isCompositeHeavyAmount(amount) {
+  return !!getDisplayHeavyInnerKey(amount);
+}
 function getManualMergeActiveAmounts() {
   const activeKeys = getActivePaintedAmountKeys();
   const list = [];
@@ -2227,30 +2411,30 @@ function refreshManualMergeList() {
     const label = displayAmountNoMm(amount) || amount;
     return `<label class="manual-merge-row" for="${id}">
       <input id="${id}" type="checkbox" class="manual-merge-check" data-amount="${String(amount).replace(/"/g,'&quot;')}">
-      <input id="${rid}" type="radio" name="manualMergeRep" class="manual-merge-rep" data-amount="${String(amount).replace(/"/g,'&quot;')}" ${idx===0?'checked':''} title="대표 수치">
+      <input id="${rid}" type="radio" name="manualMergeRep" class="manual-merge-rep" data-amount="${String(amount).replace(/"/g,'&quot;')}" ${idx===0?'checked':''} title="대표 수치/기준 색">
       <span class="chip" style="background:${color}"></span><span>${label}</span>
     </label>`;
   }).join('');
 }
 function setManualMergePanelOpen(opened) {
   manualMergeState.opened = !!opened;
+  const panel = document.getElementById('manualMergePanel');
   const body = document.getElementById('manualMergeBody');
   const toggle = document.getElementById('manualMergeToggle');
-  const panel = document.getElementById('manualMergePanel');
+  if (panel) panel.style.display = opened ? 'block' : 'none';
   if (body) body.style.display = opened ? 'block' : 'none';
-  if (panel) panel.classList.toggle('merge-open', !!opened);
-  if (toggle) toggle.textContent = opened ? '닫기' : '병합';
+  if (toggle) toggle.textContent = opened ? '▼ 수치 병합' : '▶ 수치 병합';
   if (opened) refreshManualMergeList();
 }
 function findCanonicalAmountByKey(key) {
   key = normalizeAmountKey(key);
   return (amountColorOrder || []).find(a => normalizeAmountKey(a) === key) || key;
 }
-function applyManualAmountMerge() {
+function getManualMergeSelection(minCount) {
   const checks = Array.from(document.querySelectorAll('.manual-merge-check:checked'));
-  if (checks.length < 2) {
-    alert('병합할 수치를 2개 이상 선택해 주세요.');
-    return;
+  if (checks.length < minCount) {
+    alert(minCount >= 2 ? '병합할 수치를 2개 이상 선택해 주세요.' : '수치를 선택해 주세요.');
+    return null;
   }
   const selectedKeys = new Set(checks.map(ch => normalizeAmountKey(ch.dataset.amount || '')).filter(Boolean));
   let repEl = document.querySelector('.manual-merge-rep:checked');
@@ -2258,11 +2442,18 @@ function applyManualAmountMerge() {
   if (!selectedKeys.has(repKey)) repKey = normalizeAmountKey(checks[0].dataset.amount);
   const repAmount = findCanonicalAmountByKey(repKey);
   const repColor = amountColor(repAmount);
+  return {checks, selectedKeys, repKey, repAmount, repColor};
+}
+function applyManualAmountMerge() {
+  const sel = getManualMergeSelection(2);
+  if (!sel) return;
+  const {selectedKeys, repAmount, repColor} = sel;
 
   document.querySelectorAll('.region').forEach(el => {
     const key = normalizeAmountKey(el.dataset.amount || '');
     if (selectedKeys.has(key)) {
       el.dataset.amount = repAmount;
+      el.dataset.manualColor = '';
       if (el.classList.contains('matched')) el.style.fill = repColor;
     }
   });
@@ -2280,15 +2471,98 @@ function applyManualAmountMerge() {
   renderRainLegend();
   refreshManualMergeList();
 }
+function applyManualAmountHighColorOnly() {
+  const sel = getManualMergeSelection(2);
+  if (!sel) return;
+  const {selectedKeys} = sel;
+
+  const selectedAmounts = Array.from(selectedKeys).map(findCanonicalAmountByKey);
+  const compositeAmounts = selectedAmounts.filter(a => isCompositeHeavyAmount(a));
+
+  // v7.57 규칙
+  // 예: 50~100(150↑) + 150↑ 선택 후 [큰수치 색만]
+  // 1) 150↑ 단독 박스/인덱스는 50~100(150↑)로 흡수해서 사라짐
+  // 2) 50~100(150↑) 박스는 유지
+  // 3) 괄호 안 (150↑) 글자만 150↑의 색으로 표시
+  const pairs = [];
+  compositeAmounts.forEach(compAmount => {
+    const compKey = normalizeAmountKey(compAmount);
+    const innerKey = getDisplayHeavyInnerKey(compAmount);
+    if (innerKey && selectedKeys.has(innerKey)) {
+      pairs.push({ compAmount, compKey, innerKey, highAmount: findCanonicalAmountByKey(innerKey) });
+    }
+  });
+
+  if (pairs.length) {
+    pairs.forEach(pair => {
+      const highColor = amountColor(pair.highAmount);
+      manualMergeHighColorMap[pair.compKey] = highColor;
+      manualMergeHighInnerKeyMap[pair.compKey] = pair.innerKey;
+      amountColorMap[pair.innerKey] = highColor;
+
+      document.querySelectorAll('.region').forEach(el => {
+        const key = normalizeAmountKey(el.dataset.amount || '');
+        if (key === pair.innerKey) {
+          el.dataset.amount = pair.compAmount;
+          el.dataset.manualColor = highColor;
+          if (el.classList.contains('matched')) el.style.fill = highColor;
+        }
+      });
+
+      if (typeof mountainIconGroups === 'object' && mountainIconGroups) {
+        Object.values(mountainIconGroups).forEach(item => {
+          if (!item) return;
+          const key = normalizeAmountKey(item.amount || '');
+          if (key === pair.innerKey) {
+            item.amount = pair.compAmount;
+            item.manualColor = highColor;
+          }
+        });
+      }
+    });
+
+    rebuildAmountLabelGroupsFromMap();
+    renderAmountLabels();
+    renderMountainIcons();
+    renderRainLegend();
+    refreshManualMergeList();
+    return;
+  }
+
+  // 일반 색상 병합: 수치 이름은 그대로 두고, 선택한 수치들의 색상만 기준 색으로 맞춥니다.
+  const repEl = document.querySelector('.manual-merge-rep:checked');
+  const repKey = normalizeAmountKey(repEl ? repEl.dataset.amount : selectedAmounts[0]);
+  const repAmount = findCanonicalAmountByKey(repKey);
+  const repColor = amountColor(repAmount);
+
+  selectedKeys.forEach(key => {
+    if (!key || key === repKey) return;
+    amountColorMap[key] = repColor;
+  });
+
+  document.querySelectorAll('.region').forEach(el => {
+    const key = normalizeAmountKey(el.dataset.amount || '');
+    if (selectedKeys.has(key) && el.classList.contains('matched')) {
+      el.style.fill = repColor;
+    }
+  });
+
+  renderAmountLabels();
+  renderMountainIcons();
+  renderRainLegend();
+  refreshManualMergeList();
+}
 function initManualMergePanel() {
   const openBtn = document.getElementById('manualMergeOpenBtn');
   const toggle = document.getElementById('manualMergeToggle');
-  const refresh = document.getElementById('manualMergeRefreshBtn');
   const apply = document.getElementById('manualMergeApplyBtn');
-  if (openBtn) openBtn.addEventListener('click', () => setManualMergePanelOpen(!manualMergeState.opened));
+  const colorOnly = document.getElementById('manualMergeColorOnlyBtn');
+  const back = document.getElementById('manualMergeBackBtn');
+  if (openBtn) openBtn.addEventListener('click', () => setManualMergePanelOpen(true));
   if (toggle) toggle.addEventListener('click', () => setManualMergePanelOpen(!manualMergeState.opened));
-  if (refresh) refresh.addEventListener('click', refreshManualMergeList);
   if (apply) apply.addEventListener('click', applyManualAmountMerge);
+  if (colorOnly) colorOnly.addEventListener('click', applyManualAmountHighColorOnly);
+  if (back) back.addEventListener('click', () => setManualMergePanelOpen(false));
 }
 initManualMergePanel();
 
@@ -2328,30 +2602,36 @@ if (manualColorOff) manualColorOff.addEventListener('click', clearManualColorSel
 
 function relocateManualPanelsForMobile() {
   const colorPanel = document.getElementById('manualColorPanel');
+  const mergeOpenBtn = document.getElementById('manualMergeOpenBtn');
   const mergePanel = document.getElementById('manualMergePanel');
   const regionPanel = document.getElementById('manualRegionPanel');
   const side = document.querySelector('.side');
   const mapcol = document.querySelector('.mapcol');
-  const mapwrap = document.querySelector('.mapwrap');
   const btns = document.querySelector('.btns');
-  if (!colorPanel || !mergePanel || !regionPanel || !side || !mapcol || !mapwrap || !btns) return;
+  if (!colorPanel || !mergeOpenBtn || !mergePanel || !regionPanel || !side || !mapcol || !btns) return;
 
-  // 수치 병합은 항상 지도 안 오른쪽 상단 작은 팝업으로 유지합니다.
-  if (mergePanel.parentElement !== mapwrap) {
-    mapwrap.appendChild(mergePanel);
+  // 수치 병합 패널은 수동 인덱스 영역 안으로 넣고, 병합 버튼으로 전환합니다.
+  if (mergePanel.parentElement !== colorPanel) {
+    colorPanel.appendChild(mergePanel);
   }
 
   if (window.matchMedia('(max-width: 768px)').matches) {
     const parent = mapcol.parentElement;
-    if (colorPanel.parentElement !== parent || colorPanel.previousElementSibling !== mapcol) {
-      parent.insertBefore(colorPanel, mapcol.nextSibling);
+    if (mergeOpenBtn.parentElement !== parent || mergeOpenBtn.previousElementSibling !== mapcol) {
+      parent.insertBefore(mergeOpenBtn, mapcol.nextSibling);
+    }
+    if (colorPanel.parentElement !== parent || colorPanel.previousElementSibling !== mergeOpenBtn) {
+      parent.insertBefore(colorPanel, mergeOpenBtn.nextSibling);
     }
     if (regionPanel.parentElement !== parent || regionPanel.previousElementSibling !== colorPanel) {
       parent.insertBefore(regionPanel, colorPanel.nextSibling);
     }
   } else {
-    if (colorPanel.parentElement !== side || colorPanel.previousElementSibling !== btns) {
-      side.insertBefore(colorPanel, btns.nextSibling);
+    if (mergeOpenBtn.parentElement !== side || mergeOpenBtn.previousElementSibling !== btns) {
+      side.insertBefore(mergeOpenBtn, btns.nextSibling);
+    }
+    if (colorPanel.parentElement !== side || colorPanel.previousElementSibling !== mergeOpenBtn) {
+      side.insertBefore(colorPanel, mergeOpenBtn.nextSibling);
     }
     if (regionPanel.parentElement !== side || regionPanel.previousElementSibling !== colorPanel) {
       side.insertBefore(regionPanel, colorPanel.nextSibling);
@@ -3528,7 +3808,7 @@ function renderMountainIcons() {
     const tri = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     tri.setAttribute('class','mountain-triangle');
     tri.setAttribute('d','M 0 -16 L 17 14 L -17 14 Z');
-    tri.setAttribute('fill', amountColor(item.amount));
+    tri.setAttribute('fill', item.manualColor || amountColor(item.amount));
 
     // 산지 수치가 일반 지역 수치박스와 같은 값이면 지도에는 삼각형만 표시합니다.
     // 예: 부산·경남남해안·지리산부근 모두 30~80mm이면 30~80mm 박스는 하나만 보이고, 지리산은 ▲만 표시.
@@ -3563,7 +3843,7 @@ function renderMountainIcons() {
 
       const labelBox = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       labelBox.setAttribute('class','amount-label-box');
-      labelBox.setAttribute('fill', amountColor(item.amount));
+      labelBox.setAttribute('fill', item.manualColor || amountColor(item.amount));
       valueG.appendChild(labelBox);
 
       const valueText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -3895,7 +4175,21 @@ function renderAmountLabels(options = {}) {
     text.setAttribute('class', 'amount-label');
     text.setAttribute('x', '0');
     text.setAttribute('y', '0');
-    text.textContent = displayAmountNoMm(group.amount);
+
+    const labelText = displayAmountNoMm(group.amount);
+    const highColor = manualMergeHighColorMap[normalizeAmountKey(group.amount)];
+    const pm = String(labelText || '').match(/^(.*?)(\([^()]+\))$/);
+    if (highColor && pm) {
+      const baseT = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      baseT.textContent = pm[1];
+      const highT = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      highT.textContent = pm[2];
+      highT.setAttribute('fill', highColor);
+      text.appendChild(baseT);
+      text.appendChild(highT);
+    } else {
+      text.textContent = labelText;
+    }
 
     g.appendChild(rect);
     g.appendChild(text);
@@ -6122,5 +6416,6 @@ if (document.readyState === 'loading') {
 })();
 
 </script>
-</body>
-</html>
+
+
+</body></html>
