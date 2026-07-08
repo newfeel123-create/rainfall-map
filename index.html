@@ -3615,6 +3615,7 @@ function makeDraggableMountain(g, key, amount) {
     draggingIcon = true;
     start = svgPointFromClient(e.touches[0]);
     base = currentPos();
+    startLabelHoldFocus();
   }, {passive:false});
   g.addEventListener('touchmove', e => {
     if (isRangeSliderTarget(e.target)) return;
@@ -3762,7 +3763,18 @@ function renderMountainIcons() {
   });
 }
 
-function clearAmountHoverFocus() {
+let lockedAmountFocusKey = '';
+let lockedAmountFocusAmount = '';
+let activeAmountHoldKey = '';
+let activeAmountHoldAmount = '';
+
+function clearAllAmountHoverFocus(forceClear) {
+  // v7.73: 수치 박스를 잡고 있는 동안에는 어떤 mouseleave/pointercancel/지역 hover 이벤트가 와도
+  // 필터가 풀리지 않게 강제로 현재 수치 표시를 유지합니다.
+  if (!forceClear && activeAmountHoldKey) {
+    showOnlyAmount(activeAmountHoldAmount || activeAmountHoldKey);
+    return;
+  }
   document.querySelectorAll('.region').forEach(el => {
     el.classList.remove('hover-dim','hover-focus');
   });
@@ -3772,6 +3784,36 @@ function clearAmountHoverFocus() {
   document.querySelectorAll('.mountain-icon-group').forEach(el => {
     el.classList.remove('hover-dim','hover-focus');
   });
+}
+
+function clearAmountHoverFocus() {
+  if (lockedAmountFocusKey) {
+    showOnlyAmount(lockedAmountFocusAmount || lockedAmountFocusKey);
+    return;
+  }
+  clearAllAmountHoverFocus();
+}
+
+function toggleAmountClickFocus(amount) {
+  const key = normalizeAmountKey(amount);
+  if (!key) return;
+  if (lockedAmountFocusKey === key) {
+    lockedAmountFocusKey = '';
+    lockedAmountFocusAmount = '';
+    clearAllAmountHoverFocus();
+  } else {
+    lockedAmountFocusKey = key;
+    lockedAmountFocusAmount = amount;
+    showOnlyAmount(amount);
+  }
+}
+
+function resetAmountClickFocus() {
+  lockedAmountFocusKey = '';
+  lockedAmountFocusAmount = '';
+  activeAmountHoldKey = '';
+  activeAmountHoldAmount = '';
+  clearAllAmountHoverFocus(true);
 }
 
 function showOnlyAmount(amount) {
@@ -3815,6 +3857,42 @@ function makeDraggableLabel(g, rect, text, amount) {
   let draggingLabel = false;
   let start = null;
   let base = null;
+  let labelPointerMoved = false;
+  let labelSuppressClick = false;
+  let labelDownClient = null;
+  let lastAmountToggleAt = 0;
+  let activeLabelPointerId = null;
+
+
+  function markLabelMove(clientEvt) {
+    if (!labelDownClient || !clientEvt) return;
+    const dx = (clientEvt.clientX || 0) - labelDownClient.x;
+    const dy = (clientEvt.clientY || 0) - labelDownClient.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 5) labelPointerMoved = true;
+  }
+
+  // v7.71: 수치 박스를 잡는 순간부터 내려놓을 때까지 해당 수치 지역만 보이게 합니다.
+  // 드래그 이동 후 손을 떼면 기존 잠금 상태가 있으면 복귀하고, 없으면 전체 지도로 복귀합니다.
+  function startLabelHoldFocus() {
+    activeAmountHoldKey = normalizeAmountKey(amount);
+    activeAmountHoldAmount = amount;
+    showOnlyAmount(amount);
+  }
+
+  function restoreLabelHoldFocusAfterMove(wasMoved) {
+    if (!wasMoved) return;
+    activeAmountHoldKey = '';
+    activeAmountHoldAmount = '';
+    if (lockedAmountFocusKey) showOnlyAmount(lockedAmountFocusAmount || lockedAmountFocusKey);
+    else clearAllAmountHoverFocus(true);
+  }
+
+  function safeToggleAmountFocus() {
+    const now = Date.now();
+    if (now - lastAmountToggleAt < 280) return;
+    lastAmountToggleAt = now;
+    toggleAmountClickFocus(amount);
+  }
 
   function currentPos() {
     return {
@@ -3825,6 +3903,7 @@ function makeDraggableLabel(g, rect, text, amount) {
 
   function moveLabelToClientPoint(clientEvt) {
     if (!draggingLabel || !start || !base) return;
+    markLabelMove(clientEvt);
     const pt = svgPointFromClient(clientEvt);
     const nx = base.x + (pt.x - start.x);
     const ny = base.y + (pt.y - start.y);
@@ -3835,16 +3914,29 @@ function makeDraggableLabel(g, rect, text, amount) {
 
   function finishLabelDrag() {
     if (!draggingLabel) return;
+    const wasMoved = labelPointerMoved;
     draggingLabel = false;
+    labelSuppressClick = wasMoved;
     const p = currentPos();
     saveLabelPos(amount, p.x, p.y);
+    if (wasMoved) {
+      restoreLabelHoldFocusAfterMove(true);
+    } else {
+      // 클릭만 한 경우는 toggle 로직이 바로 이어서 실행될 수 있으므로 임시 홀드만 해제합니다.
+      activeAmountHoldKey = '';
+      activeAmountHoldAmount = '';
+    }
   }
 
   g.addEventListener('mousedown', e => {
     e.stopPropagation();
     draggingLabel = true;
+    labelPointerMoved = false;
+    labelSuppressClick = false;
+    labelDownClient = {x:e.clientX || 0, y:e.clientY || 0};
     start = svgPointFromClient(e);
     base = currentPos();
+    startLabelHoldFocus();
   });
 
   window.addEventListener('mousemove', e => {
@@ -3860,8 +3952,13 @@ function makeDraggableLabel(g, rect, text, amount) {
     e.preventDefault();
     e.stopPropagation();
     draggingLabel = true;
+    labelPointerMoved = false;
+    labelSuppressClick = false;
+    labelDownClient = {x:e.clientX || 0, y:e.clientY || 0};
     start = svgPointFromClient(e);
     base = currentPos();
+    activeLabelPointerId = e.pointerId;
+    startLabelHoldFocus();
     g.classList.add('hover-focus');
     try { g.setPointerCapture(e.pointerId); } catch(_) {}
   }, {passive:false});
@@ -3877,15 +3974,45 @@ function makeDraggableLabel(g, rect, text, amount) {
     if (!draggingLabel) return;
     e.preventDefault();
     e.stopPropagation();
+    const wasMoved = labelPointerMoved;
     finishLabelDrag();
+    if (!wasMoved) safeToggleAmountFocus();
+    activeLabelPointerId = null;
     try { g.releasePointerCapture(e.pointerId); } catch(_) {}
   }, {passive:false});
   g.addEventListener('pointercancel', e => {
     if (isRangeSliderTarget(e.target)) return;
     if (!draggingLabel) return;
+    // v7.73: 모바일에서 SVG 지역 위를 지나가며 cancel이 발생해도 잡고 있는 동안은 풀리지 않게 합니다.
+    // 실제 종료는 touchend / pointerup / window pointerup에서만 처리합니다.
     e.preventDefault();
     e.stopPropagation();
+    showOnlyAmount(amount);
+  }, {passive:false});
+
+  // 모바일 일부 브라우저는 SVG 내부를 지나갈 때 pointer capture가 풀릴 수 있어 window에서도 한 번 더 받습니다.
+  window.addEventListener('pointermove', e => {
+    if (activeLabelPointerId === null || e.pointerId !== activeLabelPointerId || !draggingLabel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveLabelToClientPoint(e);
+  }, {passive:false});
+
+  window.addEventListener('pointerup', e => {
+    if (activeLabelPointerId === null || e.pointerId !== activeLabelPointerId || !draggingLabel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const wasMoved = labelPointerMoved;
     finishLabelDrag();
+    if (!wasMoved) safeToggleAmountFocus();
+    activeLabelPointerId = null;
+  }, {passive:false});
+
+  window.addEventListener('pointercancel', e => {
+    if (activeLabelPointerId === null || e.pointerId !== activeLabelPointerId || !draggingLabel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showOnlyAmount(amount);
   }, {passive:false});
 
   // iPhone/Safari: 수치 박스를 한 번 누른 뒤 손가락으로 바로 움직일 수 있게 처리합니다.
@@ -3895,8 +4022,12 @@ function makeDraggableLabel(g, rect, text, amount) {
     e.preventDefault();
     e.stopPropagation();
     draggingLabel = true;
+    labelPointerMoved = false;
+    labelSuppressClick = false;
+    labelDownClient = {x:e.touches[0].clientX || 0, y:e.touches[0].clientY || 0};
     start = svgPointFromClient(e.touches[0]);
     base = currentPos();
+    startLabelHoldFocus();
   }, {passive:false});
 
   g.addEventListener('touchmove', e => {
@@ -3916,13 +4047,53 @@ function makeDraggableLabel(g, rect, text, amount) {
 
   g.addEventListener('touchcancel', e => {
     if (isRangeSliderTarget(e.target)) return;
+    // v7.73: 일부 모바일 브라우저가 지나가는 지역에 따라 touchcancel을 보내도 필터를 유지합니다.
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggingLabel) showOnlyAmount(amount);
+  }, {passive:false});
+
+
+  // v7.73: 손가락이 수치 박스 밖/다른 지역 위로 이동해도 window에서 계속 드래그와 필터를 유지합니다.
+  window.addEventListener('touchmove', e => {
+    if (!draggingLabel || !e.touches || e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showOnlyAmount(amount);
+    moveLabelToClientPoint(e.touches[0]);
+  }, {passive:false});
+
+  window.addEventListener('touchend', e => {
+    if (!draggingLabel) return;
     e.preventDefault();
     e.stopPropagation();
     finishLabelDrag();
   }, {passive:false});
 
-  g.addEventListener('mouseenter', () => showOnlyAmount(amount));
-  g.addEventListener('mouseleave', () => clearAmountHoverFocus());
+  window.addEventListener('touchcancel', e => {
+    if (!draggingLabel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showOnlyAmount(amount);
+  }, {passive:false});
+
+  g.addEventListener('mouseenter', () => {
+    if (draggingLabel) return;
+    if (!lockedAmountFocusKey) showOnlyAmount(amount);
+  });
+  g.addEventListener('mouseleave', () => {
+    if (draggingLabel) return;
+    if (!lockedAmountFocusKey) clearAmountHoverFocus();
+  });
+
+  g.addEventListener('click', e => {
+    e.stopPropagation();
+    if (labelSuppressClick) {
+      labelSuppressClick = false;
+      return;
+    }
+    safeToggleAmountFocus();
+  });
 
   g.addEventListener('dblclick', e => {
     e.stopPropagation();
@@ -4127,7 +4298,7 @@ function clearSavedLabelPositions() {
 }
 
 function clearRainMatch() {
-  clearAmountHoverFocus();
+  resetAmountClickFocus();
   amountColorMap = {};
   amountColorOrder = [];
   forecastAllowedAmountKeys = null;
