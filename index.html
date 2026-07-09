@@ -194,11 +194,11 @@
   }
   .amount-label {
     font-family:"Malgun Gothic","맑은 고딕",Arial,sans-serif;
-    font-size:18px;
+    font-size:26px;
     font-weight:900;
     fill:#ffffff;
     stroke:#000000;
-    stroke-width:1.2px;
+    stroke-width:1.35px;
     paint-order:stroke fill;
     stroke-linejoin:round;
     text-anchor:middle;
@@ -343,7 +343,7 @@
   .mountain-text {
     fill:#fff;
     stroke:#000;
-    stroke-width:1.2px;
+    stroke-width:1.35px;
     paint-order:stroke fill;
     stroke-linejoin:round;
     font-family:"Malgun Gothic","맑은 고딕";
@@ -1769,6 +1769,65 @@ input[type="range"] {
   }
 }
 
+
+/* v7.80: 예보 매칭된 수동 지역 버튼 표시 */
+.manual-region-buttons button.matched-auto {
+  background:#E8F5E9 !important;
+  border-color:#66BB6A !important;
+  color:#1B5E20 !important;
+  box-shadow:0 0 0 2px rgba(102,187,106,.20) !important;
+}
+.manual-region-buttons button.active.matched-auto {
+  background:#111 !important;
+  border-color:#000 !important;
+  color:#fff !important;
+  box-shadow:0 0 0 3px rgba(102,187,106,.28) !important;
+}
+
+
+
+/* v7.97: 수치 박스 드래그 삭제 휴지통 */
+.label-trash-bin {
+  position:absolute;
+  right:10px;
+  bottom:118px;
+  z-index:8;
+  width:88px;
+  height:44px;
+  box-sizing:border-box;
+  border:2px dashed rgba(60,70,85,.55);
+  border-radius:12px;
+  background:rgba(255,255,255,.94);
+  color:#334155;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  font-weight:900;
+  font-size:11px;
+  pointer-events:none;
+  box-shadow:0 3px 10px rgba(15,23,42,.12);
+}
+.label-trash-bin .trash-icon { font-size:18px; line-height:1; }
+.label-trash-bin.trash-hot {
+  background:#fff1f2;
+  border-color:#ef4444;
+  color:#b91c1c;
+  box-shadow:0 0 0 4px rgba(239,68,68,.18), 0 5px 14px rgba(15,23,42,.18);
+}
+@media (max-width:768px) {
+  .label-trash-bin {
+    right:8px;
+    bottom:106px;
+    width:80px;
+    height:42px;
+    border-radius:11px;
+    font-size:10.5px;
+  }
+  .label-trash-bin .trash-icon { font-size:17px; }
+}
+
 </style>
 </head>
 <body>
@@ -1778,7 +1837,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.77 Gyeongbuk SE + Custom Region</div>
+   <div class="app-version">Ver.1.8.4-v7.97 Label Trash Delete</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1870,7 +1929,7 @@ input[type="range"] {
   <section class="mapcol">
   <main class="mapwrap">
     <div id="tooltip" class="tooltip"></div>
-    <button id="heavyGroupToggle" type="button" class="heavy-group-toggle" title="많은 곳 수치를 기본 수치와 묶어서 같은 색으로 표시">묶기 OFF</button>
+    <div id="labelTrashBin" class="label-trash-bin" title="수치 박스를 끌어다 놓으면 삭제됩니다"><span class="trash-icon">🗑️</span><span>삭제</span></div>
 <svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
 <g id="viewport">
         <g id="regions"></g>
@@ -2178,8 +2237,10 @@ const RAIN_PALETTE = [
 let amountColorMap = {};
 let amountColorOrder = [];
 let forecastAllowedAmountKeys = null;
-let autoHeavyGroupEnabled = false;
+let autoHeavyGroupEnabled = true;
 let autoHeavyCompositeMap = {};
+let amountDisplayCompositeMap = {};
+let amountCompositeSplitColorMap = {};
 
 function buildAllowedAmountKeysFromForecast(rawText) {
   const set = new Set();
@@ -2195,9 +2256,9 @@ function buildAllowedAmountKeysFromForecast(rawText) {
     set.add(normalizeAmountKey(`${m[1]}mm${suffix}`));
   }
 
-  // 80~150mm(많은 곳 200mm 이상)처럼 특정 지역명이 없는 많은 곳은
-  // 별도 200↑ 범례가 아니라 80~150(200↑)로 같은 항목에 묶습니다.
-  const genericHeavyRe = /(\d+)\s*~\s*(\d+)\s*mm\s*\([^)]*많은\s*곳\s*(\d+)\s*mm\s*(이상|초과)[^)]*\)/gi;
+  // v7.84: 많은 곳 뒤에 지역명이 있어도 수치 박스/범례는 기본수치(많은곳↑)로 표시합니다.
+  // 예: 5~40mm(많은 곳 경기북부내륙 60mm 이상) -> 5~40(60↑)
+  const genericHeavyRe = /(\d+)\s*~\s*(\d+)\s*mm\s*\([^)]*많은\s*곳[^)]*?(\d+)\s*mm\s*(이상|초과)[^)]*\)/gi;
   while ((m = genericHeavyRe.exec(text)) !== null) {
     set.add(normalizeAmountKey(`${m[1]}~${m[2]}mm(${m[3]}mm이상)`));
   }
@@ -2216,6 +2277,74 @@ function normalizeAmountKey(amount) {
     .trim();
 }
 
+function amountKeyFromDisplayLabelPart(part) {
+  let s = String(part || '')
+    .replace(/[∼－–—]/g, '~')
+    .replace(/\s+/g, '')
+    .replace(/[()]/g, '')
+    .trim();
+  if (!s) return '';
+  let m = s.match(/^(\d+)~(\d+)$/);
+  if (m) return normalizeAmountKey(`${m[1]}~${m[2]}mm`);
+  m = s.match(/^(\d+)↑$/);
+  if (m) return normalizeAmountKey(`${m[1]}mm이상`);
+  m = s.match(/^(\d+)미만$/);
+  if (m) return normalizeAmountKey(`${m[1]}mm미만`);
+  m = s.match(/^(\d+)안팎$/);
+  if (m) return normalizeAmountKey(`${m[1]}mm안팎`);
+  return normalizeAmountKey(s);
+}
+
+function getAmountColorByAnyKey(keyOrLabel, fallbackAmount) {
+  const candidates = [];
+  const add = v => { const k = normalizeAmountKey(v); if (k && !candidates.includes(k)) candidates.push(k); };
+  add(keyOrLabel);
+  add(amountKeyFromDisplayLabelPart(keyOrLabel));
+  add(fallbackAmount);
+  add(amountKeyFromDisplayLabelPart(fallbackAmount));
+  for (const k of candidates) {
+    if (amountColorMap[k]) return amountColorMap[k];
+    const found = findCanonicalAmountByKey ? findCanonicalAmountByKey(k) : k;
+    if (found && amountColorMap[normalizeAmountKey(found)]) return amountColorMap[normalizeAmountKey(found)];
+  }
+  for (const k of candidates) {
+    const c = amountColor(k);
+    if (c && c !== '#ffffff') return c;
+  }
+  return '#111111';
+}
+
+
+// v7.94: 수치 박스 안의 기본 수치 색은 범례/기본 수치 키에서 직접 찾습니다.
+// composite(예: 5~40(60↑))나 많은 곳 지역 색이 기본 수치 색을 덮어쓰지 못하게 합니다.
+function getPlainAmountColorByDisplayPart(part) {
+  const targetLabel = displayAmountNoMm(part);
+  const targetKey = amountKeyFromDisplayLabelPart(targetLabel);
+  const candidates = [];
+  const push = v => { const k = normalizeAmountKey(v); if (k && !candidates.includes(k)) candidates.push(k); };
+  push(targetKey);
+  push(part);
+  if (/^\d+~\d+$/.test(String(targetLabel || '').replace(/\s+/g,''))) push(String(targetLabel).replace(/\s+/g,'') + 'mm');
+  if (/^\d+↑$/.test(String(targetLabel || '').replace(/\s+/g,''))) push(String(targetLabel).replace(/\s+/g,'').replace('↑','mm이상'));
+
+  // 1) 정확한 키 우선
+  for (const k of candidates) {
+    if (amountColorMap && amountColorMap[k]) return amountColorMap[k];
+  }
+
+  // 2) 현재 범례/색상 순서에서 표시 문구가 정확히 같은 항목을 찾기
+  const keys = [];
+  (amountColorOrder || []).forEach(k => { const nk = normalizeAmountKey(k); if (nk && !keys.includes(nk)) keys.push(nk); });
+  Object.keys(amountColorMap || {}).forEach(k => { const nk = normalizeAmountKey(k); if (nk && !keys.includes(nk)) keys.push(nk); });
+  for (const k of keys) {
+    const lbl = displayAmountNoMm(k);
+    if (lbl === targetLabel && amountColorMap[k]) return amountColorMap[k];
+  }
+
+  // 3) 마지막 보조
+  return getAmountColorByAnyKey(targetKey || targetLabel, targetLabel);
+}
+
 function legendAmountSortValue(amount) {
   const nums = String(amount || '').match(/\d+/g);
   if (!nums || !nums.length) return 999999;
@@ -2232,7 +2361,7 @@ function getActivePaintedAmountKeys() {
   const set = new Set();
   document.querySelectorAll('.region.matched, .amount-label-group, .mountain-icon-group').forEach(el => {
     const raw = el && el.dataset ? (el.dataset.amount || '') : '';
-    const key = normalizeAmountKey(raw);
+    const key = displayCompositeKeyForGroup(raw);
     if (key) set.add(key);
   });
   return set;
@@ -2759,11 +2888,19 @@ function splitForecastParts(line) {
     //   (지역명이 없는 '많은 곳 200mm 이상'만 기본 수치와 합칩니다.)
     // - 묶기 ON: v7.61 방식으로 동작합니다.
     //   (괄호 안 '많은 곳'에 지역명이 있어도 지역명은 무시하고 숫자만 봅니다.)
-    const genericHeavyMatch = autoHeavyGroupEnabled
-      ? amountText.match(/많은\s*곳[^)]*?(\d+)\s*mm\s*(이상|초과)/i)
-      : amountText.match(/많은\s*곳\s*(\d+)\s*mm\s*(이상|초과)/i);
-    const hasAutoHeavyComposite = !!(autoHeavyGroupEnabled && am && genericHeavyMatch && /~/.test(am));
-    if (am && genericHeavyMatch && /~/.test(am)) {
+    const genericHeavyMatch = amountText.match(/많은\s*곳[^)]*?(\d+)\s*mm\s*(이상|초과)/i);
+    const heavyNamedProbe = amountText.match(/많은\s*곳\s*([^0-9)]*?)\s*(\d+)\s*mm\s*(이상|초과)/i);
+    const hasNamedHeavyRegionForComposite = !!(heavyNamedProbe && String(heavyNamedProbe[1] || '')
+      .replace(/[\s,./·ㆍ・]+/g, '')
+      .trim());
+
+    // v7.92 핵심 규칙
+    // 1) 많은 곳에 지역명이 있으면: 기본 지역은 원래 수치 색으로 칠하고,
+    //    많은 곳 지역만 별도 높은 수치 색으로 칠합니다.
+    //    수치 박스 표시는 amountDisplayCompositeMap으로 5~40(60↑)처럼 보여줍니다.
+    // 2) 많은 곳에 지역명이 없으면: 전체 구간을 복합 수치 한 가지 색으로 처리합니다.
+    const hasAutoHeavyComposite = !!(am && genericHeavyMatch && /~/.test(am) && !hasNamedHeavyRegionForComposite);
+    if (hasAutoHeavyComposite) {
       am = `${am}(${genericHeavyMatch[1]}mm이상)`;
     }
 
@@ -2796,7 +2933,26 @@ function splitForecastParts(line) {
     // 제주도(산지 제외), 경남내륙(지리산부근 제외)처럼 '제외'가 붙은 구역은
     // 산지/부근 아이콘을 추가로 만들지 않습니다.
     if (/산지|지리산|덕유산|소백산|중산간/.test(cleanArea) && !/제외/.test(cleanArea)) {
-      parts.push({ type:'mountain', zone, area: cleanArea, amount: am || lastAmount });
+      // v7.82: 강원산지/강원내륙.산지는 대표 1개가 아니라
+      // 실제 표출 단위인 북부/중부/남부 산지 3개로 확장합니다.
+      // 그래야 자동 매칭, 수동 매칭 표시, 지도 위 산지 ▲가 모두 같은 결과가 됩니다.
+      const __zForMountain = zoneName(zone);
+      const __aForMountain = normText(cleanArea);
+      const __amtForMountain = am || lastAmount;
+      const __isAllGangwonMountain = __zForMountain === '강원도' && (
+        __aForMountain === '산지' ||
+        __aForMountain === '강원산지' ||
+        __aForMountain === '강원내륙.산지' ||
+        __aForMountain === '강원내륙산지' ||
+        (__aForMountain.includes('강원내륙') && __aForMountain.includes('산지'))
+      );
+      if (__isAllGangwonMountain) {
+        ['강원북부산지','강원중부산지','강원남부산지'].forEach(__m => {
+          parts.push({ type:'mountain', zone, area: __m, amount: __amtForMountain });
+        });
+      } else {
+        parts.push({ type:'mountain', zone, area: cleanArea, amount: __amtForMountain });
+      }
     }
   });
   return parts;
@@ -2807,6 +2963,10 @@ function scopedToken(zone, token) {
   const z = zoneName(zone);
   if (!token) return '';
   // Ver.1.8.1: 권역 안에서 짧게 쓰는 예보구역명을 표준명으로 보정
+  if (z === '수도권') {
+    if (token === '북부내륙') return '경기북부내륙';
+    if (token === '경기북부내륙') return '경기북부내륙';
+  }
   if (z === '경상권') {
     if (token === '북서내륙') return '경남북서내륙';
     if (token === '남서내륙') return '경남남서내륙';
@@ -2867,6 +3027,9 @@ const KMA_REGION_GROUPS = {
   // 수도권
   '경기내륙': ['경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙'],
   '경기북부': ['경기북서내륙','경기북동내륙'],
+  // v7.83: 기상청 문구 "많은 곳 경기북부내륙" 처리용
+  // 경기북부내륙은 실제 지도 단위인 경기북서내륙 + 경기북동내륙으로 확장합니다.
+  '경기북부내륙': ['경기북서내륙','경기북동내륙'],
   '경기남부': ['경기남동내륙','경기남서내륙','경기남부서해안'],
   '경기서해안': ['경기남부서해안'],
   '경기서부': ['경기북서내륙','경기남서내륙','경기남부서해안'],
@@ -3471,6 +3634,18 @@ function tokensFromArea(areaText, zone) {
     if (!filtered.includes('경북동해안')) filtered.push('경북동해안');
   }
 
+  // v7.82: 상위 강원 예보구역은 실제 표출/수동매칭 단위로도 함께 확장합니다.
+  // 강원산지 → 강원북부산지 + 강원중부산지 + 강원남부산지
+  // 강원내륙 → 강원북부내륙 + 강원중부내륙 + 강원남부내륙
+  if (z === '강원도') {
+    if (filtered.includes('강원산지')) {
+      filtered.push('강원북부산지','강원중부산지','강원남부산지');
+    }
+    if (filtered.includes('강원내륙')) {
+      filtered.push('강원북부내륙','강원중부내륙','강원남부내륙');
+    }
+  }
+
   return Array.from(new Set(filtered.map(t => resolveForecastRegionCanonical(t, z))));
 }
 
@@ -3552,8 +3727,22 @@ function findMountainKeys(area, zone) {
   };
   // v7.39: 지도에 표시하는 산지 ▲는 강원 3개, 경북북동산지, 제주산지, 지리산부근을 사용합니다.
   if (a.includes('경북북동산지') || a.includes('경북내륙북동산지') || a.includes('경북북동내륙산지') || (a.includes('북동산지') && z === '경상권') || (a.includes('경북북동') && a.includes('산지'))) keys.push('경북북동산지');
-  if (a.includes('강원남부내륙산지') || a.includes('강원남부산지내륙') || (a.includes('강원남부') && a.includes('산지'))) keys.push('강원남부산지');
-  else if (a.includes('강원산지') || (a.includes('산지') && z === '강원도')) addGangwonMountains();
+
+  // v7.82: 강원산지/강원내륙.산지는 무조건 북부·중부·남부 산지 3개로 표출.
+  // 단, '강원남부내륙.산지'처럼 남부가 명시된 경우만 남부산지 단독으로 유지합니다.
+  const isExplicitOnlySouthMountain =
+    a.includes('강원남부내륙산지') ||
+    a.includes('강원남부산지내륙') ||
+    (a.includes('강원남부') && a.includes('산지') && !a.includes('강원내륙'));
+  const isAllGangwonMountain =
+    a === '산지' ||
+    a === '강원산지' ||
+    a === '강원내륙.산지' ||
+    a === '강원내륙산지' ||
+    a.includes('강원산지') ||
+    (z === '강원도' && a.includes('산지') && !isExplicitOnlySouthMountain);
+  if (isAllGangwonMountain) addGangwonMountains();
+  else if (isExplicitOnlySouthMountain) keys.push('강원남부산지');
   if (a.includes('지리산부근') || a.includes('지리산')) keys.push('지리산부근');
   if (a.includes('제주산지') || (a.includes('산지') && z === '제주도')) keys.push('제주산지');
   // 제주중산간 ▲는 표시하지 않습니다.
@@ -3749,13 +3938,14 @@ function renderMountainIcons() {
 
       const labelBox = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       labelBox.setAttribute('class','amount-label-box');
-      labelBox.setAttribute('fill', amountColor(item.amount));
+      labelBox.setAttribute('fill', '#ffffff');
       valueG.appendChild(labelBox);
 
       const valueText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       valueText.setAttribute('class','amount-label');
       valueText.setAttribute('x','0');
       valueText.setAttribute('y','0');
+      valueText.style.fill = amountColor(item.amount);
       valueText.textContent = displayAmountNoMm(item.amount);
       valueG.appendChild(valueText);
 
@@ -3846,12 +4036,55 @@ function resetAmountClickFocus() {
   clearAllAmountHoverFocus(true);
 }
 
+function amountFocusKeySetForLabel(amount) {
+  // v7.95: 복합 수치(예: 5~40(60↑)) 라벨을 누르면
+  // 기본 수치 지역(5~40)과 많은 곳 수치 지역(60↑)을 함께 강조합니다.
+  const set = new Set();
+  const add = v => {
+    const k = normalizeAmountKey(v);
+    if (k) set.add(k);
+  };
+
+  const raw = String(amount || '');
+  const shownRaw = displayCompositeAmountForGroup(raw);
+  const shownLabel = displayAmountNoMm(shownRaw);
+
+  add(raw);
+  add(displayCompositeKeyForGroup(raw));
+  add(shownRaw);
+  add(shownLabel);
+
+  const m = String(shownLabel || '').match(/^(.*?)(\([^()]+\))$/);
+  if (m) {
+    const basePart = String(m[1] || '').trim();
+    const highPart = String(m[2] || '').trim();
+    add(basePart);
+    add(amountKeyFromDisplayLabelPart(basePart));
+    add(highPart);
+    add(amountKeyFromDisplayLabelPart(highPart));
+  }
+
+  return set;
+}
+
+function elementAmountFocusMatches(el, focusKeys) {
+  if (!el || !el.dataset || !focusKeys || !focusKeys.size) return false;
+  const raw = el.dataset.amount || '';
+  const keys = [
+    normalizeAmountKey(raw),
+    displayCompositeKeyForGroup(raw),
+    normalizeAmountKey(displayCompositeAmountForGroup(raw)),
+    normalizeAmountKey(displayAmountNoMm(raw)),
+    normalizeAmountKey(displayAmountNoMm(displayCompositeAmountForGroup(raw)))
+  ];
+  return keys.some(k => k && focusKeys.has(k));
+}
+
 function showOnlyAmount(amount) {
-  const key = normalizeAmountKey(amount);
+  const focusKeys = amountFocusKeySetForLabel(amount);
   document.querySelectorAll('.region').forEach(el => {
-    const a = normalizeAmountKey(el.dataset.amount || '');
     el.classList.remove('hover-dim','hover-focus');
-    if (a && a === key) {
+    if (elementAmountFocusMatches(el, focusKeys)) {
       el.classList.add('hover-focus');
     } else {
       el.classList.add('hover-dim');
@@ -3859,7 +4092,7 @@ function showOnlyAmount(amount) {
   });
   document.querySelectorAll('.amount-label-group').forEach(el => {
     el.classList.remove('hover-dim','hover-focus');
-    if (normalizeAmountKey(el.dataset.amount || '') === key) {
+    if (elementAmountFocusMatches(el, focusKeys)) {
       el.classList.add('hover-focus');
     } else {
       el.classList.add('hover-dim');
@@ -3867,7 +4100,7 @@ function showOnlyAmount(amount) {
   });
   document.querySelectorAll('.mountain-icon-group').forEach(el => {
     el.classList.remove('hover-dim','hover-focus');
-    if (normalizeAmountKey(el.dataset.amount || '') === key) {
+    if (elementAmountFocusMatches(el, focusKeys)) {
       el.classList.add('hover-focus');
     } else {
       el.classList.add('hover-dim');
@@ -3894,9 +4127,11 @@ function makeDraggableLabel(g, rect, text, amount) {
   let labelDownClient = null;
   let lastAmountToggleAt = 0;
   let activeLabelPointerId = null;
+  let lastLabelClient = null;
 
 
   function markLabelMove(clientEvt) {
+    if (clientEvt) { lastLabelClient = {clientX:clientEvt.clientX || 0, clientY:clientEvt.clientY || 0}; setLabelTrashHot(isClientOverLabelTrash(clientEvt)); }
     if (!labelDownClient || !clientEvt) return;
     const dx = (clientEvt.clientX || 0) - labelDownClient.x;
     const dy = (clientEvt.clientY || 0) - labelDownClient.y;
@@ -3958,6 +4193,8 @@ function makeDraggableLabel(g, rect, text, amount) {
     labelPointerMoved = false;
     labelSuppressClick = false;
     labelDownClient = {x:clientEvt.clientX || 0, y:clientEvt.clientY || 0};
+    lastLabelClient = {clientX:clientEvt.clientX || 0, clientY:clientEvt.clientY || 0};
+    setLabelTrashHot(false);
     start = svgPointFromClient(clientEvt);
     base = currentPos();
     dragOffset = { x: base.x - start.x, y: base.y - start.y };
@@ -3967,12 +4204,19 @@ function makeDraggableLabel(g, rect, text, amount) {
   function finishLabelDrag() {
     if (!draggingLabel) return;
     const wasMoved = labelPointerMoved;
+    const droppedOnTrash = wasMoved && isClientOverLabelTrash(lastLabelClient);
     draggingLabel = false;
     labelSuppressClick = wasMoved;
     usingPointerDrag = false;
     start = null;
     base = null;
     dragOffset = null;
+    setLabelTrashHot(false);
+    if (droppedOnTrash) {
+      hideAmountLabelGroup(g, amount);
+      lastLabelClient = null;
+      return;
+    }
     const p = currentPos();
     saveLabelPos(amount, p.x, p.y);
     if (wasMoved) {
@@ -4260,6 +4504,68 @@ function compareAmountLabelStack(a, b) {
   return av.text.localeCompare(bv.text, 'ko');
 }
 
+
+function __normalizeCssColorForLabel(c) {
+  c = String(c || '').trim();
+  if (!c || c === 'none' || c === 'transparent') return '';
+  return c;
+}
+function __groupRegionFillColorsForLabel(group) {
+  const counts = new Map();
+  try {
+    (group && group.elements ? group.elements : []).forEach(el => {
+      let c = (el && el.dataset && el.dataset.manualColor) ? el.dataset.manualColor : '';
+      if (!c && el && el.style) c = el.style.fill || '';
+      if (!c && el && el.getAttribute) c = el.getAttribute('fill') || '';
+      c = __normalizeCssColorForLabel(c);
+      if (!c || c === '#ffffff' || c.toLowerCase() === 'white') return;
+      counts.set(c, (counts.get(c) || 0) + 1);
+    });
+  } catch(e) {}
+  return Array.from(counts.entries()).sort((a,b)=>b[1]-a[1]).map(v=>v[0]);
+}
+
+
+// v7.97: 수치 박스를 휴지통에 드래그하면 지도에서 숨깁니다.
+const HIDDEN_AMOUNT_LABELS_STORAGE_KEY = 'kmaHiddenAmountLabels_v1';
+let hiddenAmountLabelKeys = new Set();
+function loadHiddenAmountLabels() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(HIDDEN_AMOUNT_LABELS_STORAGE_KEY) || '[]');
+    hiddenAmountLabelKeys = new Set(Array.isArray(arr) ? arr : []);
+  } catch(e) { hiddenAmountLabelKeys = new Set(); }
+}
+function saveHiddenAmountLabels() {
+  try { localStorage.setItem(HIDDEN_AMOUNT_LABELS_STORAGE_KEY, JSON.stringify(Array.from(hiddenAmountLabelKeys))); } catch(e) {}
+}
+function amountLabelHideKey(amount) {
+  return normalizeAmountKey(displayCompositeAmountForGroup(amount) || amount) || normalizeAmountKey(amount);
+}
+function isAmountLabelHidden(amount) {
+  const k = amountLabelHideKey(amount);
+  return !!(k && hiddenAmountLabelKeys.has(k));
+}
+function hideAmountLabelGroup(g, amount) {
+  const k = amountLabelHideKey(amount);
+  if (k) { hiddenAmountLabelKeys.add(k); saveHiddenAmountLabels(); }
+  if (g && g.parentNode) g.parentNode.removeChild(g);
+  resetAmountClickFocus();
+}
+function getLabelTrashBin() { return document.getElementById('labelTrashBin'); }
+function isClientOverLabelTrash(clientEvt) {
+  const bin = getLabelTrashBin();
+  if (!bin || !clientEvt) return false;
+  const r = bin.getBoundingClientRect();
+  const x = clientEvt.clientX || 0;
+  const y = clientEvt.clientY || 0;
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+function setLabelTrashHot(on) {
+  const bin = getLabelTrashBin();
+  if (bin) bin.classList.toggle('trash-hot', !!on);
+}
+loadHiddenAmountLabels();
+
 function renderAmountLabels(options = {}) {
   const ignoreSaved = !!options.ignoreSaved;
   amountLabelsG.innerHTML = '';
@@ -4267,6 +4573,7 @@ function renderAmountLabels(options = {}) {
   const groups = Object.values(amountLabelGroups)
     .map(group => Object.assign({}, group, { elements: Array.from(new Set(group.elements)) }))
     .filter(group => group.elements.length)
+    .filter(group => !isAmountLabelHidden(group.amount))
     .sort(compareAmountLabelStack);
 
   const stackX = 118;
@@ -4296,7 +4603,8 @@ function renderAmountLabels(options = {}) {
 
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     rect.setAttribute('class', 'amount-label-box');
-    rect.setAttribute('fill', amountColor(group.amount));
+    // v7.85: 수치 박스는 항상 흰색, 수치 글자에 매칭 색을 적용합니다.
+    rect.setAttribute('fill', '#ffffff');
 
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('class', 'amount-label');
@@ -4304,17 +4612,57 @@ function renderAmountLabels(options = {}) {
     text.setAttribute('y', '0');
 
     const labelText = displayAmountNoMm(group.amount);
-    const highColor = manualMergeHighColorMap[normalizeAmountKey(group.amount)];
+    const baseCompositeShown = displayCompositeAmountForGroup(group.amount);
     const pm = String(labelText || '').match(/^(.*?)(\([^()]+\))$/);
-    if (highColor && pm) {
+    const basePartLabel = pm ? pm[1].trim() : labelText;
+    const highPartLabel = pm ? pm[2] : '';
+    const doSplitColor = !!(pm && shouldSplitCompositeLabelColor(group.amount));
+
+    // v7.93: 복합 수치 라벨 색상 완전 분리
+    // 예) 서울.인천.경기, 서해5도: 5~40mm(많은 곳 경기북부내륙 60mm 이상)
+    //     => 5~40은 '기본수치 5~40'의 색(노랑), (60↑)은 '많은 곳' 실제 색(빨강)을 사용합니다.
+    // 기존처럼 group.elements의 마지막/대표 색으로 baseColor를 덮어쓰지 않습니다.
+    const baseKeyForColor = baseAmountKeyForHeavyGroup(baseCompositeShown) || baseAmountKeyForHeavyGroup(labelText) || amountKeyFromDisplayLabelPart(basePartLabel) || normalizeAmountKey(group.amount);
+    // v7.94 핵심 수정: 5~40(60↑) 같은 복합 라벨의 앞부분은 무조건 '5~40' 기본 수치 색을 사용합니다.
+    // 많은 곳(60↑) 또는 경기북부내륙 색이 앞부분 5~40 색을 덮어쓰지 못하게 합니다.
+    let baseColor = getPlainAmountColorByDisplayPart(basePartLabel);
+    if (!baseColor || baseColor === '#ffffff') {
+      baseColor = (amountColorMap && amountColorMap[baseKeyForColor])
+        ? amountColorMap[baseKeyForColor]
+        : getAmountColorByAnyKey(baseKeyForColor || basePartLabel, basePartLabel);
+    }
+
+    const highKeyForColor = amountKeyFromDisplayLabelPart(highPartLabel) || getDisplayHeavyInnerKey(baseCompositeShown || group.amount);
+    const __fillColors = __groupRegionFillColorsForLabel(group);
+    let highColor = '';
+    if (doSplitColor) {
+      // 많은 곳 수치는 괄호 안 수치(예: 60↑) 색을 우선 사용합니다.
+      if (highKeyForColor && amountColorMap && amountColorMap[highKeyForColor]) highColor = amountColorMap[highKeyForColor];
+      if (!highColor && highKeyForColor) highColor = getAmountColorByAnyKey(highKeyForColor, highPartLabel);
+      if (!highColor) highColor = (__fillColors.find(c => c && c !== baseColor) || __fillColors[0] || '');
+      if (!highColor) highColor = '#E53935';
+    }
+
+    // 비분리 라벨은 기존처럼 한 가지 색을 쓰되, 실제 지도색이 있으면 그 색을 사용합니다.
+    if (!doSplitColor && __fillColors.length) baseColor = __fillColors[0] || baseColor;
+
+    text.setAttribute('fill', 'none');
+    text.style.setProperty('fill', 'none', 'important');
+
+    if (doSplitColor) {
       const baseT = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      baseT.textContent = pm[1];
+      baseT.textContent = basePartLabel + ' ';
+      baseT.setAttribute('fill', baseColor);
+      baseT.style.setProperty('fill', baseColor, 'important');
       const highT = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      highT.textContent = pm[2];
+      highT.textContent = highPartLabel;
       highT.setAttribute('fill', highColor);
+      highT.style.setProperty('fill', highColor, 'important');
       text.appendChild(baseT);
       text.appendChild(highT);
     } else {
+      text.setAttribute('fill', baseColor);
+      text.style.setProperty('fill', baseColor, 'important');
       text.textContent = labelText;
     }
 
@@ -4343,10 +4691,14 @@ function clearSavedLabelPositions() {
 }
 
 function clearRainMatch() {
+  hiddenAmountLabelKeys = new Set();
+  saveHiddenAmountLabels();
   resetAmountClickFocus();
   amountColorMap = {};
   amountColorOrder = [];
   forecastAllowedAmountKeys = null;
+  amountDisplayCompositeMap = {};
+  amountCompositeSplitColorMap = {};
   renderRainLegend();
   document.querySelectorAll('.region').forEach(el => {
     el.classList.remove('matched','selected');
@@ -4363,7 +4715,7 @@ function clearRainMatch() {
 function rebuildAmountLabelGroupsFromMap() {
   amountLabelGroups = {};
   document.querySelectorAll('.region').forEach(el => {
-    const amount = el.dataset.amount || '';
+    const amount = displayCompositeAmountForGroup(el.dataset.amount || '');
     if (amount) addGroupAmountLabel([el], amount);
   });
 }
@@ -4382,7 +4734,10 @@ function makeCompositeHeavyAmount(baseAmount, heavyAmount) {
 
 function baseAmountKeyForHeavyGroup(amount) {
   const s = String(amount || '').replace(/[∼－–—]/g, '~').replace(/\s+/g, '');
-  const m = s.match(/^(\d+~\d+)mm(?:\([^)]*\))?$/i);
+  // 5~40mm(60mm이상), 5~40(60↑) 둘 다 기본수치 5~40mm로 인식합니다.
+  let m = s.match(/^(\d+~\d+)mm(?:\([^)]*\))?$/i);
+  if (m) return normalizeAmountKey(m[1] + 'mm');
+  m = s.match(/^(\d+~\d+)(?:\([^)]*\))?$/i);
   return m ? normalizeAmountKey(m[1] + 'mm') : '';
 }
 function heavyValueFromCompositeAmount(amount) {
@@ -4405,6 +4760,69 @@ function buildAutoHeavyCompositeMap(rawText) {
   }
   return map;
 }
+
+function buildAmountDisplayCompositeMap(rawText) {
+  const map = {};
+  const text = String(rawText || '').replace(/[∼－–—]/g, '~');
+  let m;
+  const re = /(\d+)\s*~\s*(\d+)\s*mm\s*\([^)]*많은\s*곳[^)]*?(\d+)\s*mm\s*(이상|초과)[^)]*\)/gi;
+  while ((m = re.exec(text)) !== null) {
+    const base = `${m[1]}~${m[2]}mm`;
+    const heavy = `${m[3]}mm이상`;
+    const composite = `${m[1]}~${m[2]}mm(${m[3]}mm이상)`;
+    map[normalizeAmountKey(base)] = composite;
+    map[normalizeAmountKey(heavy)] = composite;
+    map[normalizeAmountKey(composite)] = composite;
+  }
+  return map;
+}
+
+
+function buildAmountCompositeSplitColorMap(rawText) {
+  // v7.86: 많은 곳 뒤에 실제 지역명이 있을 때만 괄호 수치를 별도 색으로 표시합니다.
+  // 예) 5~40mm(많은 곳 경기북부내륙 60mm 이상) => 5~40 / (60↑) 각각 색
+  // 예) 20~60mm(많은 곳 80mm 이상) => 지역명이 없으므로 한 가지 색
+  const map = {};
+  const text = String(rawText || '').replace(/[∼－–—]/g, '~');
+  let m;
+  const re = /(\d+)\s*~\s*(\d+)\s*mm\s*\(([^)]*?많은\s*곳\s*[^)]*?)(\d+)\s*mm\s*(이상|초과)[^)]*\)/gi;
+  while ((m = re.exec(text)) !== null) {
+    const base = `${m[1]}~${m[2]}mm`;
+    const composite = `${m[1]}~${m[2]}mm(${m[4]}mm이상)`;
+    let beforeNumber = String(m[3] || '')
+      .replace(/많은\s*곳/gi, '')
+      .replace(/[\s,./·ㆍ・]+/g, '')
+      .trim();
+    // '많은 곳 80mm 이상' 처럼 지역명이 없으면 beforeNumber가 비어 있습니다.
+    const hasNamedHeavyRegion = beforeNumber.length > 0;
+    map[normalizeAmountKey(base)] = hasNamedHeavyRegion;
+    map[normalizeAmountKey(composite)] = hasNamedHeavyRegion;
+  }
+  return map;
+}
+
+function shouldSplitCompositeLabelColor(amount) {
+  const key = normalizeAmountKey(amount);
+  const shown = displayCompositeAmountForGroup(amount);
+  const shownKey = normalizeAmountKey(shown);
+  if (amountCompositeSplitColorMap && Object.prototype.hasOwnProperty.call(amountCompositeSplitColorMap, shownKey)) {
+    return !!amountCompositeSplitColorMap[shownKey];
+  }
+  if (amountCompositeSplitColorMap && Object.prototype.hasOwnProperty.call(amountCompositeSplitColorMap, key)) {
+    return !!amountCompositeSplitColorMap[key];
+  }
+  return false;
+}
+
+function displayCompositeAmountForGroup(amount) {
+  const key = normalizeAmountKey(amount);
+  return (amountDisplayCompositeMap && amountDisplayCompositeMap[key]) ? amountDisplayCompositeMap[key] : amount;
+}
+
+function displayCompositeKeyForGroup(amount) {
+  return normalizeAmountKey(displayCompositeAmountForGroup(amount));
+}
+
 function partsRegionOverlap(a, b) {
   try {
     const at = tokensFromArea(a.area || '', a.zone || '');
@@ -4416,75 +4834,18 @@ function partsRegionOverlap(a, b) {
   }
 }
 function applyAutoHeavyGroupingToParts(parts) {
-  if (!autoHeavyGroupEnabled || !Array.isArray(parts) || !parts.length) return parts;
-  const result = parts.map(p => Object.assign({}, p));
-
-  // 1) "많은 곳" 세부 파트를 별도 150↑/200↑로 두지 않고,
-  //    같은 줄의 기본 구간을 복합 수치로 승격합니다.
-  result.forEach((part, idx) => {
-    if (!part || part.type === 'mountain') return;
-    const heavyMax = maxRainValue(part.amount);
-    if (!heavyMax || /~/.test(String(part.amount || ''))) return;
-
-    for (let i = idx - 1; i >= 0; i--) {
-      const base = result[i];
-      if (!base || base.type === 'mountain') continue;
-      if (zoneName(base.zone) !== zoneName(part.zone)) continue;
-      if (!/~/.test(String(base.amount || ''))) continue;
-      const baseMax = maxRainValue(base.amount);
-      if (!baseMax || heavyMax <= baseMax) continue;
-
-      const composite = makeCompositeHeavyAmount(base.amount, part.amount);
-      base.amount = composite;
-      part.amount = composite;
-      break;
-    }
-  });
-
-  // 2) 예보문 전체에서 같은 기본 수치가 하나라도 복합 수치가 되면
-  //    전국의 같은 기본 수치를 모두 같은 복합 수치/색으로 통일합니다.
-  //    예: 50~100 + 많은 곳 150↑가 있으면 강원 50~100도 50~100(150↑)
-  //        80~150 + 많은 곳 200↑가 있으면 광주 80~150도 80~150(200↑)
-  const promoteMap = Object.assign({}, autoHeavyCompositeMap || {});
-  result.forEach(p => {
-    if (!p || !p.amount) return;
-    if (String(p.amount).includes('(')) {
-      const key = baseAmountKeyForHeavyGroup(p.amount);
-      if (!key) return;
-      if (!promoteMap[key] || heavyValueFromCompositeAmount(p.amount) > heavyValueFromCompositeAmount(promoteMap[key])) {
-        promoteMap[key] = p.amount;
-      }
-    }
-  });
-
-  result.forEach(p => {
-    if (!p || !p.amount) return;
-    const key = baseAmountKeyForHeavyGroup(p.amount);
-    if (key && promoteMap[key]) p.amount = promoteMap[key];
-  });
-
-  return result;
+  // v7.92: 묶기 버튼 삭제.
+  // 전국 자동 묶기/승격 후처리는 사용하지 않고,
+  // 예보문 원문 기준으로 기본 수치와 많은 곳 수치를 분리해서 처리합니다.
+  return Array.isArray(parts) ? parts : [];
 }
 function updateHeavyGroupToggleUi() {
-  const btn = document.getElementById('heavyGroupToggle');
-  if (!btn) return;
-  btn.classList.toggle('on', !!autoHeavyGroupEnabled);
-  btn.textContent = autoHeavyGroupEnabled ? '묶기 ON' : '묶기 OFF';
+  // v7.92: 묶기 버튼 삭제. 항상 원문 기준 처리.
+  autoHeavyGroupEnabled = true;
 }
 function initHeavyGroupToggle() {
-  const btn = document.getElementById('heavyGroupToggle');
-  if (!btn) return;
-  // 항상 처음은 묶기 OFF(v7.59 원본 상태)로 시작합니다.
-  autoHeavyGroupEnabled = false;
-  try { localStorage.setItem('kmaAutoHeavyGroupEnabled', '0'); } catch(e) {}
-  updateHeavyGroupToggleUi();
-  btn.addEventListener('click', () => {
-    autoHeavyGroupEnabled = !autoHeavyGroupEnabled;
-    try { localStorage.setItem('kmaAutoHeavyGroupEnabled', autoHeavyGroupEnabled ? '1' : '0'); } catch(e) {}
-    updateHeavyGroupToggleUi();
-    const input = document.getElementById('forecastText');
-    if (input && input.value.trim()) applyForecastMatch();
-  });
+  // v7.92: 묶기 버튼 삭제. localStorage 상태와 무관하게 항상 켜진 처리값을 사용합니다.
+  autoHeavyGroupEnabled = true;
 }
 
 function applyForecastMatch() {
@@ -4494,7 +4855,9 @@ function applyForecastMatch() {
   let matchedCount = 0;
   let summaries = [];
 
-  autoHeavyCompositeMap = autoHeavyGroupEnabled ? buildAutoHeavyCompositeMap(raw) : {};
+  autoHeavyCompositeMap = {};
+  amountDisplayCompositeMap = buildAmountDisplayCompositeMap(raw);
+  amountCompositeSplitColorMap = buildAmountCompositeSplitColorMap(raw);
   const allParts = [];
   lines.forEach(line => {
     splitForecastParts(line).forEach(p => allParts.push(p));
@@ -5720,8 +6083,9 @@ window.addEventListener('touchcancel', () => { if (touchMode) saveMapView(); tou
 
 (function(){
   function fixMapLabelsNoMm(){
-    // 지도 수치 박스와 산지 수치에서 m/mm/밀리미터를 전부 제거합니다.
-    document.querySelectorAll('#amountLabels text, #mountainIcons text, .amount-label, .mountain-text').forEach(el=>{
+    // 지도 수치 박스는 렌더링 시 이미 displayAmountNoMm와 tspan 색상 분리 적용됨.
+    // 여기서 textContent를 다시 쓰면 tspan이 사라져 전부 흰색으로 보일 수 있으므로 산지/기타 텍스트만 정리합니다.
+    document.querySelectorAll('#mountainIcons text, .mountain-text').forEach(el=>{
       el.textContent = displayAmountNoMm(el.textContent);
     });
     // 범례 항목에서도 수치 뒤 단위는 제거하되, (단위:mm) 줄은 그대로 둡니다.
@@ -5828,7 +6192,7 @@ function saveCurrentMapImage() {
       .coastline { fill:none; stroke:#111111; stroke-width:0.95; vector-effect:non-scaling-stroke; opacity:0.98; stroke-linejoin:round; stroke-linecap:round; }
       .sido-boundary { fill:none; stroke:#222222; stroke-width:0.85; vector-effect:non-scaling-stroke; opacity:0.95; stroke-linejoin:round; stroke-linecap:round; }
       .amount-label-box { stroke:#111; stroke-width:1.1; rx:6; ry:6; vector-effect:non-scaling-stroke; }
-      .amount-label { font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:18px; font-weight:900; fill:#ffffff; stroke:#000000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; dominant-baseline:middle; }
+      .amount-label { font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:26px; font-weight:900; fill:#ffffff; stroke:#000000; stroke-width:1.35px; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; dominant-baseline:middle; }
       .mountain-triangle { stroke:#000; stroke-width:0.8; vector-effect:non-scaling-stroke; }
       .mountain-text { fill:#fff; stroke:#000; stroke-width:1.2px; paint-order:stroke fill; stroke-linejoin:round; font-family:'Malgun Gothic','맑은 고딕'; font-weight:900; font-size:18px; text-anchor:middle; dominant-baseline:middle; }
       .region { stroke:#AEB8C3 !important; stroke-width:0.24 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
@@ -5991,13 +6355,33 @@ if (saveImageBtn) {
 
 // Ver.1.8.4-v7.2 Boundary+Index: 접기 가능한 지역 수동 매칭 미리보기
 const MANUAL_REGION_MENU = {
-  '수도권': ['서울','인천','김포','강화','경기','경기내륙','경기북부','경기남부','경기동부','경기서부','경기서해안','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안','서해5도'],
+  '수도권': ['서울','인천','김포','강화','경기','경기내륙','경기북부','경기북부내륙','경기남부','경기동부','경기서부','경기서해안','경기북서내륙','경기북동내륙','경기남동내륙','경기남서내륙','경기남부서해안','서해5도'],
   '강원도': ['강원도','강원내륙','강원북부','강원중부','강원남부','강원북부내륙','강원중부내륙','강원남부내륙','강원동해안','강원북부동해안','강원중부동해안','강원남부동해안','강원산지','강원북부산지','강원중부산지','강원남부산지'],
   '충청권': ['대전','세종','충남','충북','충남내륙','충남북부','충남남부','충남동부','충남서해안','충남북부내륙','충남중부내륙','충남남동내륙','충남남서내륙','충남북부서해안','충남남부서해안','충북북부','충북중부','충북남부'],
   '전라권': ['광주','전남','전북','전남남서부','전북남서부','전남내륙','전남해안','전남북부','전남남부','전남동부','전남서해안','전남중부서해안','전남남해안','전남북서부','전남북동부','전남중부내륙','전남동부내륙','전남남부서해안','전남중부남해안','전남서부남해안','전남동부남해안','전북내륙','전북서부','전북동부','전북북부','전북남부','전북서해안','전북북동내륙','전북남동내륙','전북중부내륙','전북북부서해안','전북남부서해안'],
   '경상권': ['부산','울산','대구','경북','경남','경북내륙','경북북부','경북남부','경북서부','경북해안','경북동해안','경북북부내륙','경북중북부내륙','경북북서내륙','경북북동내륙','경북서부내륙','경북남서내륙','경북남동내륙','경북남동부','경북남부내륙','경북북부동해안','경북남부동해안','경북북동산지','경남내륙','경남서부','경남중부','경남북서내륙','경남남서내륙','경남중부내륙','경남동부내륙','경남서부내륙','경남남해안','경남서부남해안','경남중부남해안','지리산부근','남해군'],
   '제주도': ['제주도','제주도북부','제주도남부','제주도동부','제주도서부','제주도산지','제주도중산간','북부중산간','남부중산간']
 };
+
+// Ver.1.8.4-v7.79: 기본 메뉴 보호용 원본 목록
+// region_replace.json의 customMenu/hiddenMenu/menuOrder가 있어도 기본 버튼은 사라지지 않게 합니다.
+const MANUAL_REGION_BASE_MENU = JSON.parse(JSON.stringify(MANUAL_REGION_MENU));
+function isManualRegionBaseButton(zone, name) {
+  const z = zoneName(zone);
+  const key = normText(name);
+  return !!(z && key && MANUAL_REGION_BASE_MENU[z] && MANUAL_REGION_BASE_MENU[z].map(normText).includes(key));
+}
+function cleanManualRegionHiddenMenuForBase(obj) {
+  const out = {};
+  Object.keys(obj || {}).forEach(zone => {
+    const z = zoneName(zone);
+    if (!MANUAL_REGION_BASE_MENU[z]) return;
+    const arr = (Array.isArray(obj[zone]) ? obj[zone] : []).map(normText).filter(Boolean)
+      .filter(name => !isManualRegionBaseButton(z, name));
+    if (arr.length) out[z] = Array.from(new Set(arr));
+  });
+  return out;
+}
 
 // Ver.1.8.4-v7.77: 프로그램 안에서 수동 매칭 지역 버튼 추가
 // - 추가한 버튼은 현재 브라우저 localStorage에 저장됩니다.
@@ -6025,11 +6409,11 @@ function getManualRegionHiddenMenu() {
   try {
     const raw = localStorage.getItem(MANUAL_REGION_HIDDEN_MENU_KEY);
     const obj = raw ? JSON.parse(raw) : {};
-    return obj && typeof obj === 'object' ? obj : {};
+    return obj && typeof obj === 'object' ? cleanManualRegionHiddenMenuForBase(obj) : {};
   } catch(e) { return {}; }
 }
 function saveManualRegionHiddenMenu(obj) {
-  try { localStorage.setItem(MANUAL_REGION_HIDDEN_MENU_KEY, JSON.stringify(obj || {})); } catch(e) {}
+  try { localStorage.setItem(MANUAL_REGION_HIDDEN_MENU_KEY, JSON.stringify(cleanManualRegionHiddenMenuForBase(obj || {}))); } catch(e) {}
 }
 function getManualRegionOrderMenu() {
   try {
@@ -6050,10 +6434,11 @@ function saveCurrentManualRegionOrder(zone) {
 }
 function applyManualRegionHiddenMenu(obj) {
   if (!obj || typeof obj !== 'object') return;
-  Object.keys(obj).forEach(zone => {
+  const safeHidden = cleanManualRegionHiddenMenuForBase(obj);
+  Object.keys(safeHidden).forEach(zone => {
     const z = zoneName(zone);
     if (!MANUAL_REGION_MENU[z]) return;
-    const hidden = new Set((Array.isArray(obj[zone]) ? obj[zone] : []).map(normText).filter(Boolean));
+    const hidden = new Set((Array.isArray(safeHidden[zone]) ? safeHidden[zone] : []).map(normText).filter(Boolean));
     if (hidden.size) MANUAL_REGION_MENU[z] = (MANUAL_REGION_MENU[z] || []).filter(name => !hidden.has(normText(name)));
   });
 }
@@ -6137,6 +6522,10 @@ function deleteCurrentManualRegionButton() {
   const key = normText(currentManualRegionName);
   if (!zone || !MANUAL_REGION_MENU[zone]) { alert('먼저 권역을 선택해주세요.'); return; }
   if (!key) { alert('삭제할 지역 버튼을 먼저 선택해주세요.'); return; }
+  if (isManualRegionBaseButton(zone, key)) {
+    alert('기본 지역 버튼은 삭제하지 않도록 보호했습니다.\n사용자가 추가한 버튼만 삭제할 수 있습니다.');
+    return;
+  }
   if (!confirm(key + ' 지역 버튼을 삭제할까요?\n저장된 치환명/구성값도 함께 삭제됩니다.')) return;
 
   MANUAL_REGION_MENU[zone] = (MANUAL_REGION_MENU[zone] || []).filter(v => normText(v) !== key);
@@ -6146,9 +6535,7 @@ function deleteCurrentManualRegionButton() {
   saveManualRegionCustomMenu(custom);
 
   const hidden = getManualRegionHiddenMenu();
-  const hiddenList = Array.isArray(hidden[zone]) ? hidden[zone].map(normText).filter(Boolean) : [];
-  if (!hiddenList.includes(key)) hiddenList.push(key);
-  hidden[zone] = hiddenList;
+  hidden[zone] = (Array.isArray(hidden[zone]) ? hidden[zone] : []).map(normText).filter(v => v && v !== key);
   saveManualRegionHiddenMenu(hidden);
   saveCurrentManualRegionOrder(zone);
 
@@ -6166,6 +6553,10 @@ function renameCurrentManualRegionButton() {
   const oldName = normText(currentManualRegionName);
   if (!zone || !MANUAL_REGION_MENU[zone]) { alert('먼저 권역을 선택해주세요.'); return; }
   if (!oldName) { alert('이름을 바꿀 지역 버튼을 먼저 선택해주세요.'); return; }
+  if (isManualRegionBaseButton(zone, oldName)) {
+    alert('기본 지역 버튼은 이름을 변경하지 않도록 보호했습니다.\n사용자가 추가한 버튼만 이름을 바꿀 수 있습니다.');
+    return;
+  }
   const input = prompt(oldName + ' 버튼 이름을 새 이름으로 변경합니다.', oldName);
   if (input === null) return;
   const newName = normText(input);
@@ -6197,9 +6588,7 @@ function renameCurrentManualRegionButton() {
   saveManualRegionCustomMenu(custom);
 
   const hidden = getManualRegionHiddenMenu();
-  const hiddenList = Array.isArray(hidden[zone]) ? hidden[zone].map(normText).filter(Boolean) : [];
-  if (!hiddenList.includes(oldName)) hiddenList.push(oldName);
-  hidden[zone] = hiddenList.filter(v => v !== newName);
+  hidden[zone] = (Array.isArray(hidden[zone]) ? hidden[zone] : []).map(normText).filter(v => v && v !== oldName && v !== newName);
   saveManualRegionHiddenMenu(hidden);
   saveCurrentManualRegionOrder(zone);
 
@@ -6711,7 +7100,8 @@ function applyManualRegionBackupObject(data, options) {
     Object.keys(normalized.hiddenMenu).forEach(zone => {
       const z = zoneName(zone);
       const base = Array.isArray(currentHidden[z]) ? currentHidden[z].map(normText).filter(Boolean) : [];
-      currentHidden[z] = Array.from(new Set([...base, ...(normalized.hiddenMenu[zone] || []).map(normText).filter(Boolean)]));
+      currentHidden[z] = Array.from(new Set([...base, ...(normalized.hiddenMenu[zone] || []).map(normText).filter(Boolean)]))
+        .filter(name => !isManualRegionBaseButton(z, name));
     });
     saveManualRegionHiddenMenu(currentHidden);
     applyManualRegionHiddenMenu(currentHidden);
@@ -7210,6 +7600,202 @@ if (document.readyState === 'loading') {
       return __prevRenderStartupMountainMarkers.apply(this, arguments);
     };
   }
+})();
+
+
+/* ===== v7.80 지역 수동 매칭 안정화 =====
+   - 기본 메뉴는 항상 원본 기준으로 복원한 뒤 customMenu만 뒤에 붙입니다.
+   - 초기화/매칭 후에도 산지 같은 기본 버튼이 사라지지 않습니다.
+   - 예보 매칭 후 잡힌 지역 버튼은 수동 매칭 패널에서 자동으로 표시됩니다.
+*/
+(function(){
+  window.__manualMatchedRegionNames = new Set();
+
+  function __cloneMenu(obj) {
+    const out = {};
+    Object.keys(obj || {}).forEach(z => out[z] = (obj[z] || []).map(normText).filter(Boolean));
+    return out;
+  }
+
+  function __filterOnlyCustomMenu(obj) {
+    const out = {};
+    Object.keys(obj || {}).forEach(zone => {
+      const z = zoneName(zone);
+      if (!z || !MANUAL_REGION_BASE_MENU[z]) return;
+      const baseSet = new Set((MANUAL_REGION_BASE_MENU[z] || []).map(normText));
+      const arr = (Array.isArray(obj[zone]) ? obj[zone] : []).map(normText).filter(Boolean)
+        .filter(name => !baseSet.has(name));
+      if (arr.length) out[z] = Array.from(new Set(arr));
+    });
+    return out;
+  }
+
+  const __oldGetCustom = window.getManualRegionCustomMenu || (typeof getManualRegionCustomMenu === 'function' ? getManualRegionCustomMenu : null);
+  if (__oldGetCustom) {
+    window.getManualRegionCustomMenu = getManualRegionCustomMenu = function(){
+      const clean = __filterOnlyCustomMenu(__oldGetCustom.apply(this, arguments) || {});
+      try { localStorage.setItem(MANUAL_REGION_CUSTOM_MENU_KEY, JSON.stringify(clean)); } catch(e) {}
+      return clean;
+    };
+  }
+
+  const __oldSaveCustom = window.saveManualRegionCustomMenu || (typeof saveManualRegionCustomMenu === 'function' ? saveManualRegionCustomMenu : null);
+  if (__oldSaveCustom) {
+    window.saveManualRegionCustomMenu = saveManualRegionCustomMenu = function(obj){
+      return __oldSaveCustom.call(this, __filterOnlyCustomMenu(obj || {}));
+    };
+  }
+
+  window.rebuildManualRegionMenuStable = function(){
+    const next = __cloneMenu(MANUAL_REGION_BASE_MENU);
+    const custom = __filterOnlyCustomMenu((typeof getManualRegionCustomMenu === 'function' ? getManualRegionCustomMenu() : {}));
+    Object.keys(custom).forEach(zone => {
+      const z = zoneName(zone);
+      if (!next[z]) return;
+      const seen = new Set(next[z].map(normText));
+      custom[zone].forEach(name => {
+        const key = normText(name);
+        if (key && !seen.has(key)) { next[z].push(key); seen.add(key); }
+      });
+    });
+
+    const hidden = (typeof getManualRegionHiddenMenu === 'function' ? getManualRegionHiddenMenu() : {});
+    Object.keys(hidden || {}).forEach(zone => {
+      const z = zoneName(zone);
+      if (!next[z]) return;
+      const baseSet = new Set((MANUAL_REGION_BASE_MENU[z] || []).map(normText));
+      const hiddenSet = new Set((hidden[zone] || []).map(normText).filter(v => !baseSet.has(v)));
+      if (hiddenSet.size) next[z] = next[z].filter(name => !hiddenSet.has(normText(name)));
+    });
+
+    const order = (typeof getManualRegionOrderMenu === 'function' ? getManualRegionOrderMenu() : {});
+    Object.keys(order || {}).forEach(zone => {
+      const z = zoneName(zone);
+      if (!next[z]) return;
+      const current = next[z].map(normText);
+      const seen = new Set();
+      const ordered = [];
+      (order[zone] || []).map(normText).filter(Boolean).forEach(name => {
+        if (current.includes(name) && !seen.has(name)) { ordered.push(name); seen.add(name); }
+      });
+      current.forEach(name => { if (!seen.has(name)) ordered.push(name); });
+      next[z] = ordered;
+    });
+
+    Object.keys(MANUAL_REGION_MENU).forEach(k => delete MANUAL_REGION_MENU[k]);
+    Object.keys(next).forEach(k => MANUAL_REGION_MENU[k] = next[k]);
+  };
+
+  function __collectMatchedManualRegionsFromForecast() {
+    const out = new Set();
+
+    function __addMatchedManualName(name) {
+      const key = normText(name);
+      if (!key || key === '__NO_MATCH__') return;
+      out.add(key);
+
+      // v7.81: 강원산지는 대표 버튼 1개만 켜지는 것이 아니라
+      // 실제 표시 단위인 강원북부산지/강원중부산지/강원남부산지도 함께 켭니다.
+      // 그래야 치환 확인/수정 시 산지 세부 구역이 모두 잡힌 것으로 보입니다.
+      const expand = {
+        '강원산지': ['강원북부산지','강원중부산지','강원남부산지'],
+        '강원북부': ['강원북부내륙','강원북부동해안','강원북부산지'],
+        '강원중부': ['강원중부내륙','강원중부동해안','강원중부산지'],
+        '강원남부': ['강원남부내륙','강원남부동해안','강원남부산지'],
+        '강원영동': ['강원북부동해안','강원중부동해안','강원남부동해안','강원북부산지','강원중부산지','강원남부산지']
+      };
+      (expand[key] || []).forEach(v => out.add(normText(v)));
+    }
+    try {
+      const raw = (document.getElementById('forecastText') && document.getElementById('forecastText').value) || '';
+      const lines = raw.split(/\n+/).map(v => v.trim()).filter(Boolean);
+      const allParts = [];
+      lines.forEach(line => splitForecastParts(line).forEach(p => allParts.push(p)));
+      const parts = (typeof applyAutoHeavyGroupingToParts === 'function') ? applyAutoHeavyGroupingToParts(allParts) : allParts;
+      parts.forEach(part => {
+        const area = part.area || '';
+        const zone = part.zone || '';
+        let tokens = [];
+        try { tokens = tokensFromArea(area, zone) || []; } catch(e) { tokens = []; }
+        if (part.type === 'mountain') tokens.push(area);
+        tokens.forEach(t => {
+          const c = resolveManualRegionCanonical(normText(t));
+          if (c && c !== '__NO_MATCH__') __addMatchedManualName(c);
+        });
+      });
+    } catch(e) {}
+
+    try {
+      const matchedIds = new Set(Array.from(document.querySelectorAll('.region.matched')).map(pathRegionId));
+      if (matchedIds.size) {
+        allManualRegionNames().forEach(name => {
+          const paths = getManualRegionPaths(name) || [];
+          if (paths.some(p => matchedIds.has(pathRegionId(p)))) __addMatchedManualName(name);
+        });
+      }
+    } catch(e) {}
+    return out;
+  }
+
+  window.refreshManualMatchedButtonMarks = function(){
+    document.querySelectorAll('#manualRegionButtons button').forEach(btn => {
+      const key = normText(btn.dataset.region || '');
+      const on = !!(key && window.__manualMatchedRegionNames && window.__manualMatchedRegionNames.has(key));
+      btn.classList.toggle('matched-auto', on);
+      if (on) btn.title = '예보 매칭에 포함된 지역';
+      else btn.removeAttribute('title');
+    });
+  };
+
+  const __oldRenderButtons = window.renderManualRegionButtons || (typeof renderManualRegionButtons === 'function' ? renderManualRegionButtons : null);
+  if (__oldRenderButtons) {
+    window.renderManualRegionButtons = renderManualRegionButtons = function(zone){
+      try { window.rebuildManualRegionMenuStable(); } catch(e) {}
+      const result = __oldRenderButtons.apply(this, arguments);
+      try { window.refreshManualMatchedButtonMarks(); } catch(e) {}
+      return result;
+    };
+  }
+
+  const __oldResetMapContentsOnly = window.resetMapContentsOnly || (typeof resetMapContentsOnly === 'function' ? resetMapContentsOnly : null);
+  if (__oldResetMapContentsOnly) {
+    window.resetMapContentsOnly = resetMapContentsOnly = function(){
+      const result = __oldResetMapContentsOnly.apply(this, arguments);
+      window.__manualMatchedRegionNames = new Set();
+      try { window.rebuildManualRegionMenuStable(); } catch(e) {}
+      const activeZone = document.querySelector('#manualRegionZones button.active');
+      if (activeZone) renderManualRegionButtons(activeZone.dataset.zone);
+      else try { window.refreshManualMatchedButtonMarks(); } catch(e) {}
+      return result;
+    };
+    const clearBtn = document.getElementById('clearBtn');
+    if (clearBtn) {
+      clearBtn.replaceWith(clearBtn.cloneNode(true));
+      const newClear = document.getElementById('clearBtn');
+      if (newClear) newClear.addEventListener('click', window.resetMapContentsOnly);
+    }
+  }
+
+  const __oldApplyForecastMatch = window.applyForecastMatch || (typeof applyForecastMatch === 'function' ? applyForecastMatch : null);
+  if (__oldApplyForecastMatch) {
+    window.applyForecastMatch = applyForecastMatch = function(){
+      const result = __oldApplyForecastMatch.apply(this, arguments);
+      try {
+        window.__manualMatchedRegionNames = __collectMatchedManualRegionsFromForecast();
+        window.rebuildManualRegionMenuStable();
+        const activeZone = document.querySelector('#manualRegionZones button.active');
+        if (activeZone) renderManualRegionButtons(activeZone.dataset.zone);
+        else window.refreshManualMatchedButtonMarks();
+      } catch(e) {}
+      return result;
+    };
+  }
+
+  setTimeout(() => {
+    try { window.rebuildManualRegionMenuStable(); } catch(e) {}
+    const activeZone = document.querySelector('#manualRegionZones button.active');
+    if (activeZone) renderManualRegionButtons(activeZone.dataset.zone);
+  }, 0);
 })();
 
 </script>
