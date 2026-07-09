@@ -1851,6 +1851,10 @@ input[type="range"] {
           <button id="manualRegionSaveBtn" type="button" class="manual-region-save">현재 선택 저장</button>
           <button id="manualRegionResetBtn" type="button" class="manual-region-reset">기본값 복귀</button>
           <button id="manualRegionAddBtn" type="button" class="manual-region-reset">지역 버튼 추가</button>
+          <button id="manualRegionDeleteBtn" type="button" class="manual-region-reset">지역 버튼 삭제</button>
+          <button id="manualRegionRenameBtn" type="button" class="manual-region-reset">지역 이름 변경</button>
+          <button id="manualRegionUpBtn" type="button" class="manual-region-reset">▲ 위로</button>
+          <button id="manualRegionDownBtn" type="button" class="manual-region-reset">▼ 아래로</button>
           <button id="manualRegionExportBtn" type="button" class="manual-region-reset">치환 내보내기</button>
           <button id="manualRegionImportBtn" type="button" class="manual-region-reset">치환 불러오기</button>
           <input id="manualRegionImportFile" type="file" accept="application/json,.json" style="display:none;">
@@ -6000,6 +6004,8 @@ const MANUAL_REGION_MENU = {
 // - 치환 내보내기/불러오기(region_replace.json)에 같이 포함됩니다.
 // - 새로 만든 버튼을 누른 뒤 지도에서 시군구를 선택하고 "현재 선택 저장"을 누르면 자동 매칭에도 적용됩니다.
 const MANUAL_REGION_CUSTOM_MENU_KEY = 'kmaManualRegionCustomMenu_v1';
+const MANUAL_REGION_HIDDEN_MENU_KEY = 'kmaManualRegionHiddenMenu_v1';
+const MANUAL_REGION_ORDER_MENU_KEY = 'kmaManualRegionMenuOrder_v1';
 
 function getManualRegionCustomMenu() {
   try {
@@ -6013,6 +6019,58 @@ function getManualRegionCustomMenu() {
 
 function saveManualRegionCustomMenu(obj) {
   try { localStorage.setItem(MANUAL_REGION_CUSTOM_MENU_KEY, JSON.stringify(obj || {})); } catch(e) {}
+}
+
+function getManualRegionHiddenMenu() {
+  try {
+    const raw = localStorage.getItem(MANUAL_REGION_HIDDEN_MENU_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch(e) { return {}; }
+}
+function saveManualRegionHiddenMenu(obj) {
+  try { localStorage.setItem(MANUAL_REGION_HIDDEN_MENU_KEY, JSON.stringify(obj || {})); } catch(e) {}
+}
+function getManualRegionOrderMenu() {
+  try {
+    const raw = localStorage.getItem(MANUAL_REGION_ORDER_MENU_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch(e) { return {}; }
+}
+function saveManualRegionOrderMenu(obj) {
+  try { localStorage.setItem(MANUAL_REGION_ORDER_MENU_KEY, JSON.stringify(obj || {})); } catch(e) {}
+}
+function saveCurrentManualRegionOrder(zone) {
+  const z = zoneName(zone);
+  if (!z || !MANUAL_REGION_MENU[z]) return;
+  const order = getManualRegionOrderMenu();
+  order[z] = (MANUAL_REGION_MENU[z] || []).map(normText).filter(Boolean);
+  saveManualRegionOrderMenu(order);
+}
+function applyManualRegionHiddenMenu(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  Object.keys(obj).forEach(zone => {
+    const z = zoneName(zone);
+    if (!MANUAL_REGION_MENU[z]) return;
+    const hidden = new Set((Array.isArray(obj[zone]) ? obj[zone] : []).map(normText).filter(Boolean));
+    if (hidden.size) MANUAL_REGION_MENU[z] = (MANUAL_REGION_MENU[z] || []).filter(name => !hidden.has(normText(name)));
+  });
+}
+function applyManualRegionOrderMenu(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  Object.keys(obj).forEach(zone => {
+    const z = zoneName(zone);
+    if (!MANUAL_REGION_MENU[z] || !Array.isArray(obj[zone])) return;
+    const current = (MANUAL_REGION_MENU[z] || []).map(normText).filter(Boolean);
+    const seen = new Set();
+    const ordered = [];
+    obj[zone].map(normText).filter(Boolean).forEach(name => {
+      if (current.includes(name) && !seen.has(name)) { ordered.push(name); seen.add(name); }
+    });
+    current.forEach(name => { if (!seen.has(name)) ordered.push(name); });
+    MANUAL_REGION_MENU[z] = ordered;
+  });
 }
 
 function applyManualRegionCustomMenu(obj) {
@@ -6029,6 +6087,8 @@ function applyManualRegionCustomMenu(obj) {
 
 function loadManualRegionCustomMenu() {
   applyManualRegionCustomMenu(getManualRegionCustomMenu());
+  applyManualRegionHiddenMenu(getManualRegionHiddenMenu());
+  applyManualRegionOrderMenu(getManualRegionOrderMenu());
 }
 loadManualRegionCustomMenu();
 
@@ -6061,6 +6121,113 @@ function addManualRegionButton() {
     if (btn) btn.click();
   }, 0);
   alert(name + ' 버튼을 추가했습니다.\n지도에서 포함할 시군구를 선택한 뒤 "현재 선택 저장"을 눌러주세요.');
+}
+
+function getActiveManualRegionZone() {
+  const activeZoneBtn = document.querySelector('#manualRegionZones button.active');
+  return activeZoneBtn ? zoneName(activeZoneBtn.dataset.zone) : '';
+}
+function getManualRegionIndexInZone(zone, regionName) {
+  const z = zoneName(zone);
+  const key = normText(regionName || currentManualRegionName);
+  return z && MANUAL_REGION_MENU[z] ? MANUAL_REGION_MENU[z].map(normText).indexOf(key) : -1;
+}
+function deleteCurrentManualRegionButton() {
+  const zone = getActiveManualRegionZone();
+  const key = normText(currentManualRegionName);
+  if (!zone || !MANUAL_REGION_MENU[zone]) { alert('먼저 권역을 선택해주세요.'); return; }
+  if (!key) { alert('삭제할 지역 버튼을 먼저 선택해주세요.'); return; }
+  if (!confirm(key + ' 지역 버튼을 삭제할까요?\n저장된 치환명/구성값도 함께 삭제됩니다.')) return;
+
+  MANUAL_REGION_MENU[zone] = (MANUAL_REGION_MENU[zone] || []).filter(v => normText(v) !== key);
+
+  const custom = getManualRegionCustomMenu();
+  custom[zone] = (Array.isArray(custom[zone]) ? custom[zone] : []).map(normText).filter(v => v && v !== key);
+  saveManualRegionCustomMenu(custom);
+
+  const hidden = getManualRegionHiddenMenu();
+  const hiddenList = Array.isArray(hidden[zone]) ? hidden[zone].map(normText).filter(Boolean) : [];
+  if (!hiddenList.includes(key)) hiddenList.push(key);
+  hidden[zone] = hiddenList;
+  saveManualRegionHiddenMenu(hidden);
+  saveCurrentManualRegionOrder(zone);
+
+  try { localStorage.removeItem(manualRegionAliasStorageKey(key)); } catch(e) {}
+  try { localStorage.removeItem(manualRegionStorageKey(key)); } catch(e) {}
+
+  clearManualPreviewPaint();
+  currentManualRegionName = '';
+  currentManualRegionPaths = [];
+  renderManualRegionButtons(zone);
+  alert(key + ' 버튼을 삭제했습니다.\n공유하려면 치환 내보내기 후 region_replace.json을 GitHub에 올려주세요.');
+}
+function renameCurrentManualRegionButton() {
+  const zone = getActiveManualRegionZone();
+  const oldName = normText(currentManualRegionName);
+  if (!zone || !MANUAL_REGION_MENU[zone]) { alert('먼저 권역을 선택해주세요.'); return; }
+  if (!oldName) { alert('이름을 바꿀 지역 버튼을 먼저 선택해주세요.'); return; }
+  const input = prompt(oldName + ' 버튼 이름을 새 이름으로 변경합니다.', oldName);
+  if (input === null) return;
+  const newName = normText(input);
+  if (!newName || newName === oldName) return;
+  if (MANUAL_REGION_MENU[zone].map(normText).includes(newName)) { alert('이미 같은 이름의 버튼이 있습니다.'); return; }
+
+  const idx = getManualRegionIndexInZone(zone, oldName);
+  if (idx < 0) return;
+  MANUAL_REGION_MENU[zone][idx] = newName;
+
+  // 기존 치환/구성 저장값을 새 이름으로 옮깁니다.
+  try {
+    const oldAliasKey = manualRegionAliasStorageKey(oldName);
+    const newAliasKey = manualRegionAliasStorageKey(newName);
+    const aliasVal = localStorage.getItem(oldAliasKey);
+    if (aliasVal !== null) { localStorage.setItem(newAliasKey, aliasVal); localStorage.removeItem(oldAliasKey); }
+    const oldOverrideKey = manualRegionStorageKey(oldName);
+    const newOverrideKey = manualRegionStorageKey(newName);
+    const overrideVal = localStorage.getItem(oldOverrideKey);
+    if (overrideVal !== null) { localStorage.setItem(newOverrideKey, overrideVal); localStorage.removeItem(oldOverrideKey); }
+  } catch(e) {}
+
+  const custom = getManualRegionCustomMenu();
+  const customList = Array.isArray(custom[zone]) ? custom[zone].map(normText).filter(Boolean) : [];
+  const cidx = customList.indexOf(oldName);
+  if (cidx >= 0) customList[cidx] = newName;
+  else if (!customList.includes(newName)) customList.push(newName);
+  custom[zone] = Array.from(new Set(customList));
+  saveManualRegionCustomMenu(custom);
+
+  const hidden = getManualRegionHiddenMenu();
+  const hiddenList = Array.isArray(hidden[zone]) ? hidden[zone].map(normText).filter(Boolean) : [];
+  if (!hiddenList.includes(oldName)) hiddenList.push(oldName);
+  hidden[zone] = hiddenList.filter(v => v !== newName);
+  saveManualRegionHiddenMenu(hidden);
+  saveCurrentManualRegionOrder(zone);
+
+  currentManualRegionName = '';
+  renderManualRegionButtons(zone);
+  setTimeout(() => {
+    const btn = Array.from(document.querySelectorAll('#manualRegionButtons button')).find(b => normText(b.dataset.region) === newName);
+    if (btn) btn.click();
+  }, 0);
+  alert(oldName + ' → ' + newName + ' 이름을 변경했습니다.');
+}
+function moveCurrentManualRegionButton(delta) {
+  const zone = getActiveManualRegionZone();
+  const key = normText(currentManualRegionName);
+  if (!zone || !MANUAL_REGION_MENU[zone]) { alert('먼저 권역을 선택해주세요.'); return; }
+  if (!key) { alert('이동할 지역 버튼을 먼저 선택해주세요.'); return; }
+  const list = MANUAL_REGION_MENU[zone];
+  const idx = list.map(normText).indexOf(key);
+  if (idx < 0) return;
+  const next = idx + delta;
+  if (next < 0 || next >= list.length) return;
+  const tmp = list[idx]; list[idx] = list[next]; list[next] = tmp;
+  saveCurrentManualRegionOrder(zone);
+  renderManualRegionButtons(zone);
+  setTimeout(() => {
+    const btn = Array.from(document.querySelectorAll('#manualRegionButtons button')).find(b => normText(b.dataset.region) === key);
+    if (btn) btn.click();
+  }, 0);
 }
 
 // 수동매칭 별칭: 예보문에 다른 표현이 와도 대표 예보구역으로 인식합니다.
@@ -6437,7 +6604,15 @@ function renderManualRegionButtons(zone) {
     btn.textContent = manualRegionButtonName(region);
     btn.dataset.region = region;
     btn.onclick = () => {
+      const alreadyActive = btn.classList.contains('active') && normText(currentManualRegionName) === normText(region);
       document.querySelectorAll('#manualRegionButtons button').forEach(b => b.classList.remove('active'));
+      if (alreadyActive) {
+        clearManualPreviewPaint();
+        currentManualRegionName = '';
+        currentManualRegionPaths = [];
+        updateManualRegionInfo();
+        return;
+      }
       btn.classList.add('active');
       paintManualPreview(region);
     };
@@ -6460,7 +6635,9 @@ function collectManualRegionBackupData() {
     savedAt: new Date().toISOString(),
     aliases: {},
     overrides: {},
-    customMenu: getManualRegionCustomMenu()
+    customMenu: getManualRegionCustomMenu(),
+    hiddenMenu: getManualRegionHiddenMenu(),
+    menuOrder: getManualRegionOrderMenu()
   };
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -6504,7 +6681,9 @@ function applyManualRegionBackupObject(data, options) {
   const aliasCount = Object.keys(normalized.aliases).length;
   const overrideCount = Object.keys(normalized.overrides).length;
   const customCount = Object.keys(normalized.customMenu || {}).reduce((n,k)=>n + ((normalized.customMenu[k] || []).length), 0);
-  if (!aliasCount && !overrideCount && !customCount) {
+  const hiddenCount = Object.keys(normalized.hiddenMenu || {}).reduce((n,k)=>n + ((normalized.hiddenMenu[k] || []).length), 0);
+  const orderCount = Object.keys(normalized.menuOrder || {}).reduce((n,k)=>n + ((normalized.menuOrder[k] || []).length), 0);
+  if (!aliasCount && !overrideCount && !customCount && !hiddenCount && !orderCount) {
     if (!options.silent) alert('가져올 지역 치환/수동 매칭 데이터가 없습니다.');
     if (options.source === 'auto') setManualRegionJsonStatus('치환 데이터: region_replace.json은 있으나 적용할 데이터 없음', 'warn');
     return false;
@@ -6526,6 +6705,25 @@ function applyManualRegionBackupObject(data, options) {
     });
     saveManualRegionCustomMenu(currentCustom);
     applyManualRegionCustomMenu(currentCustom);
+  }
+  if (normalized.hiddenMenu && Object.keys(normalized.hiddenMenu).length) {
+    const currentHidden = getManualRegionHiddenMenu();
+    Object.keys(normalized.hiddenMenu).forEach(zone => {
+      const z = zoneName(zone);
+      const base = Array.isArray(currentHidden[z]) ? currentHidden[z].map(normText).filter(Boolean) : [];
+      currentHidden[z] = Array.from(new Set([...base, ...(normalized.hiddenMenu[zone] || []).map(normText).filter(Boolean)]));
+    });
+    saveManualRegionHiddenMenu(currentHidden);
+    applyManualRegionHiddenMenu(currentHidden);
+  }
+  if (normalized.menuOrder && Object.keys(normalized.menuOrder).length) {
+    const currentOrder = getManualRegionOrderMenu();
+    Object.keys(normalized.menuOrder).forEach(zone => {
+      const z = zoneName(zone);
+      currentOrder[z] = (normalized.menuOrder[zone] || []).map(normText).filter(Boolean);
+    });
+    saveManualRegionOrderMenu(currentOrder);
+    applyManualRegionOrderMenu(currentOrder);
   }
 
   refreshManualRegionPanelAfterImport();
@@ -6564,7 +6762,7 @@ function exportManualRegionBackup() {
     return;
   }
   const data = collectManualRegionBackupData();
-  const hasData = Object.keys(data.aliases).length || Object.keys(data.overrides).length || Object.keys(data.customMenu || {}).length;
+  const hasData = Object.keys(data.aliases).length || Object.keys(data.overrides).length || Object.keys(data.customMenu || {}).length || Object.keys(data.hiddenMenu || {}).length || Object.keys(data.menuOrder || {}).length;
   if (!hasData && !confirm('저장된 지역 치환/수동 매칭값이 없습니다. 빈 백업 파일을 만들까요?')) return;
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json;charset=utf-8'});
@@ -6577,7 +6775,7 @@ function exportManualRegionBackup() {
 }
 
 function normalizeManualRegionBackupData(data) {
-  const result = { aliases:{}, overrides:{}, customMenu:{} };
+  const result = { aliases:{}, overrides:{}, customMenu:{}, hiddenMenu:{}, menuOrder:{} };
   if (!data || typeof data !== 'object') return result;
 
   if (data.aliases && typeof data.aliases === 'object') {
@@ -6598,6 +6796,22 @@ function normalizeManualRegionBackupData(data) {
       }
     });
   }
+  if (data.hiddenMenu && typeof data.hiddenMenu === 'object') {
+    Object.keys(data.hiddenMenu).forEach(k => {
+      const z = zoneName(k);
+      if (MANUAL_REGION_MENU[z] && Array.isArray(data.hiddenMenu[k])) {
+        result.hiddenMenu[z] = data.hiddenMenu[k].map(normText).filter(Boolean);
+      }
+    });
+  }
+  if (data.menuOrder && typeof data.menuOrder === 'object') {
+    Object.keys(data.menuOrder).forEach(k => {
+      const z = zoneName(k);
+      if (MANUAL_REGION_MENU[z] && Array.isArray(data.menuOrder[k])) {
+        result.menuOrder[z] = data.menuOrder[k].map(normText).filter(Boolean);
+      }
+    });
+  }
 
   // 혹시 전체 localStorage 형식으로 백업한 파일도 받을 수 있게 처리합니다.
   if (data.localStorage && typeof data.localStorage === 'object') {
@@ -6615,6 +6829,16 @@ function normalizeManualRegionBackupData(data) {
             if (Array.isArray(val[z])) result.customMenu[zoneName(z)] = val[z].map(normText).filter(Boolean);
           });
         }
+        if (key === MANUAL_REGION_HIDDEN_MENU_KEY && val && typeof val === 'object') {
+          Object.keys(val).forEach(z => {
+            if (Array.isArray(val[z])) result.hiddenMenu[zoneName(z)] = val[z].map(normText).filter(Boolean);
+          });
+        }
+        if (key === MANUAL_REGION_ORDER_MENU_KEY && val && typeof val === 'object') {
+          Object.keys(val).forEach(z => {
+            if (Array.isArray(val[z])) result.menuOrder[zoneName(z)] = val[z].map(normText).filter(Boolean);
+          });
+        }
       } catch(e) {}
     });
   }
@@ -6630,7 +6854,9 @@ function importManualRegionBackupFromObject(data) {
   const aliasCount = Object.keys(normalized.aliases).length;
   const overrideCount = Object.keys(normalized.overrides).length;
   const customCount = Object.keys(normalized.customMenu || {}).reduce((n,k)=>n + ((normalized.customMenu[k] || []).length), 0);
-  if (!aliasCount && !overrideCount && !customCount) {
+  const hiddenCount = Object.keys(normalized.hiddenMenu || {}).reduce((n,k)=>n + ((normalized.hiddenMenu[k] || []).length), 0);
+  const orderCount = Object.keys(normalized.menuOrder || {}).reduce((n,k)=>n + ((normalized.menuOrder[k] || []).length), 0);
+  if (!aliasCount && !overrideCount && !customCount && !hiddenCount && !orderCount) {
     alert('가져올 지역 치환/수동 매칭 데이터가 없습니다.');
     return;
   }
@@ -6702,6 +6928,18 @@ function initManualRegionPanel() {
 
   const addBtn = document.getElementById('manualRegionAddBtn');
   if (addBtn) addBtn.onclick = addManualRegionButton;
+
+  const deleteBtn = document.getElementById('manualRegionDeleteBtn');
+  if (deleteBtn) deleteBtn.onclick = deleteCurrentManualRegionButton;
+
+  const renameBtn = document.getElementById('manualRegionRenameBtn');
+  if (renameBtn) renameBtn.onclick = renameCurrentManualRegionButton;
+
+  const upBtn = document.getElementById('manualRegionUpBtn');
+  if (upBtn) upBtn.onclick = () => moveCurrentManualRegionButton(-1);
+
+  const downBtn = document.getElementById('manualRegionDownBtn');
+  if (downBtn) downBtn.onclick = () => moveCurrentManualRegionButton(1);
 
   const exportBtn = document.getElementById('manualRegionExportBtn');
   if (exportBtn) exportBtn.onclick = exportManualRegionBackup;
