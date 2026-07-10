@@ -2173,6 +2173,68 @@ input[type="range"] {
   .label-trash-bin .trash-icon{font-size:11px !important;}
 }
 </style>
+
+<style id="v8-13-right-index-auto-ui">
+/* v8.13: 버튼 묶음을 오른쪽 인덱스 바로 위에 배치하고, 매칭 전에는 함께 숨김 */
+.right-index-ui{
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  z-index:12;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  width:max-content;
+  pointer-events:none;
+}
+.right-index-ui > *{ pointer-events:auto; }
+.right-index-ui .label-trash-bin,
+.right-index-ui .map-color-mode-panel,
+.right-index-ui #mapLegendBox{
+  position:relative !important;
+  left:auto !important;
+  right:auto !important;
+  top:auto !important;
+  bottom:auto !important;
+  margin:0 !important;
+}
+.right-index-ui .map-color-mode-panel{
+  width:56px !important;
+  padding:3px !important;
+  gap:3px !important;
+  border-radius:7px !important;
+}
+.right-index-ui .map-color-mode-btn,
+.right-index-ui #mapColorIndexReset{
+  width:100% !important;
+  min-width:0 !important;
+  height:18px !important;
+  padding:1px !important;
+  border-radius:5px !important;
+  font-size:6.3px !important;
+  line-height:1 !important;
+}
+.right-index-ui .label-trash-bin{
+  width:48px !important;
+  height:31px !important;
+  border-radius:7px !important;
+  font-size:6.5px !important;
+  pointer-events:none !important;
+}
+.right-index-ui .label-trash-bin .trash-icon{ font-size:11px !important; }
+.right-index-ui #mapLegendBox{
+  align-self:flex-end;
+}
+@media (min-width:769px){
+  .right-index-ui{ right:10px; bottom:10px; gap:4px; }
+  .right-index-ui .map-color-mode-panel{ width:64px !important; }
+  .right-index-ui .map-color-mode-btn,
+  .right-index-ui #mapColorIndexReset{ height:20px !important; font-size:7px !important; }
+  .right-index-ui .label-trash-bin{ width:52px !important; height:33px !important; font-size:7px !important; }
+  .right-index-ui .label-trash-bin .trash-icon{ font-size:12px !important; }
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -2273,12 +2335,19 @@ input[type="range"] {
   <section class="mapcol">
   <main class="mapwrap">
     <div id="tooltip" class="tooltip"></div>
-    <div id="mapColorModePanel" class="map-color-mode-panel" aria-label="지도 색상 전환">
-      <button id="mapRainColorToggle" type="button" class="map-color-mode-btn" title="누르면 파랑·보라 계열로 변경, 다시 누르면 기본 색상">🌧 예상 강수량</button>
-      <button id="mapShowerColorToggle" type="button" class="map-color-mode-btn" title="누르면 초록 계열로 변경, 다시 누르면 기본 색상">⚡ 소나기</button>
-      <button id="mapColorIndexReset" type="button" title="현재 모드의 자동 단계 색상으로 되돌립니다">인덱스 초기화</button>
+    <div id="rightIndexUi" class="right-index-ui" style="display:none;">
+      <div id="labelTrashBin" class="label-trash-bin" title="수치 박스를 끌어다 놓으면 삭제됩니다"><span class="trash-icon">🗑️</span><span>삭제</span></div>
+      <div id="mapColorModePanel" class="map-color-mode-panel" aria-label="지도 색상 전환">
+        <button id="mapRainColorToggle" type="button" class="map-color-mode-btn" title="누르면 파랑·보라 계열로 변경, 다시 누르면 기본 색상">🌧 예상 강수량</button>
+        <button id="mapShowerColorToggle" type="button" class="map-color-mode-btn" title="누르면 초록 계열로 변경, 다시 누르면 기본 색상">⚡ 소나기</button>
+        <button id="mapColorIndexReset" type="button" title="현재 모드의 자동 단계 색상으로 되돌립니다">인덱스 초기화</button>
+      </div>
+      <div class="map-legend" id="mapLegendBox" style="display:none;">
+        <div class="legend">
+          <div id="rainLegend" style="margin-top:0;"></div>
+        </div>
+      </div>
     </div>
-    <div id="labelTrashBin" class="label-trash-bin" title="수치 박스를 끌어다 놓으면 삭제됩니다"><span class="trash-icon">🗑️</span><span>삭제</span></div>
 <svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
 <g id="viewport">
         <g id="regions"></g>
@@ -2289,11 +2358,7 @@ input[type="range"] {
         <g id="showerCharacterLayer"></g>
       </g>
     </svg>
-    <div class="map-legend" id="mapLegendBox" style="display:none;">
-      <div class="legend">
-        <div id="rainLegend" style="margin-top:0;"></div>
-      </div>
-    </div>
+
   </main>
   </section>
 </div>
@@ -2742,9 +2807,13 @@ function renderRainLegend() {
   if (!legendAmounts.length) {
     box.innerHTML = '';
     if (legendBox) legendBox.style.display = 'none';
+    const rightUi = document.getElementById('rightIndexUi');
+    if (rightUi) rightUi.style.display = 'none';
     return;
   }
   if (legendBox) legendBox.style.display = 'block';
+  const rightUi = document.getElementById('rightIndexUi');
+  if (rightUi) rightUi.style.display = 'flex';
   const rows = legendAmounts.map((amount, i) => {
     const label = displayAmountNoMm(amount);
     if (!label) return '';
