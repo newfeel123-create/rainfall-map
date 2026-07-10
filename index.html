@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
+<html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>기상청 예상 강수량 지도</title>
@@ -2233,6 +2231,44 @@ input[type="range"] {
   .right-index-ui #mapColorIndexReset{ height:20px !important; font-size:7px !important; }
   .right-index-ui .label-trash-bin{ width:52px !important; height:33px !important; font-size:7px !important; }
   .right-index-ui .label-trash-bin .trash-icon{ font-size:12px !important; }
+}
+</style>
+
+<style id="v8-14-index-width-sync">
+/* v8.14: 오른쪽 버튼 UI 폭을 인덱스 박스와 자동으로 동일하게 맞춤 */
+.right-index-ui{
+  align-items:stretch !important;
+  width:max-content !important;
+  min-width:0 !important;
+}
+.right-index-ui #mapLegendBox{
+  align-self:stretch !important;
+  width:auto !important;
+  min-width:0 !important;
+  box-sizing:border-box !important;
+}
+.right-index-ui .map-color-mode-panel,
+.right-index-ui .label-trash-bin{
+  align-self:stretch !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:none !important;
+  box-sizing:border-box !important;
+}
+.right-index-ui .map-color-mode-panel{
+  padding:3px !important;
+}
+.right-index-ui .map-color-mode-btn,
+.right-index-ui #mapColorIndexReset{
+  width:100% !important;
+  min-width:0 !important;
+  box-sizing:border-box !important;
+}
+.right-index-ui .label-trash-bin{
+  height:33px !important;
+}
+@media (max-width:768px){
+  .right-index-ui .label-trash-bin{ height:31px !important; }
 }
 </style>
 </head>
@@ -8813,5 +8849,6 @@ if (document.readyState === 'loading') {
 })();
 </script>
 
-</body>
-</html>
+
+
+</body></html>
