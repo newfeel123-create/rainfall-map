@@ -2064,6 +2064,115 @@ input[type="range"] {
 }
 </style>
 
+
+<style id="v8-11-compact-mode-buttons">
+/* v8.11 예상 강수량·소나기·인덱스 초기화 버튼 소형 통일 */
+.map-color-mode-panel{
+  width:100px !important;
+  padding:6px !important;
+  gap:5px !important;
+  border-radius:13px !important;
+}
+.map-color-mode-btn,
+#mapColorIndexReset{
+  width:100% !important;
+  min-width:0 !important;
+  height:32px !important;
+  padding:4px 4px !important;
+  border-radius:9px !important;
+  font-size:10.5px !important;
+  line-height:1.05 !important;
+}
+/* 삭제 버튼 디자인과 크기는 기존 상태 유지, 줄어든 버튼 패널 바로 위에 배치 */
+.label-trash-bin{
+  bottom:140px !important;
+}
+@media (max-width:768px){
+  .map-color-mode-panel{
+    width:96px !important;
+    padding:6px !important;
+    gap:5px !important;
+    border-radius:12px !important;
+  }
+  .map-color-mode-btn,
+  #mapColorIndexReset{
+    height:31px !important;
+    padding:3px 3px !important;
+    border-radius:9px !important;
+    font-size:10px !important;
+  }
+  .label-trash-bin{
+    bottom:135px !important;
+  }
+}
+</style>
+
+<style id="v8-12-half-size-aligned">
+/* v8.12 지도 왼쪽 아래 UI 50% 축소 + 중앙 정렬 */
+.map-color-mode-panel{
+  left:10px !important;
+  bottom:10px !important;
+  width:64px !important;
+  padding:3px !important;
+  gap:3px !important;
+  border-radius:8px !important;
+}
+.map-color-mode-btn,
+#mapColorIndexReset{
+  width:100% !important;
+  min-width:0 !important;
+  height:20px !important;
+  padding:1px 2px !important;
+  border-radius:6px !important;
+  font-size:7px !important;
+  line-height:1 !important;
+  white-space:nowrap !important;
+  box-shadow:0 1px 3px rgba(15,23,42,.10) !important;
+}
+.label-trash-bin{
+  left:16px !important;
+  right:auto !important;
+  bottom:81px !important;
+  width:52px !important;
+  height:33px !important;
+  border-width:1.5px !important;
+  border-radius:8px !important;
+  gap:0 !important;
+  font-size:7px !important;
+  line-height:1 !important;
+  box-shadow:0 2px 6px rgba(15,23,42,.13) !important;
+}
+.label-trash-bin .trash-icon{
+  font-size:12px !important;
+  line-height:1 !important;
+}
+@media (max-width:768px){
+  .map-color-mode-panel{
+    left:8px !important;
+    bottom:8px !important;
+    width:56px !important;
+    padding:3px !important;
+    gap:3px !important;
+    border-radius:7px !important;
+  }
+  .map-color-mode-btn,
+  #mapColorIndexReset{
+    height:18px !important;
+    padding:1px !important;
+    border-radius:5px !important;
+    font-size:6.3px !important;
+  }
+  .label-trash-bin{
+    left:12px !important;
+    bottom:73px !important;
+    width:48px !important;
+    height:31px !important;
+    border-radius:7px !important;
+    font-size:6.5px !important;
+  }
+  .label-trash-bin .trash-icon{font-size:11px !important;}
+}
+</style>
 </head>
 <body>
 <div class="app">
