@@ -391,6 +391,10 @@
     grid-template-columns:repeat(5, 1fr);
     gap:5px;
   }
+  /* v8.07: 예상 강우량/소나기 모드에서는 기존 수동 인덱스 자리에 12색을 6개씩 2줄로 표시 */
+  .manual-color-grid.mode-12 {
+    grid-template-columns:repeat(6, 1fr);
+  }
   .manual-color-chip {
     height:23px;
     border:2px solid #777;
@@ -1633,6 +1637,8 @@ input[type="range"] {
 .manual-merge-row input { margin:0; }
 .manual-merge-actions {
   display:flex;
+  flex-direction:column;
+  align-items:stretch;
   gap:5px;
   margin-top:6px;
 }
@@ -1828,6 +1834,154 @@ input[type="range"] {
   .label-trash-bin .trash-icon { font-size:17px; }
 }
 
+
+
+/* v7.98: 지도 우측 상단 색상 전환 버튼 (초기값은 기존 색상 유지) */
+.map-color-mode-panel {
+  position:absolute;
+  right:10px;
+  top:10px;
+  z-index:9;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:5px;
+  padding:5px;
+  border:1px solid rgba(90,110,140,.55);
+  border-radius:10px;
+  background:rgba(255,255,255,.94);
+  box-shadow:0 3px 10px rgba(15,23,42,.16);
+}
+.map-color-mode-btn {
+  height:24px;
+  width:88px;
+  min-width:88px;
+  padding:2px 6px;
+  border-radius:7px;
+  border:1px solid #b8c2cc;
+  background:#fff;
+  color:#334155;
+  font-size:9.5px;
+  font-weight:900;
+  white-space:nowrap;
+  box-shadow:none !important;
+  transform:none !important;
+}
+.map-color-mode-btn.rain-active {
+  color:#fff !important;
+  border-color:#4338ca !important;
+  background:linear-gradient(180deg,#2563eb 0%,#5b21b6 100%) !important;
+}
+.map-color-mode-btn.shower-active {
+  color:#fff !important;
+  border-color:#15803d !important;
+  background:linear-gradient(180deg,#22c55e 0%,#166534 100%) !important;
+}
+@media (max-width:768px) {
+  .map-color-mode-panel {
+    right:8px;
+    top:8px;
+    gap:4px;
+    padding:4px;
+    border-radius:9px;
+  }
+  .map-color-mode-btn {
+    width:76px;
+    min-width:76px;
+    height:23px;
+    padding:2px 4px;
+    font-size:8.5px;
+    border-radius:7px;
+  }
+}
+
+
+/* v8.05: 지도 색상 모드 인덱스 초기화 버튼 */
+#mapColorIndexReset {
+  width:76px; min-width:76px; height:21px; padding:2px 4px;
+  font-size:8.2px; border-radius:7px; color:#475569; background:rgba(255,255,255,.96);
+}
+#mapColorIndexReset:hover { background:#f8fafc; }
+@media (max-width:768px) {
+  #mapColorIndexReset { width:76px; min-width:76px; height:21px; font-size:8px; }
+}
+
+/* v7.99: 수치 박스 위 예보 기간 표시 */
+.amount-period-box {
+  fill:#1976D2;
+  stroke:#0D47A1;
+  stroke-width:0.9;
+  rx:5;
+  ry:5;
+  vector-effect:non-scaling-stroke;
+  filter:drop-shadow(0 1px 2px rgba(15,23,42,.18));
+}
+.amount-period-text {
+  fill:#ffffff;
+  font-family:"Malgun Gothic","맑은 고딕",Arial,sans-serif;
+  font-size:15px;
+  font-weight:900;
+  text-anchor:middle;
+  dominant-baseline:middle;
+  pointer-events:none;
+}
+
+
+/* v8.03: 다듬은 소나기 캐릭터 - 초록 채움 + 흰색 브러시 테두리 */
+.shower-character-group {
+  cursor:move;
+  pointer-events:all;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+  filter:drop-shadow(0 2px 2px rgba(15,23,42,.24));
+}
+.shower-character-group.hidden { display:none; }
+.shower-character-head,
+.shower-character-body {
+  fill:#20b24b;
+  stroke:#ffffff;
+  stroke-width:2.8;
+  stroke-linejoin:round;
+  stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+}
+.amount-label-group.manual-index-selected .amount-label-box {
+  stroke:#ffb300 !important;
+  stroke-width:3 !important;
+  filter:drop-shadow(0 0 5px rgba(255,179,0,.75));
+}
+.manual-color-chip.mode-amount-chip {
+  position:relative;
+  min-height:34px;
+  height:auto;
+  padding:3px 2px;
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  line-height:1.05;
+  text-shadow:0 1px 2px rgba(0,0,0,.85);
+  overflow:hidden;
+}
+.manual-color-chip.mode-amount-chip span {
+  display:block;
+  pointer-events:none;
+}
+.manual-color-chip.mode-amount-chip.active {
+  border-color:#ffb300;
+  box-shadow:0 0 0 3px rgba(255,179,0,.35);
+}
+
+
+
+/* v8.04: 강우량/소나기 모드에서도 수동 인덱스 전체 10단계 표시 */
+.manual-color-chip.mode-palette-chip {
+  min-width:0;
+  color:transparent;
+  text-indent:-9999px;
+  overflow:hidden;
+}
+
 </style>
 </head>
 <body>
@@ -1837,7 +1991,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.1.8.4-v7.97 Label Trash Delete</div>
+   <div class="app-version">Ver.1.8.4-v8.05 Mode Palette Reset + Bugfix</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -1929,6 +2083,11 @@ input[type="range"] {
   <section class="mapcol">
   <main class="mapwrap">
     <div id="tooltip" class="tooltip"></div>
+    <div id="mapColorModePanel" class="map-color-mode-panel" aria-label="지도 색상 전환">
+      <button id="mapRainColorToggle" type="button" class="map-color-mode-btn" title="누르면 파랑·보라 계열로 변경, 다시 누르면 기본 색상">🌧 예상 강수량</button>
+      <button id="mapShowerColorToggle" type="button" class="map-color-mode-btn" title="누르면 초록 계열로 변경, 다시 누르면 기본 색상">⚡ 소나기</button>
+      <button id="mapColorIndexReset" type="button" title="현재 모드의 자동 단계 색상으로 되돌립니다">인덱스 초기화</button>
+    </div>
     <div id="labelTrashBin" class="label-trash-bin" title="수치 박스를 끌어다 놓으면 삭제됩니다"><span class="trash-icon">🗑️</span><span>삭제</span></div>
 <svg id="map" viewBox="0 0 900 1150" aria-label="대한민국 시군구 지도">
 <g id="viewport">
@@ -1937,6 +2096,7 @@ input[type="range"] {
         <g id="sidoBoundaries"></g>
         <g id="mountainIcons"></g>
         <g id="amountLabels"></g>
+        <g id="showerCharacterLayer"></g>
       </g>
     </svg>
     <div class="map-legend" id="mapLegendBox" style="display:none;">
@@ -2236,6 +2396,9 @@ const RAIN_PALETTE = [
 ];
 let amountColorMap = {};
 let amountColorOrder = [];
+// 기본 모드에서는 기존 팔레트 배정을 그대로 보존합니다.
+let defaultAmountColorMap = {};
+let currentMapColorMode = 'default';
 let forecastAllowedAmountKeys = null;
 let autoHeavyGroupEnabled = true;
 let autoHeavyCompositeMap = {};
@@ -2593,32 +2756,115 @@ function initManualMergePanel() {
 initManualMergePanel();
 
 
+let selectedManualAmountKey = '';
+
+function getModeManualIndexEntries() {
+  const keys = [];
+  (amountColorOrder || []).forEach(v => {
+    const k = normalizeAmountKey(v);
+    if (k && !keys.includes(k)) keys.push(k);
+  });
+  document.querySelectorAll('.region.matched[data-amount]').forEach(el => {
+    const k = normalizeAmountKey(el.dataset.amount || '');
+    if (k && !keys.includes(k)) keys.push(k);
+  });
+  keys.sort((a,b) => legendAmountSortValue(a)-legendAmountSortValue(b) || String(a).localeCompare(String(b),'ko'));
+  return keys.map(k => ({key:k, label:displayAmountNoMm(findCanonicalAmountByKey(k) || k), color:amountColorMap[k] || amountColor(k)}));
+}
+
+function applyManualIndexColorToSelectedAmount(color) {
+  const key = normalizeAmountKey(selectedManualAmountKey || '');
+  if (!key) return false;
+  amountColorMap[key] = color;
+  document.querySelectorAll('.region.matched[data-amount]').forEach(el => {
+    if (normalizeAmountKey(el.dataset.amount || '') === key) {
+      el.dataset.manualColor = color;
+      el.style.fill = color;
+    }
+  });
+  if (typeof renderAmountLabels === 'function') renderAmountLabels();
+  if (typeof renderMountainIcons === 'function') renderMountainIcons();
+  if (typeof renderRainLegend === 'function') renderRainLegend();
+  renderManualColorPalette();
+  return true;
+}
+
 function renderManualColorPalette() {
   const grid = document.getElementById('manualColorGrid');
+  const title = document.getElementById('manualColorTitleText');
   if (!grid) return;
   grid.innerHTML = '';
-  MANUAL_COLOR_PALETTE.forEach(color => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'manual-color-chip';
-    chip.title = color;
-    chip.style.background = color;
-    chip.dataset.color = color;
-    chip.addEventListener('click', () => {
-      selectedManualColor = (selectedManualColor === color) ? '' : color;
-      updateManualColorPaletteState();
+
+  const isModePalette = currentMapColorMode === 'rain' || currentMapColorMode === 'shower';
+  grid.classList.toggle('mode-12', isModePalette);
+
+  if (isModePalette) {
+    if (title) title.textContent = currentMapColorMode === 'rain' ? '예상 강우량 단계 인덱스' : '소나기 단계 인덱스';
+
+    // 기존 수동 인덱스 자리의 색 버튼 자체를 모드별 12단계 팔레트로 교체합니다.
+    // 수치는 표시하지 않고 6개씩 2줄로 나열합니다.
+    const modePalette = currentMapColorMode === 'rain'
+      ? [
+          '#EAF8FF', '#CDEEFF', '#9DD7FF', '#63B8FF', '#2F91F2', '#176FD1',
+          '#1257B5', '#173F96', '#282A78', '#5940A8', '#76258F', '#4A075F'
+        ]
+      : [
+          '#EDFFE8', '#D3F7C8', '#ACEB9B', '#7FDA74', '#58C55B', '#37AF49',
+          '#23983D', '#147F34', '#0B682B', '#075424', '#043F1B', '#022D13'
+        ];
+
+    modePalette.forEach((color, index) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'manual-color-chip mode-palette-chip';
+      chip.title = `${currentMapColorMode === 'rain' ? '예상 강우량' : '소나기'} ${index + 1}단계 색상`;
+      chip.style.background = color;
+      chip.dataset.color = color;
+      chip.dataset.paletteIndex = String(index);
+      chip.setAttribute('aria-label', chip.title);
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // 반드시 지도 수치 박스를 먼저 선택해야 합니다.
+        // 선택 없이 인덱스를 눌렀을 때 전체 지도에 적용되던 현상을 차단합니다.
+        if (!selectedManualAmountKey) return;
+        applyManualIndexColorToSelectedAmount(color);
+      });
+      grid.appendChild(chip);
     });
-    grid.appendChild(chip);
-  });
+  } else {
+    if (title) title.textContent = '수동 인덱스';
+    MANUAL_COLOR_PALETTE.forEach(color => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'manual-color-chip';
+      chip.title = color;
+      chip.style.background = color;
+      chip.dataset.color = color;
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // 반드시 지도 수치 박스를 먼저 선택해야 합니다.
+        // 선택 없이 인덱스를 눌렀을 때 전체 지도에 적용되던 현상을 차단합니다.
+        if (!selectedManualAmountKey) return;
+        applyManualIndexColorToSelectedAmount(color);
+      });
+      grid.appendChild(chip);
+    });
+  }
   updateManualColorPaletteState();
 }
 function updateManualColorPaletteState() {
   document.querySelectorAll('.manual-color-chip').forEach(chip => {
-    chip.classList.toggle('active', !!selectedManualColor && chip.dataset.color === selectedManualColor);
+    const activeByColor = !!selectedManualColor && chip.dataset.color === selectedManualColor;
+    const activeByAmount = !!selectedManualAmountKey && chip.dataset.amountKey === selectedManualAmountKey;
+    chip.classList.toggle('active', activeByColor || activeByAmount);
   });
 }
 function clearManualColorSelection() {
   selectedManualColor = '';
+  selectedManualAmountKey = '';
+  document.querySelectorAll('.amount-label-group.manual-index-selected').forEach(el => el.classList.remove('manual-index-selected'));
   updateManualColorPaletteState();
 }
 renderManualColorPalette();
@@ -2671,14 +2917,304 @@ function amountColor(amount) {
   const key = normalizeAmountKey(amount);
   if (!key) return '#ffffff';
   if (!isForecastAllowedAmount(key)) return '#ffffff';
+  if (!amountColorOrder.includes(key)) amountColorOrder.push(key);
+
+  // 새 수치의 기본색은 원래 팔레트 순서를 그대로 사용해 별도로 기억합니다.
+  if (!defaultAmountColorMap[key]) {
+    const idx = Object.keys(defaultAmountColorMap).length % RAIN_PALETTE.length;
+    defaultAmountColorMap[key] = RAIN_PALETTE[idx];
+  }
   if (!amountColorMap[key]) {
-    const idx = amountColorOrder.length % RAIN_PALETTE.length;
-    amountColorMap[key] = RAIN_PALETTE[idx];
-    amountColorOrder.push(key);
+    amountColorMap[key] = currentMapColorMode === 'default'
+      ? defaultAmountColorMap[key]
+      : makeModeColor(key, currentMapColorMode);
     renderRainLegend();
   }
   return amountColorMap[key];
 }
+
+function colorKeyHash(text) {
+  let h = 2166136261;
+  const s = String(text || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function amountNumbers(amount) {
+  const nums = String(amount || '').match(/\d+/g);
+  return nums ? nums.map(Number) : [];
+}
+
+// 수치 문자열 전체를 해시에 사용하므로 3~10과 5~10은 서로 다른 색이 됩니다.
+function makeModeColor(amount, mode) {
+  const key = normalizeAmountKey(amount);
+  const nums = amountNumbers(key);
+  const max = nums.length ? Math.max(...nums) : 0;
+  const min = nums.length ? Math.min(...nums) : 0;
+  const hash = colorKeyHash(key + '|' + mode);
+  let hue, sat, light;
+
+  if (mode === 'shower') {
+    hue = 102 + (hash % 42);
+    sat = 78 + ((hash >>> 7) % 12);
+    light = Math.max(24, Math.min(82, 84 - max * 0.55));
+  } else if (max >= 200) {
+    hue = 280 + (hash % 13) - 6; sat = 86; light = 24 + ((hash >>> 8) % 8);
+  } else if (max >= 150) {
+    hue = 266 + (hash % 20) - 10; sat = 82; light = 42 + ((hash >>> 8) % 10);
+  } else if (max >= 100) {
+    hue = 220 + (hash % 18) - 9; sat = 86; light = 31 + ((hash >>> 8) % 10);
+  } else {
+    hue = 199 + Math.min(25, max * 0.20) + ((hash % 11) - 5);
+    sat = 84;
+    light = Math.max(46, Math.min(88, 90 - max * 0.58));
+  }
+  return `hsl(${hue.toFixed(1)} ${sat.toFixed(1)}% ${light.toFixed(1)}%)`;
+}
+
+// 같은 계열의 수치가 여러 개면 순위를 기준으로 색 차이를 강제로 벌립니다.
+// 예: 5~20과 5~30은 비슷한 하늘색이 아니라 한 단계 더 진한 파랑으로 구분됩니다.
+function buildDistinctModeColorMap(keys, mode) {
+  const sorted = [...keys].sort((a, b) => {
+    const an = amountNumbers(a), bn = amountNumbers(b);
+    const amax = an.length ? Math.max(...an) : 0;
+    const bmax = bn.length ? Math.max(...bn) : 0;
+    const amin = an.length ? Math.min(...an) : 0;
+    const bmin = bn.length ? Math.min(...bn) : 0;
+    return amax - bmax || amin - bmin || String(a).localeCompare(String(b), 'ko');
+  });
+  const result = {};
+  const buckets = new Map();
+  sorted.forEach(k => {
+    const nums = amountNumbers(k);
+    const max = nums.length ? Math.max(...nums) : 0;
+    let bucket;
+    if (mode === 'shower') bucket = max >= 150 ? 's150' : max >= 100 ? 's100' : max >= 50 ? 's50' : 's0';
+    else bucket = max >= 200 ? 'r200' : max >= 150 ? 'r150' : max >= 100 ? 'r100' : max >= 50 ? 'r50' : 'r0';
+    if (!buckets.has(bucket)) buckets.set(bucket, []);
+    buckets.get(bucket).push(k);
+  });
+
+  buckets.forEach((list, bucket) => {
+    list.forEach((k, i) => {
+      const n = list.length;
+      const t = n <= 1 ? 0.5 : i / (n - 1);
+      let hue, sat, light;
+      if (mode === 'shower') {
+        if (bucket === 's150') { hue = 139 - t * 18; sat = 86; light = 24 + t * 8; }
+        else if (bucket === 's100') { hue = 135 - t * 22; sat = 84; light = 31 + t * 10; }
+        else if (bucket === 's50') { hue = 128 - t * 28; sat = 82; light = 40 + t * 12; }
+        else { hue = 106 + t * 34; sat = 80; light = 78 - t * 30; }
+      } else {
+        if (bucket === 'r200') { hue = 284 - t * 18; sat = 88; light = 20 + t * 9; }
+        else if (bucket === 'r150') { hue = 278 - t * 24; sat = 84; light = 34 + t * 13; }
+        else if (bucket === 'r100') { hue = 231 - t * 18; sat = 88; light = 26 + t * 13; }
+        else if (bucket === 'r50') { hue = 220 - t * 18; sat = 86; light = 39 + t * 15; }
+        else { hue = 194 + t * 30; sat = 84; light = 86 - t * 36; }
+      }
+      result[k] = `hsl(${hue.toFixed(1)} ${sat.toFixed(1)}% ${light.toFixed(1)}%)`;
+    });
+  });
+  return result;
+}
+
+function repaintCurrentMapColors() {
+  // 현재 존재하는 모든 수치에 선택 모드 색을 다시 배정합니다.
+  const keys = [];
+  (amountColorOrder || []).forEach(v => {
+    const k = normalizeAmountKey(v);
+    if (k && !keys.includes(k)) keys.push(k);
+  });
+  document.querySelectorAll('.region[data-amount], .amount-label-group[data-amount], .mountain-icon-group[data-amount]').forEach(el => {
+    const k = normalizeAmountKey(el.dataset ? el.dataset.amount : '');
+    if (k && !keys.includes(k)) keys.push(k);
+  });
+
+  amountColorMap = {};
+  const distinctModeMap = currentMapColorMode === 'default' ? null : buildDistinctModeColorMap(keys, currentMapColorMode);
+  keys.forEach(key => {
+    if (!defaultAmountColorMap[key]) {
+      const idx = Object.keys(defaultAmountColorMap).length % RAIN_PALETTE.length;
+      defaultAmountColorMap[key] = RAIN_PALETTE[idx];
+    }
+    amountColorMap[key] = currentMapColorMode === 'default'
+      ? defaultAmountColorMap[key]
+      : (distinctModeMap[key] || makeModeColor(key, currentMapColorMode));
+  });
+
+  document.querySelectorAll('.region.matched').forEach(el => {
+    const key = normalizeAmountKey(el.dataset.amount || '');
+    if (key) el.style.fill = amountColorMap[key] || amountColor(key);
+  });
+
+  if (typeof renderAmountLabels === 'function') renderAmountLabels();
+  if (typeof renderMountainIcons === 'function') renderMountainIcons();
+  if (typeof renderRainLegend === 'function') renderRainLegend();
+  if (typeof refreshManualMergeList === 'function') refreshManualMergeList();
+}
+
+function updateMapColorModeButtons() {
+  const rainBtn = document.getElementById('mapRainColorToggle');
+  const showerBtn = document.getElementById('mapShowerColorToggle');
+  if (rainBtn) rainBtn.classList.toggle('rain-active', currentMapColorMode === 'rain');
+  if (showerBtn) showerBtn.classList.toggle('shower-active', currentMapColorMode === 'shower');
+}
+
+function setMapColorMode(mode) {
+  // 선택된 버튼을 다시 누르면 처음의 기존 색상으로 복귀합니다.
+  currentMapColorMode = currentMapColorMode === mode ? 'default' : mode;
+
+  // 색상 모드 버튼을 누르면 수치 병합 화면을 닫고
+  // 반드시 수동 인덱스 팔레트가 보이도록 합니다.
+  if (typeof setManualMergePanelOpen === 'function') setManualMergePanelOpen(false);
+  const colorPanel = document.getElementById('manualColorPanel');
+  if (colorPanel) colorPanel.classList.remove('merge-mode');
+  const grid = document.getElementById('manualColorGrid');
+  if (grid) grid.style.display = 'grid';
+
+  clearManualColorSelection();
+  repaintCurrentMapColors();
+  updateMapColorModeButtons();
+  renderManualColorPalette();
+  updateShowerCharacterVisibility();
+
+  // 모바일/PC에서 기존 렌더링 순서에 의해 다시 숨겨지는 경우를 방지합니다.
+  setTimeout(() => {
+    if (colorPanel) colorPanel.classList.remove('merge-mode');
+    if (grid) grid.style.display = 'grid';
+    renderManualColorPalette();
+    updateShowerCharacterVisibility();
+  }, 0);
+  setTimeout(() => {
+    if (colorPanel) colorPanel.classList.remove('merge-mode');
+    if (grid) grid.style.display = 'grid';
+    renderManualColorPalette();
+    updateShowerCharacterVisibility();
+  }, 120);
+}
+
+function resetCurrentModeIndexColors() {
+  clearManualColorSelection();
+  const keys = [];
+  (amountColorOrder || []).forEach(v => {
+    const k = normalizeAmountKey(v);
+    if (k && !keys.includes(k)) keys.push(k);
+  });
+  document.querySelectorAll('.region.matched[data-amount]').forEach(el => {
+    const k = normalizeAmountKey(el.dataset.amount || '');
+    if (k && !keys.includes(k)) keys.push(k);
+    el.dataset.manualColor = '';
+  });
+  if (currentMapColorMode === 'default') {
+    keys.forEach(k => {
+      if (!defaultAmountColorMap[k]) {
+        const idx = Object.keys(defaultAmountColorMap).length % RAIN_PALETTE.length;
+        defaultAmountColorMap[k] = RAIN_PALETTE[idx];
+      }
+      amountColorMap[k] = defaultAmountColorMap[k];
+    });
+  } else {
+    const autoMap = buildDistinctModeColorMap(keys, currentMapColorMode);
+    keys.forEach(k => amountColorMap[k] = autoMap[k] || makeModeColor(k, currentMapColorMode));
+  }
+  document.querySelectorAll('.region.matched[data-amount]').forEach(el => {
+    const k = normalizeAmountKey(el.dataset.amount || '');
+    if (k) el.style.fill = amountColorMap[k] || amountColor(k);
+  });
+  renderAmountLabels();
+  renderMountainIcons();
+  renderRainLegend();
+  renderManualColorPalette();
+  updateShowerCharacterVisibility();
+}
+
+function initMapColorModeToggles() {
+  const rainBtn = document.getElementById('mapRainColorToggle');
+  const showerBtn = document.getElementById('mapShowerColorToggle');
+  if (rainBtn && !rainBtn.dataset.bound) {
+    rainBtn.dataset.bound = '1';
+    rainBtn.addEventListener('click', () => setMapColorMode('rain'));
+  }
+  if (showerBtn && !showerBtn.dataset.bound) {
+    showerBtn.dataset.bound = '1';
+    showerBtn.addEventListener('click', () => setMapColorMode('shower'));
+  }
+  const resetBtn = document.getElementById('mapColorIndexReset');
+  if (resetBtn && !resetBtn.dataset.bound) {
+    resetBtn.dataset.bound = '1';
+    resetBtn.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      resetCurrentModeIndexColors();
+    });
+  }
+  updateMapColorModeButtons();
+}
+initMapColorModeToggles();
+
+
+function createShowerCharacter() {
+  const layer = document.getElementById('showerCharacterLayer');
+  if (!layer) return;
+  const existing = document.getElementById('showerCharacter');
+  if (existing && existing.parentNode === layer) return;
+  if (existing) existing.remove();
+  const NS = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(NS, 'g');
+  g.id = 'showerCharacter';
+  g.setAttribute('class', 'shower-character-group hidden');
+  let pos = {x: 735, y: 185};
+  try {
+    const saved = JSON.parse(localStorage.getItem('kmaShowerCharacterPos') || 'null');
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) pos = saved;
+  } catch(e) {}
+  g.dataset.x = pos.x; g.dataset.y = pos.y;
+  g.setAttribute('transform', `translate(${pos.x} ${pos.y})`);
+  g.innerHTML = `
+    <g transform="scale(0.78)">
+      <circle class="shower-character-head" cx="0" cy="-24" r="14"/>
+      <path class="shower-character-body" d="M-21 -3 Q-18 -1 -15 -1 L15 -1 Q18 -1 21 -3 L0 36 Z"/>
+    </g>`;
+  layer.appendChild(g);
+
+  let drag = null;
+  g.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation();
+    g.setPointerCapture?.(e.pointerId);
+    drag = {sx:e.clientX, sy:e.clientY, x:Number(g.dataset.x)||0, y:Number(g.dataset.y)||0};
+  });
+  g.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const svg = document.getElementById('map');
+    const pt1 = svg.createSVGPoint(); pt1.x = drag.sx; pt1.y = drag.sy;
+    const pt2 = svg.createSVGPoint(); pt2.x = e.clientX; pt2.y = e.clientY;
+    const inv = svg.getScreenCTM().inverse();
+    const a = pt1.matrixTransform(inv), b = pt2.matrixTransform(inv);
+    const x = drag.x + (b.x-a.x), y = drag.y + (b.y-a.y);
+    g.dataset.x=x; g.dataset.y=y; g.setAttribute('transform',`translate(${x} ${y})`);
+  });
+  const end = () => {
+    if (!drag) return;
+    drag=null;
+    try { localStorage.setItem('kmaShowerCharacterPos', JSON.stringify({x:Number(g.dataset.x),y:Number(g.dataset.y)})); } catch(e) {}
+  };
+  g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+}
+function updateShowerCharacterVisibility() {
+  createShowerCharacter();
+  const layer = document.getElementById('showerCharacterLayer');
+  const g = document.getElementById('showerCharacter');
+  if (!g) return;
+  const show = currentMapColorMode === 'shower';
+  g.classList.toggle('hidden', !show);
+  g.style.display = show ? '' : 'none';
+  if (show && layer) layer.appendChild(g); // 항상 지도 요소보다 앞쪽에 표시
+}
+createShowerCharacter();
+updateShowerCharacterVisibility();
+document.addEventListener('DOMContentLoaded', () => setTimeout(updateShowerCharacterVisibility, 0));
 
 
 // ===== 기상청 예보 표현 매칭 DB 확장판 =====
@@ -4566,6 +5102,109 @@ function setLabelTrashHot(on) {
 }
 loadHiddenAmountLabels();
 
+
+// v7.99: 예보문 날짜를 읽어 수치별 기간 라벨을 만듭니다.
+let amountPeriodMap = {};
+
+function __dateExprFromText(text, baseDay = NaN) {
+  const src = String(text || '');
+
+  // "11일까지", "11일 까지"는 제목의 시작일부터 해당 날짜까지 이어지는 기간입니다.
+  const until = src.match(/(\d{1,2})\s*일\s*까지/);
+  if (until) {
+    const end = Number(until[1]);
+    const start = Number.isFinite(baseDay) ? baseDay : end;
+    return { start, end, raw:until[0], until:true };
+  }
+
+  const m = src.match(/(\d{1,2})\s*(?:[~∼－–—-]\s*(\d{1,2}))?\s*일/);
+  if (!m) return null;
+  return { start:Number(m[1]), end:Number(m[2] || m[1]), raw:m[0], until:false };
+}
+function __periodLabelFromRange(range, baseDay) {
+  if (!range || !Number.isFinite(baseDay)) return '';
+  const end = range.end;
+  const isRange = range.start !== range.end || !!range.until;
+  const diff = end - baseDay;
+
+  // 오늘 하루만 해당하는 예보는 위쪽 기간 박스를 표시하지 않습니다.
+  if (diff <= 0) return '';
+
+  if (isRange) {
+    if (diff === 1) return '~내일';
+    if (diff === 2) return '~모레';
+    return `~${end}일`;
+  }
+
+  if (diff === 1) return '내일';
+  if (diff === 2) return '모레';
+  return `${end}일`;
+}
+function __amountKeysFromSegment(segment) {
+  const out = new Set();
+  const re = /(\d+(?:\s*[~∼－–—-]\s*\d+)?\s*mm(?:\s*(?:미만|안팎|이상))?(?:\s*\([^)]*?\d+\s*mm\s*이상\))?)/gi;
+  let m;
+  while ((m = re.exec(String(segment || '')))) {
+    const raw = m[1];
+    const shown = displayAmountNoMm(raw);
+    const base = shown.replace(/\([^()]+\)$/,'').trim();
+    [raw, shown, base].forEach(v => {
+      const k = normalizeAmountKey(v);
+      if (k) out.add(k);
+    });
+  }
+  return Array.from(out);
+}
+function buildAmountPeriodMap(raw) {
+  const map = {};
+  const lines = String(raw || '').split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  let titleRange = null;
+  for (const line of lines) {
+    if (/예상\s*강수량|소나기/.test(line)) {
+      const r = __dateExprFromText(line);
+      if (r) { titleRange = r; break; }
+    }
+  }
+  if (!titleRange) return map;
+  const baseDay = titleRange.start;
+
+  for (const line of lines) {
+    if (!/mm/.test(line)) continue;
+    const colonAt = line.indexOf(':');
+    const beforeColon = colonAt >= 0 ? line.slice(0, colonAt) : '';
+
+    // 제목 날짜는 기준일로만 사용합니다. 각 줄에 별도 날짜가 있을 때만 기간 박스를 만듭니다.
+    const explicitLineRange = __dateExprFromText(beforeColon, baseDay);
+    const lineLabel = explicitLineRange ? __periodLabelFromRange(explicitLineRange, baseDay) : '';
+
+    const parts = line.split('/');
+    for (const part of parts) {
+      const partColon = part.indexOf(':');
+      const partHead = partColon >= 0 ? part.slice(0, partColon) : part.slice(0, Math.min(70, part.length));
+      const explicitPartRange = __dateExprFromText(partHead, baseDay);
+      const label = explicitPartRange ? __periodLabelFromRange(explicitPartRange, baseDay) : lineLabel;
+      if (!label) continue;
+
+      for (const key of __amountKeysFromSegment(part)) {
+        if (!map[key]) map[key] = [];
+        if (!map[key].includes(label)) map[key].push(label);
+      }
+    }
+  }
+  return map;
+}
+function periodLabelForAmount(amount) {
+  const shown = displayCompositeAmountForGroup(amount) || amount;
+  const candidates = [shown, displayAmountNoMm(shown), amount, displayAmountNoMm(amount)];
+  for (const v of candidates) {
+    const k = normalizeAmountKey(v);
+    if (k && amountPeriodMap[k] && amountPeriodMap[k].length) return amountPeriodMap[k].join('·');
+  }
+  const base = displayAmountNoMm(shown).replace(/\([^()]+\)$/,'').trim();
+  const bk = normalizeAmountKey(base);
+  return bk && amountPeriodMap[bk] && amountPeriodMap[bk].length ? amountPeriodMap[bk].join('·') : '';
+}
+
 function renderAmountLabels(options = {}) {
   const ignoreSaved = !!options.ignoreSaved;
   amountLabelsG.innerHTML = '';
@@ -4577,7 +5216,7 @@ function renderAmountLabels(options = {}) {
     .sort(compareAmountLabelStack);
 
   const stackX = 118;
-  const stackGapY = 48;
+  const stackGapY = Object.keys(amountPeriodMap || {}).length ? 66 : 48;
   const stackStartY = Math.max(50, (HEIGHT / 2) - ((groups.length - 1) * stackGapY / 2));
 
   groups.forEach((group, index) => {
@@ -4610,6 +5249,19 @@ function renderAmountLabels(options = {}) {
     text.setAttribute('class', 'amount-label');
     text.setAttribute('x', '0');
     text.setAttribute('y', '0');
+
+    const periodLabel = periodLabelForAmount(group.amount);
+    let periodRect = null;
+    let periodText = null;
+    if (periodLabel) {
+      periodRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      periodRect.setAttribute('class', 'amount-period-box');
+      periodText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      periodText.setAttribute('class', 'amount-period-text');
+      periodText.setAttribute('x', '0');
+      periodText.textContent = periodLabel;
+      g.dataset.period = periodLabel;
+    }
 
     const labelText = displayAmountNoMm(group.amount);
     const baseCompositeShown = displayCompositeAmountForGroup(group.amount);
@@ -4666,18 +5318,44 @@ function renderAmountLabels(options = {}) {
       text.textContent = labelText;
     }
 
+    if (periodRect && periodText) {
+      g.appendChild(periodRect);
+      g.appendChild(periodText);
+    }
     g.appendChild(rect);
     g.appendChild(text);
     amountLabelsG.appendChild(g);
 
     requestAnimationFrame(() => {
       const b = text.getBBox();
-      rect.setAttribute('x', (b.x - 12).toFixed(1));
-      rect.setAttribute('y', (b.y - 7).toFixed(1));
-      rect.setAttribute('width', (b.width + 24).toFixed(1));
-      rect.setAttribute('height', (b.height + 14).toFixed(1));
+      const boxX = b.x - 12;
+      const boxY = b.y - 7;
+      const boxW = b.width + 24;
+      const boxH = b.height + 14;
+      rect.setAttribute('x', boxX.toFixed(1));
+      rect.setAttribute('y', boxY.toFixed(1));
+      rect.setAttribute('width', boxW.toFixed(1));
+      rect.setAttribute('height', boxH.toFixed(1));
+      if (periodRect && periodText) {
+        const ph = 24;
+        const pw = boxW;
+        const py = boxY - ph + 1;
+        periodRect.setAttribute('x', boxX.toFixed(1));
+        periodRect.setAttribute('y', py.toFixed(1));
+        periodRect.setAttribute('width', pw.toFixed(1));
+        periodRect.setAttribute('height', ph.toFixed(1));
+        periodText.setAttribute('y', (py + ph / 2 + 0.5).toFixed(1));
+      }
     });
 
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = normalizeAmountKey(group.amount || g.dataset.amount || '');
+      selectedManualAmountKey = (selectedManualAmountKey === key) ? '' : key;
+      document.querySelectorAll('.amount-label-group.manual-index-selected').forEach(el => el.classList.remove('manual-index-selected'));
+      if (selectedManualAmountKey) g.classList.add('manual-index-selected');
+      updateManualColorPaletteState();
+    });
     makeDraggableLabel(g, rect, text, group.amount);
   });
 }
@@ -4691,13 +5369,16 @@ function clearSavedLabelPositions() {
 }
 
 function clearRainMatch() {
+  selectedManualAmountKey = '';
   hiddenAmountLabelKeys = new Set();
   saveHiddenAmountLabels();
   resetAmountClickFocus();
   amountColorMap = {};
   amountColorOrder = [];
+  defaultAmountColorMap = {};
   forecastAllowedAmountKeys = null;
   amountDisplayCompositeMap = {};
+  amountPeriodMap = {};
   amountCompositeSplitColorMap = {};
   renderRainLegend();
   document.querySelectorAll('.region').forEach(el => {
@@ -4851,6 +5532,7 @@ function initHeavyGroupToggle() {
 function applyForecastMatch() {
   clearRainMatch();
   const raw = document.getElementById('forecastText').value;
+  amountPeriodMap = buildAmountPeriodMap(raw);
   const lines = raw.split(/\n+/).map(v => v.trim()).filter(Boolean);
   let matchedCount = 0;
   let summaries = [];
@@ -6200,6 +6882,8 @@ function saveCurrentMapImage() {
       .coastline { stroke:#0F2A44 !important; stroke-width:1.05 !important; opacity:.96 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
       .sido-boundary { stroke:#2F3A46 !important; stroke-width:0.88 !important; opacity:.86 !important; stroke-linejoin:round !important; stroke-linecap:round !important; }
       .amount-label-box { stroke:#111827 !important; stroke-width:1.25 !important; }
+      .amount-period-box { fill:#1976D2 !important; stroke:#0D47A1 !important; stroke-width:0.9 !important; rx:5; ry:5; vector-effect:non-scaling-stroke; }
+      .amount-period-text { fill:#ffffff !important; stroke:none !important; font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:15px; font-weight:900; text-anchor:middle; dominant-baseline:middle; }
 
     `;
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
