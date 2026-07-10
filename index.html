@@ -2279,7 +2279,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.0.0</div>
+   <div class="app-version">Ver.2.0.2</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -9130,6 +9130,223 @@ if (document.readyState === 'loading') {
 })();
 </script>
 
+
+<script id="v2-01-first-color-isolation-fix">
+(function(){
+  function norm(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+
+  function getSelectedKey(){
+    return norm(selectedManualAmountKey || window.__selectedManualAmountElementKey || '');
+  }
+
+  function markSelectedKey(key){
+    document.querySelectorAll('.amount-label-group').forEach(function(el){
+      el.classList.toggle('manual-index-selected', !!key && norm(el.dataset.amount || '') === key);
+    });
+  }
+
+  // 최초 색 변경 때 다른 모든 수치가 같은 색으로 바뀌는 현상을 막기 위해
+  // 선택한 수치 이외의 색상/지역 상태를 보존한 뒤 그대로 복원합니다.
+  window.applyManualIndexColorToSelectedAmount = applyManualIndexColorToSelectedAmount = function(color){
+    var selectedKey = getSelectedKey();
+    if (!selectedKey || !color) return false;
+
+    selectedManualAmountKey = selectedKey;
+    window.__selectedManualAmountElementKey = selectedKey;
+    selectedManualColor = color;
+
+    // 다른 수치의 기존 사용자 색을 보존합니다.
+    var previousColorMap = Object.assign({}, amountColorMap || {});
+
+    // 선택한 수치에 실제로 연결된 지역만 수집합니다.
+    var selectedRegions = new Set();
+    try {
+      Object.values(amountLabelGroups || {}).forEach(function(group){
+        if (!group || norm(group.amount || '') !== selectedKey) return;
+        (group.elements || []).forEach(function(el){ if (el) selectedRegions.add(el); });
+      });
+    } catch(e) {}
+
+    // 그룹 조회가 안 되는 경우 data-amount가 정확히 같은 지역만 사용합니다.
+    if (!selectedRegions.size) {
+      document.querySelectorAll('.region.matched[data-amount]').forEach(function(el){
+        if (norm(el.dataset.amount || '') === selectedKey) selectedRegions.add(el);
+      });
+    }
+
+    // 선택한 키만 변경하고 나머지 amountColorMap은 그대로 유지합니다.
+    amountColorMap = Object.assign({}, previousColorMap);
+    amountColorMap[selectedKey] = color;
+
+    selectedRegions.forEach(function(el){
+      var regionKey = norm(el.dataset ? el.dataset.amount : '');
+      if (regionKey) amountColorMap[regionKey] = color;
+      el.dataset.manualColor = color;
+      el.style.setProperty('fill', color, 'important');
+      el.classList.add('matched');
+    });
+
+    // 선택되지 않은 지역은 기존 색을 절대 덮어쓰지 않습니다.
+    document.querySelectorAll('.region.matched[data-amount]').forEach(function(el){
+      if (selectedRegions.has(el)) return;
+      var key = norm(el.dataset.amount || '');
+      var oldColor = previousColorMap[key] || el.dataset.manualColor || '';
+      if (oldColor) el.style.setProperty('fill', oldColor, 'important');
+    });
+
+    if (typeof renderAmountLabels === 'function') renderAmountLabels();
+    if (typeof renderMountainIcons === 'function') renderMountainIcons();
+    if (typeof renderRainLegend === 'function') renderRainLegend();
+    if (typeof renderManualColorPalette === 'function') renderManualColorPalette();
+
+    requestAnimationFrame(function(){
+      selectedManualAmountKey = selectedKey;
+      window.__selectedManualAmountElementKey = selectedKey;
+      selectedManualColor = color;
+      markSelectedKey(selectedKey);
+      if (typeof updateManualColorPaletteState === 'function') updateManualColorPaletteState();
+    });
+    return true;
+  };
+})();
+</script>
+
+
+<script id="v2-02-label-box-color-sync">
+(function(){
+  function norm(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+
+  function getLabelColor(group){
+    if (!group) return '#ffffff';
+    var raw = group.dataset ? (group.dataset.amount || '') : '';
+    var key = norm(raw);
+    var color = '';
+
+    try {
+      if (typeof amountColorMap !== 'undefined' && amountColorMap) {
+        color = amountColorMap[key] || amountColorMap[raw] || '';
+      }
+    } catch(e) {}
+
+    // 복합 수치처럼 키가 직접 일치하지 않는 경우, 실제 연결 지역의 현재 색을 우선 사용합니다.
+    if (!color) {
+      try {
+        var groups = (typeof amountLabelGroups !== 'undefined' && amountLabelGroups) ? amountLabelGroups : {};
+        var entry = groups[raw] || groups[key];
+        if (!entry) {
+          Object.keys(groups).some(function(k){
+            if (norm(k) === key) { entry = groups[k]; return true; }
+            return false;
+          });
+        }
+        if (entry && entry.elements && entry.elements.length) {
+          for (var i=0; i<entry.elements.length; i++) {
+            var el = entry.elements[i];
+            if (!el) continue;
+            var c = (el.dataset && el.dataset.manualColor) || el.style.fill || '';
+            if (!c && window.getComputedStyle) c = getComputedStyle(el).fill || '';
+            if (c && c !== 'none' && c !== 'rgb(255, 255, 255)' && c !== '#ffffff') {
+              color = c;
+              break;
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    if (!color) {
+      try { color = amountColor(raw); } catch(e) {}
+    }
+    return color || '#ffffff';
+  }
+
+  function syncAmountLabelBoxColors(){
+    document.querySelectorAll('.amount-label-group').forEach(function(group){
+      var box = group.querySelector('.amount-label-box');
+      if (!box) return;
+      var color = getLabelColor(group);
+
+      box.setAttribute('fill', color);
+      box.style.setProperty('fill', color, 'important');
+
+      // 색상 박스 위 글자는 항상 흰색으로 통일합니다.
+      group.querySelectorAll('.amount-label, .amount-label tspan').forEach(function(text){
+        text.setAttribute('fill', '#ffffff');
+        text.style.setProperty('fill', '#ffffff', 'important');
+      });
+    });
+  }
+  window.syncAmountLabelBoxColors = syncAmountLabelBoxColors;
+
+  function runSync(){
+    syncAmountLabelBoxColors();
+    requestAnimationFrame(syncAmountLabelBoxColors);
+    setTimeout(syncAmountLabelBoxColors, 40);
+  }
+
+  // 수치 박스가 다시 그려질 때마다 현재 지도 색상과 즉시 동기화합니다.
+  var oldRender = (typeof renderAmountLabels === 'function') ? renderAmountLabels : null;
+  if (oldRender && !oldRender.__v202ColorSync) {
+    var wrappedRender = function(){
+      var result = oldRender.apply(this, arguments);
+      runSync();
+      return result;
+    };
+    wrappedRender.__v202ColorSync = true;
+    window.renderAmountLabels = renderAmountLabels = wrappedRender;
+  }
+
+  // 예상 강우량/소나기 전환 직후에도 지도·수치 박스·산지·인덱스가 함께 바뀌도록 보강합니다.
+  var oldSetMode = (typeof setMapColorMode === 'function') ? setMapColorMode : null;
+  if (oldSetMode && !oldSetMode.__v202ColorSync) {
+    var wrappedSetMode = function(){
+      var result = oldSetMode.apply(this, arguments);
+      runSync();
+      return result;
+    };
+    wrappedSetMode.__v202ColorSync = true;
+    window.setMapColorMode = setMapColorMode = wrappedSetMode;
+  }
+
+  var oldRepaint = (typeof repaintCurrentMapColors === 'function') ? repaintCurrentMapColors : null;
+  if (oldRepaint && !oldRepaint.__v202ColorSync) {
+    var wrappedRepaint = function(){
+      var result = oldRepaint.apply(this, arguments);
+      runSync();
+      return result;
+    };
+    wrappedRepaint.__v202ColorSync = true;
+    window.repaintCurrentMapColors = repaintCurrentMapColors = wrappedRepaint;
+  }
+
+  // 수동 인덱스 변경 뒤에도 같은 동기화 규칙을 적용합니다.
+  var oldManual = (typeof applyManualIndexColorToSelectedAmount === 'function') ? applyManualIndexColorToSelectedAmount : null;
+  if (oldManual && !oldManual.__v202ColorSync) {
+    var wrappedManual = function(){
+      var result = oldManual.apply(this, arguments);
+      runSync();
+      return result;
+    };
+    wrappedManual.__v202ColorSync = true;
+    window.applyManualIndexColorToSelectedAmount = applyManualIndexColorToSelectedAmount = wrappedManual;
+  }
+
+  // 초기 매칭 및 이후 DOM 재생성까지 안전하게 감시합니다.
+  var labelsLayer = document.getElementById('amountLabels');
+  if (labelsLayer && window.MutationObserver) {
+    var observer = new MutationObserver(function(){ runSync(); });
+    observer.observe(labelsLayer, {childList:true, subtree:true});
+  }
+
+  runSync();
+})();
+</script>
 
 
 </body></html>
