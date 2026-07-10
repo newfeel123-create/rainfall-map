@@ -8851,4 +8851,112 @@ if (document.readyState === 'loading') {
 
 
 
+<script id="v8-11-manual-index-stable-fix">
+(function(){
+  function norm(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+
+  function collectTargetKeys(selectedKey){
+    const selected = norm(selectedKey);
+    const keys = new Set();
+    if (selected) keys.add(selected);
+
+    try {
+      Object.values(amountLabelGroups || {}).forEach(group => {
+        if (!group) return;
+        const groupKey = norm(group.amount || '');
+        if (groupKey !== selected) return;
+        (group.elements || []).forEach(el => {
+          const k = norm(el && el.dataset ? el.dataset.amount : '');
+          if (k) keys.add(k);
+        });
+      });
+    } catch(e) {}
+
+    return keys;
+  }
+
+  function restoreSelectedBox(selectedKey){
+    const selected = norm(selectedKey);
+    document.querySelectorAll('.amount-label-group').forEach(el => {
+      el.classList.toggle('manual-index-selected', !!selected && norm(el.dataset.amount || '') === selected);
+    });
+  }
+
+  window.applyManualIndexColorToSelectedAmount = applyManualIndexColorToSelectedAmount = function(color){
+    const selectedKey = norm(selectedManualAmountKey || '');
+    if (!selectedKey || !color) return false;
+
+    // 선택 상태와 현재 선택 색을 먼저 고정합니다.
+    selectedManualAmountKey = selectedKey;
+    selectedManualColor = color;
+
+    const targetKeys = collectTargetKeys(selectedKey);
+    targetKeys.add(selectedKey);
+
+    targetKeys.forEach(k => {
+      if (k) amountColorMap[k] = color;
+    });
+
+    // 실제 지도 영역 색을 즉시 변경합니다.
+    document.querySelectorAll('.region.matched[data-amount]').forEach(el => {
+      const k = norm(el.dataset.amount || '');
+      if (targetKeys.has(k)) {
+        el.dataset.manualColor = color;
+        el.style.setProperty('fill', color, 'important');
+      }
+    });
+
+    // 그룹에 묶인 영역도 빠짐없이 변경합니다.
+    try {
+      Object.values(amountLabelGroups || {}).forEach(group => {
+        if (!group || norm(group.amount || '') !== selectedKey) return;
+        (group.elements || []).forEach(el => {
+          if (!el) return;
+          const k = norm(el.dataset ? el.dataset.amount : '');
+          if (k) amountColorMap[k] = color;
+          el.dataset.manualColor = color;
+          el.style.setProperty('fill', color, 'important');
+          el.classList.add('matched');
+        });
+      });
+    } catch(e) {}
+
+    if (typeof renderAmountLabels === 'function') renderAmountLabels();
+    if (typeof renderMountainIcons === 'function') renderMountainIcons();
+    if (typeof renderRainLegend === 'function') renderRainLegend();
+    if (typeof renderManualColorPalette === 'function') renderManualColorPalette();
+
+    // 다시 그려진 뒤 선택 박스와 선택 색 표시를 복원합니다.
+    requestAnimationFrame(() => {
+      selectedManualAmountKey = selectedKey;
+      selectedManualColor = color;
+      restoreSelectedBox(selectedKey);
+      if (typeof updateManualColorPaletteState === 'function') updateManualColorPaletteState();
+    });
+
+    return true;
+  };
+
+  // 수치 박스를 선택할 때 해당 수치의 현재 색을 수동 인덱스에 동기화합니다.
+  document.addEventListener('click', function(e){
+    const box = e.target && e.target.closest ? e.target.closest('.amount-label-group') : null;
+    if (!box) return;
+    setTimeout(() => {
+      const key = norm(selectedManualAmountKey || '');
+      if (!key) {
+        selectedManualColor = '';
+      } else {
+        selectedManualColor = amountColorMap[key] || '';
+      }
+      restoreSelectedBox(key);
+      if (typeof updateManualColorPaletteState === 'function') updateManualColorPaletteState();
+    }, 0);
+  }, false);
+})();
+</script>
+
+
 </body></html>
