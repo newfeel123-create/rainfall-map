@@ -2329,7 +2329,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.1.6</div>
+   <div class="app-version">Ver.2.1.7</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -7189,6 +7189,31 @@ function saveCurrentMapImage() {
     const EXPORT_CENTER_Y = HEIGHT / 2;
 
     const clonedSvg = originalSvg.cloneNode(true);
+
+    // 저장 이미지에서는 현재 선택/흐림 상태를 제거하고 모든 요소를 정상 표시합니다.
+    clonedSvg.querySelectorAll(
+      '.hover-dim, .hover-focus, .manual-index-selected, .hidden'
+    ).forEach(function(el){
+      el.classList.remove('hover-dim', 'hover-focus', 'manual-index-selected');
+      // 소나기 캐릭터의 hidden 클래스만 현재 모드에 따라 별도 처리합니다.
+      if (!el.classList.contains('shower-character-group')) {
+        el.classList.remove('hidden');
+      }
+      el.style.removeProperty('opacity');
+      el.style.removeProperty('display');
+      el.style.removeProperty('visibility');
+    });
+
+    // 현재가 소나기 모드이면 소나기 캐릭터를 저장 이미지에도 표시합니다.
+    if (typeof currentMapColorMode !== 'undefined' && currentMapColorMode === 'shower') {
+      clonedSvg.querySelectorAll('.shower-character-group').forEach(function(el){
+        el.classList.remove('hidden');
+        el.style.display = '';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+      });
+    }
+
     clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clonedSvg.setAttribute('width', String(outW));
     clonedSvg.setAttribute('height', String(outH));
@@ -7229,6 +7254,39 @@ function saveCurrentMapImage() {
       .amount-label-box { stroke:#111827 !important; stroke-width:1.25 !important; }
       .amount-period-box { fill:#1976D2 !important; stroke:#0D47A1 !important; stroke-width:0.9 !important; rx:5; ry:5; vector-effect:non-scaling-stroke; }
       .amount-period-text { fill:#ffffff !important; stroke:none !important; font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:15px; font-weight:900; text-anchor:middle; dominant-baseline:middle; }
+
+      /* 저장 이미지용 소나기 캐릭터 스타일 */
+      .shower-character-group {
+        display:inline !important;
+        visibility:visible !important;
+        opacity:1 !important;
+      }
+      .shower-character-head,
+      .shower-character-body {
+        fill:#20b24b !important;
+        stroke:#ffffff !important;
+        stroke-width:2.8 !important;
+        stroke-linejoin:round !important;
+        stroke-linecap:round !important;
+        vector-effect:non-scaling-stroke !important;
+      }
+
+      /* 저장 이미지용 수치 박스 정상 표시 */
+      .amount-label-group {
+        display:inline !important;
+        visibility:visible !important;
+        opacity:1 !important;
+      }
+      .amount-label-box {
+        fill-opacity:1 !important;
+        stroke:#111827 !important;
+        stroke-width:1.25 !important;
+      }
+      .amount-label {
+        display:inline !important;
+        visibility:visible !important;
+        opacity:1 !important;
+      }
 
     `;
     clonedSvg.insertBefore(style, clonedSvg.firstChild);
@@ -7277,7 +7335,15 @@ function saveCurrentMapImage() {
         }
         const pngUrl = URL.createObjectURL(blob);
         const d = new Date();
-        const fileName = `kma_map_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.png`;
+        const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+
+        let saveTitle = '매칭용 강수량';
+        if (typeof currentMapColorMode !== 'undefined') {
+          if (currentMapColorMode === 'rain') saveTitle = '예상 강우량';
+          else if (currentMapColorMode === 'shower') saveTitle = '소나기';
+        }
+
+        const fileName = `${saveTitle}_${stamp}.png`;
         const a = document.createElement('a');
         a.href = pngUrl;
         a.download = fileName;
