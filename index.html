@@ -2271,6 +2271,56 @@ input[type="range"] {
   .right-index-ui .label-trash-bin{ height:31px !important; }
 }
 </style>
+
+<style id="v2-16-samsung-mobile-scroll-fix">
+/* 삼성 인터넷/안드로이드 모바일 끝까지 스크롤 보정
+   기존 기능은 건드리지 않고 모바일 레이아웃의 스크롤 범위만 확장 */
+@media (max-width:768px) {
+  html,
+  body {
+    height:auto !important;
+    min-height:100% !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior-y:auto !important;
+  }
+
+  body {
+    padding-bottom:calc(120px + env(safe-area-inset-bottom)) !important;
+    box-sizing:border-box !important;
+  }
+
+  .app {
+    height:auto !important;
+    min-height:100dvh !important;
+    overflow:visible !important;
+  }
+
+  .side,
+  .mapcol {
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  .mapwrap {
+    flex:0 0 auto !important;
+    touch-action:pan-y !important;
+  }
+
+  body.map-move-enabled .mapwrap {
+    touch-action:none !important;
+  }
+
+  .app > .manual-region-panel,
+  .manual-region-panel,
+  .manual-merge-panel {
+    overflow:visible !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -2279,7 +2329,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.1.5</div>
+   <div class="app-version">Ver.2.1.6</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
