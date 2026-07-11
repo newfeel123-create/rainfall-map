@@ -2329,7 +2329,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.1.7</div>
+   <div class="app-version">Ver.2.2.0</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2364,10 +2364,15 @@ input[type="range"] {
     <div class="manual-color-panel" id="manualColorPanel">
       <button id="manualMergeOpenBtn" type="button" class="manual-color-off">수치 병합</button>
       <div class="manual-color-title">
-        <span id="manualColorTitleText">수동 인덱스</span>
-        <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
+        <span id="manualColorTitleText">예상 강우량 단계 인덱스</span>
+        <div class="manual-color-title-actions">
+          <button id="manualRainModeBtn" type="button" class="manual-color-off manual-mode-toggle mode-rain mode-active">강우량</button>
+          <button id="manualShowerModeBtn" type="button" class="manual-color-off manual-mode-toggle mode-shower">소나기</button>
+          <button id="manualBothModeBtn" type="button" class="manual-color-off manual-mode-toggle mode-both">강우량+소나기</button>
+          <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
+        </div>
       </div>
-      <div class="manual-color-grid" id="manualColorGrid"></div>
+      <div class="manual-color-grid mode-12" id="manualColorGrid"><button type="button" class="manual-color-chip mode-palette-chip" data-color="#EAF8FF" title="예상 강우량 1단계 색상" aria-label="예상 강우량 1단계 색상" style="background: rgb(234, 248, 255);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#CDEEFF" title="예상 강우량 2단계 색상" aria-label="예상 강우량 2단계 색상" style="background: rgb(205, 238, 255);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#9DD7FF" title="예상 강우량 3단계 색상" aria-label="예상 강우량 3단계 색상" style="background: rgb(157, 215, 255);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#63B8FF" title="예상 강우량 4단계 색상" aria-label="예상 강우량 4단계 색상" style="background: rgb(99, 184, 255);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#2F91F2" title="예상 강우량 5단계 색상" aria-label="예상 강우량 5단계 색상" style="background: rgb(47, 145, 242);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#176FD1" title="예상 강우량 6단계 색상" aria-label="예상 강우량 6단계 색상" style="background: rgb(23, 111, 209);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#1257B5" title="예상 강우량 7단계 색상" aria-label="예상 강우량 7단계 색상" style="background: rgb(18, 87, 181);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#173F96" title="예상 강우량 8단계 색상" aria-label="예상 강우량 8단계 색상" style="background: rgb(23, 63, 150);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#282A78" title="예상 강우량 9단계 색상" aria-label="예상 강우량 9단계 색상" style="background: rgb(40, 42, 120);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#5940A8" title="예상 강우량 10단계 색상" aria-label="예상 강우량 10단계 색상" style="background: rgb(89, 64, 168);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#76258F" title="예상 강우량 11단계 색상" aria-label="예상 강우량 11단계 색상" style="background: rgb(118, 37, 143);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#4A075F" title="예상 강우량 12단계 색상" aria-label="예상 강우량 12단계 색상" style="background: rgb(74, 7, 95);"></button></div>
     </div>
 
     <div class="manual-merge-panel" id="manualMergePanel">
@@ -9840,6 +9845,389 @@ if (document.readyState === 'loading') {
   }
 
   window.__restoreWholeMapAfterAmountIdle = restoreWholeMap;
+})();
+</script>
+
+
+<style id="v2-18-manual-mode-toggle-style">
+.manual-color-title-actions {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin-left:auto;
+}
+.manual-color-title-actions .manual-color-off {
+  width:72px;
+  min-width:72px;
+  height:27px;
+  padding:4px 5px;
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+#manualModeToggle.mode-rain {
+  background:linear-gradient(180deg,#EAF8FF,#CDEEFF) !important;
+  border-color:#63B8FF !important;
+  color:#1257B5 !important;
+}
+#manualModeToggle.mode-shower {
+  background:linear-gradient(180deg,#E8FFE8,#BDF5C4) !important;
+  border-color:#4BCB67 !important;
+  color:#166534 !important;
+}
+@media (max-width:768px) {
+  .manual-color-title {
+    gap:5px !important;
+  }
+  .manual-color-title-actions {
+    gap:4px;
+  }
+  .manual-color-title-actions .manual-color-off {
+    width:68px;
+    min-width:68px;
+    height:25px;
+    padding:3px 4px;
+    font-size:10.5px !important;
+  }
+}
+</style>
+
+
+
+
+<style id="v2-19-manual-rain-shower-buttons-style">
+.manual-color-title-actions {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin-left:auto;
+}
+.manual-color-title-actions .manual-color-off {
+  width:68px;
+  min-width:68px;
+  height:27px;
+  padding:4px 5px;
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+#manualRainModeBtn.mode-active {
+  background:linear-gradient(180deg,#2D8CFF 0%,#0D6EFD 100%) !important;
+  border-color:#075BD8 !important;
+  color:#fff !important;
+}
+#manualShowerModeBtn.mode-active {
+  background:linear-gradient(180deg,#22C55E 0%,#15803D 100%) !important;
+  border-color:#166534 !important;
+  color:#fff !important;
+}
+@media (max-width:768px) {
+  .manual-color-title {
+    align-items:flex-start !important;
+  }
+  .manual-color-title-actions {
+    gap:4px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .manual-color-title-actions .manual-color-off {
+    width:62px;
+    min-width:62px;
+    height:25px;
+    padding:3px 4px;
+    font-size:10px !important;
+  }
+}
+</style>
+
+
+
+
+<style id="v2-20-manual-palette-and-mixed-map-style">
+.manual-color-title-actions {
+  display:grid !important;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:4px !important;
+  margin-left:auto;
+  width:154px;
+}
+.manual-color-title-actions .manual-color-off {
+  width:100% !important;
+  min-width:0 !important;
+  height:27px !important;
+  padding:3px 4px !important;
+  box-sizing:border-box;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:10px !important;
+  line-height:1 !important;
+}
+#manualRainModeBtn.mode-active {
+  background:linear-gradient(180deg,#2D8CFF 0%,#0D6EFD 100%) !important;
+  border-color:#075BD8 !important;
+  color:#fff !important;
+}
+#manualShowerModeBtn.mode-active {
+  background:linear-gradient(180deg,#22C55E 0%,#15803D 100%) !important;
+  border-color:#166534 !important;
+  color:#fff !important;
+}
+#manualBothModeBtn.mode-active {
+  background:linear-gradient(90deg,#1677EE 0 50%,#22A447 50% 100%) !important;
+  border-color:#334155 !important;
+  color:#fff !important;
+}
+.manual-color-grid.mode-24 {
+  grid-template-columns:repeat(6,1fr) !important;
+}
+@media (max-width:768px) {
+  .manual-color-title {
+    align-items:flex-start !important;
+  }
+  .manual-color-title-actions {
+    width:142px;
+    gap:3px !important;
+  }
+  .manual-color-title-actions .manual-color-off {
+    height:24px !important;
+    font-size:9px !important;
+  }
+}
+</style>
+
+<script id="v2-20-manual-palette-and-mixed-map-script">
+(function(){
+  const RAIN_12 = [
+    '#EAF8FF','#CDEEFF','#9DD7FF','#63B8FF','#2F91F2','#176FD1',
+    '#1257B5','#173F96','#282A78','#5940A8','#76258F','#4A075F'
+  ];
+  const SHOWER_12 = [
+    '#EDFFE8','#D3F7C8','#ACEB9B','#7FDA74','#58C55B','#37AF49',
+    '#23983D','#147F34','#0B682B','#075424','#043F1B','#022D13'
+  ];
+
+  window.__manualPaletteMode = window.__manualPaletteMode || 'rain';
+
+  const rainBtn = document.getElementById('manualRainModeBtn');
+  const showerBtn = document.getElementById('manualShowerModeBtn');
+  const bothBtn = document.getElementById('manualBothModeBtn');
+
+  function nk(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+
+  function renderPaletteOnly(){
+    const grid = document.getElementById('manualColorGrid');
+    const title = document.getElementById('manualColorTitleText');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    grid.classList.remove('mode-12','mode-24');
+
+    let items = [];
+    if (window.__manualPaletteMode === 'rain') {
+      if (title) title.textContent = '예상 강우량 단계 인덱스';
+      grid.classList.add('mode-12');
+      items = RAIN_12.map((color,i)=>({color, title:'예상 강우량 '+(i+1)+'단계 색상'}));
+    } else if (window.__manualPaletteMode === 'shower') {
+      if (title) title.textContent = '소나기 단계 인덱스';
+      grid.classList.add('mode-12');
+      items = SHOWER_12.map((color,i)=>({color, title:'소나기 '+(i+1)+'단계 색상'}));
+    } else {
+      if (title) title.textContent = '강우량+소나기 단계 인덱스';
+      grid.classList.add('mode-24');
+      items = RAIN_12.map((color,i)=>({color, title:'강우량 '+(i+1)+'단계 색상'}))
+        .concat(SHOWER_12.map((color,i)=>({color, title:'소나기 '+(i+1)+'단계 색상'})));
+    }
+
+    items.forEach(function(item, index){
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'manual-color-chip mode-palette-chip';
+      chip.style.background = item.color;
+      chip.dataset.color = item.color;
+      chip.title = item.title;
+      chip.setAttribute('aria-label', item.title);
+      chip.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if (!selectedManualAmountKey) return;
+        applyManualIndexColorToSelectedAmount(item.color);
+      });
+      grid.appendChild(chip);
+    });
+
+    if (typeof updateManualColorPaletteState === 'function') {
+      updateManualColorPaletteState();
+    }
+  }
+
+  function refreshButtons(){
+    if (rainBtn) rainBtn.classList.toggle('mode-active', window.__manualPaletteMode === 'rain');
+    if (showerBtn) showerBtn.classList.toggle('mode-active', window.__manualPaletteMode === 'shower');
+    if (bothBtn) bothBtn.classList.toggle('mode-active', window.__manualPaletteMode === 'both');
+  }
+
+  function setPaletteMode(mode){
+    /*
+      중요: 이 버튼들은 수동 인덱스에 보이는 색상표만 바꿉니다.
+      지도와 수치 박스의 현재 색상은 절대 변경하지 않습니다.
+    */
+    window.__manualPaletteMode = mode;
+    refreshButtons();
+    renderPaletteOnly();
+  }
+
+  if (rainBtn) rainBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setPaletteMode('rain'); });
+  if (showerBtn) showerBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setPaletteMode('shower'); });
+  if (bothBtn) bothBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setPaletteMode('both'); });
+
+  /*
+    기존 코드가 팔레트를 다시 그리는 경우에도 현재 수동 팔레트 모드를 유지합니다.
+    지도 색상 모드(currentMapColorMode)는 건드리지 않습니다.
+  */
+  const oldRenderPalette = (typeof renderManualColorPalette === 'function') ? renderManualColorPalette : null;
+  if (oldRenderPalette && !oldRenderPalette.__v220PaletteOnly) {
+    const wrapped = function(){
+      renderPaletteOnly();
+    };
+    wrapped.__v220PaletteOnly = true;
+    window.renderManualColorPalette = renderManualColorPalette = wrapped;
+  }
+
+  function splitLinesWithKind(raw){
+    const rows = [];
+    let kind = '';
+    String(raw || '').split(/\n+/).forEach(function(line){
+      const s = String(line || '').trim();
+      if (!s) return;
+
+      if (/소나기에\s*의한\s*예상\s*강수량/i.test(s)) {
+        kind = 'shower';
+        return;
+      }
+      if (/예상\s*강수량/i.test(s) && !/소나기에\s*의한/i.test(s)) {
+        kind = 'rain';
+        return;
+      }
+      if (!kind) return;
+
+      try {
+        splitForecastParts(s).forEach(function(part){
+          rows.push({kind:kind, part:part});
+        });
+      } catch(e) {}
+    });
+    return rows;
+  }
+
+  function recolorMixedRainShower(){
+    const input = document.getElementById('forecastText');
+    const raw = input ? input.value : '';
+    const hasRain = /(?:^|\n)\s*\*\s*예상\s*강수량/im.test(raw);
+    const hasShower = /소나기에\s*의한\s*예상\s*강수량/im.test(raw);
+    if (!(hasRain && hasShower)) return;
+
+    const records = splitLinesWithKind(raw);
+    if (!records.length) return;
+
+    const rainKeys = [];
+    const showerKeys = [];
+    records.forEach(function(rec){
+      const k = nk(rec.part && rec.part.amount);
+      if (!k) return;
+      const arr = rec.kind === 'shower' ? showerKeys : rainKeys;
+      if (!arr.includes(k)) arr.push(k);
+    });
+
+    const rainMap = buildDistinctModeColorMap(rainKeys, 'rain');
+    const showerMap = buildDistinctModeColorMap(showerKeys, 'shower');
+    window.__mixedAmountKindMap = {};
+
+    /*
+      원문 순서대로 다시 적용하여 세부 지역이 뒤에서 덮어쓰는 기존 규칙을 유지합니다.
+    */
+    records.forEach(function(rec){
+      const part = rec.part || {};
+      const key = nk(part.amount);
+      if (!key) return;
+
+      const color = rec.kind === 'shower'
+        ? (showerMap[key] || makeModeColor(key,'shower'))
+        : (rainMap[key] || makeModeColor(key,'rain'));
+
+      if (!window.__mixedAmountKindMap[key]) window.__mixedAmountKindMap[key] = rec.kind;
+      else if (window.__mixedAmountKindMap[key] !== rec.kind) window.__mixedAmountKindMap[key] = 'both';
+
+      if (part.type === 'mountain') return;
+
+      let tokens = [];
+      try { tokens = tokensFromArea(part.area, part.zone) || []; } catch(e) {}
+      tokens.forEach(function(token){
+        document.querySelectorAll('.region').forEach(function(el){
+          const sido = el.dataset.sido || '';
+          const sig = el.dataset.sig || el.dataset.name || '';
+          if (regionMatchesToken(sido, sig, token, el.dataset.code || '')) {
+            el.dataset.precipKind = rec.kind;
+            el.style.fill = color;
+          }
+        });
+      });
+    });
+
+    /*
+      수치별 기본 색상도 강우량/소나기 계열로 정리합니다.
+      같은 수치가 양쪽에 동시에 있으면 지역 색은 각각 유지되고,
+      공통 수치 박스는 강우량 계열을 우선 사용합니다.
+    */
+    Object.keys(window.__mixedAmountKindMap).forEach(function(key){
+      const kind = window.__mixedAmountKindMap[key];
+      if (kind === 'shower') amountColorMap[key] = showerMap[key] || makeModeColor(key,'shower');
+      else amountColorMap[key] = rainMap[key] || makeModeColor(key,'rain');
+    });
+
+    if (typeof renderAmountLabels === 'function') renderAmountLabels();
+    if (typeof renderMountainIcons === 'function') renderMountainIcons();
+    if (typeof renderRainLegend === 'function') renderRainLegend();
+
+    /*
+      렌더링 후 지역별 혼합 색을 다시 고정합니다.
+    */
+    document.querySelectorAll('.region.matched[data-amount]').forEach(function(el){
+      const key = nk(el.dataset.amount || '');
+      if (el.dataset.precipKind === 'shower') {
+        el.style.fill = showerMap[key] || makeModeColor(key,'shower');
+      } else if (el.dataset.precipKind === 'rain') {
+        el.style.fill = rainMap[key] || makeModeColor(key,'rain');
+      }
+    });
+
+    if (typeof updateShowerCharacterVisibility === 'function') {
+      updateShowerCharacterVisibility();
+    }
+  }
+
+  const oldApply = (typeof applyForecastMatch === 'function') ? applyForecastMatch : null;
+  if (oldApply && !oldApply.__v220MixedRainShower) {
+    const wrappedApply = function(){
+      const result = oldApply.apply(this, arguments);
+      recolorMixedRainShower();
+      return result;
+    };
+    wrappedApply.__v220MixedRainShower = true;
+    window.applyForecastMatch = applyForecastMatch = wrappedApply;
+  }
+
+  window.recolorMixedRainShower = recolorMixedRainShower;
+
+  refreshButtons();
+  renderPaletteOnly();
 })();
 </script>
 
