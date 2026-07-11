@@ -2329,7 +2329,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.2.0</div>
+   <div class="app-version">Ver.2.2.1</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2366,8 +2366,6 @@ input[type="range"] {
       <div class="manual-color-title">
         <span id="manualColorTitleText">예상 강우량 단계 인덱스</span>
         <div class="manual-color-title-actions">
-          <button id="manualRainModeBtn" type="button" class="manual-color-off manual-mode-toggle mode-rain mode-active">강우량</button>
-          <button id="manualShowerModeBtn" type="button" class="manual-color-off manual-mode-toggle mode-shower">소나기</button>
           <button id="manualBothModeBtn" type="button" class="manual-color-off manual-mode-toggle mode-both">강우량+소나기</button>
           <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
         </div>
@@ -8953,7 +8951,8 @@ if (document.readyState === 'loading') {
       }
     });
 
-    if (typeof renderAmountLabels === 'function') renderAmountLabels();
+    // 혼합 예보를 처음 매칭한 직후에도 수치 박스는 항상 왼쪽에 세로 정렬합니다.
+    if (typeof renderAmountLabels === 'function') renderAmountLabels({ignoreSaved:true});
     if (typeof renderMountainIcons === 'function') renderMountainIcons();
     if (typeof renderRainLegend === 'function') renderRainLegend();
 
@@ -10228,6 +10227,171 @@ if (document.readyState === 'loading') {
 
   refreshButtons();
   renderPaletteOnly();
+})();
+</script>
+
+
+<style id="v2-21-ui-mountain-focus">
+/* 버튼 2개를 같은 크기로 정렬 */
+.manual-color-title-actions {
+  display:grid !important;
+  grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+  width:154px !important;
+  gap:4px !important;
+}
+.manual-color-title-actions .manual-color-off {
+  width:100% !important;
+  min-width:0 !important;
+}
+
+/* 산지 수치 선택도 일반 수치와 같은 노란 테두리 */
+.mountain-value-label-group.manual-index-selected .amount-label-box {
+  stroke:#ffb300 !important;
+  stroke-width:3 !important;
+  filter:drop-shadow(0 0 5px rgba(255,179,0,.75));
+}
+
+/* 산지 아이콘 자체 선택 강조 */
+.mountain-icon-group.manual-mountain-selected .mountain-triangle {
+  stroke:#ffb300 !important;
+  stroke-width:3 !important;
+  filter:drop-shadow(0 0 5px rgba(255,179,0,.75));
+}
+</style>
+
+<script id="v2-21-mountain-selection-focus">
+(function(){
+  function norm(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+
+  function clearMountainManualFocus(){
+    document.querySelectorAll('.manual-mountain-selected')
+      .forEach(function(el){ el.classList.remove('manual-mountain-selected'); });
+  }
+
+  function clearAllFocusClasses(){
+    document.querySelectorAll(
+      '.region.hover-dim, .region.hover-focus,' +
+      '.amount-label-group.hover-dim, .amount-label-group.hover-focus,' +
+      '.mountain-value-label-group.hover-dim, .mountain-value-label-group.hover-focus,' +
+      '.mountain-icon-group.hover-dim, .mountain-icon-group.hover-focus'
+    ).forEach(function(el){
+      el.classList.remove('hover-dim','hover-focus');
+      el.style.removeProperty('opacity');
+    });
+    clearMountainManualFocus();
+  }
+
+  function focusMountainAmount(amountKey, mountainKey, clickedValueGroup){
+    var key = norm(amountKey);
+    if (!key) return;
+
+    clearAllFocusClasses();
+
+    // 일반 지도 지역은 산지 선택 중에는 흐리게 표시
+    document.querySelectorAll('.region').forEach(function(el){
+      el.classList.add('hover-dim');
+    });
+
+    // 모든 일반 수치/산지 수치 박스를 흐리게 한 뒤 선택한 수치만 강조
+    document.querySelectorAll('.amount-label-group').forEach(function(el){
+      var same = norm(el.dataset.amount || '') === key;
+      el.classList.toggle('hover-focus', same);
+      el.classList.toggle('hover-dim', !same);
+      el.classList.remove('manual-index-selected');
+    });
+
+    // 산지 아이콘은 동일 수치, 가능하면 동일 산지만 강조
+    document.querySelectorAll('.mountain-icon-group').forEach(function(el){
+      var sameAmount = norm(el.dataset.amount || '') === key;
+      var sameMountain = !mountainKey || (el.dataset.mountain || '') === mountainKey;
+      var focus = sameAmount && sameMountain;
+
+      el.classList.toggle('hover-focus', focus);
+      el.classList.toggle('hover-dim', !focus);
+      el.classList.toggle('manual-mountain-selected', focus);
+    });
+
+    if (clickedValueGroup) {
+      clickedValueGroup.classList.remove('hover-dim');
+      clickedValueGroup.classList.add('hover-focus','manual-index-selected');
+    }
+
+    selectedManualAmountKey = key;
+    window.__selectedManualAmountElementKey = key;
+
+    try {
+      if (typeof updateManualColorPaletteState === 'function') {
+        updateManualColorPaletteState();
+      }
+    } catch(e) {}
+  }
+
+  /*
+    산지 수치 박스 또는 산지 삼각형을 누르면
+    일반 수치와 동일하게 노란 표시 + 해당 산지만 부각합니다.
+  */
+  document.addEventListener('click', function(e){
+    var valueGroup = e.target && e.target.closest
+      ? e.target.closest('.mountain-value-label-group')
+      : null;
+    var iconGroup = e.target && e.target.closest
+      ? e.target.closest('.mountain-icon-group')
+      : null;
+
+    if (!valueGroup && !iconGroup) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    var source = valueGroup || iconGroup;
+    var amount = source.dataset.amount || '';
+    var mountain = source.dataset.mountain || '';
+
+    // 삼각형을 눌렀을 때 연결된 산지 수치 박스를 찾아 함께 노란 테두리 표시
+    if (!valueGroup) {
+      valueGroup = Array.from(document.querySelectorAll('.mountain-value-label-group'))
+        .find(function(el){
+          return norm(el.dataset.amount || '') === norm(amount) &&
+                 (!mountain || (el.dataset.mountain || '') === mountain);
+        }) || null;
+
+      // 동일 산지 전용 수치 박스가 없으면 같은 수치 박스를 사용
+      if (!valueGroup) {
+        valueGroup = Array.from(document.querySelectorAll('.mountain-value-label-group'))
+          .find(function(el){ return norm(el.dataset.amount || '') === norm(amount); }) || null;
+      }
+    }
+
+    focusMountainAmount(amount, mountain, valueGroup);
+  }, true);
+
+  /*
+    선택 해제나 색 변경 완료 후 산지 선택 표시도 같이 제거합니다.
+  */
+  var offBtn = document.getElementById('manualColorOff');
+  if (offBtn) {
+    offBtn.addEventListener('click', function(){
+      setTimeout(clearAllFocusClasses, 0);
+    });
+  }
+
+  var oldApplyManual = (typeof applyManualIndexColorToSelectedAmount === 'function')
+    ? applyManualIndexColorToSelectedAmount
+    : null;
+
+  if (oldApplyManual && !oldApplyManual.__v221MountainFocusReset) {
+    var wrappedApply = function(){
+      var result = oldApplyManual.apply(this, arguments);
+      setTimeout(clearAllFocusClasses, 360);
+      return result;
+    };
+    wrappedApply.__v221MountainFocusReset = true;
+    window.applyManualIndexColorToSelectedAmount =
+      applyManualIndexColorToSelectedAmount = wrappedApply;
+  }
 })();
 </script>
 
