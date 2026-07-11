@@ -2279,7 +2279,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.0.2</div>
+   <div class="app-version">Ver.2.1.1</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -5518,9 +5518,9 @@ function renderAmountLabels(options = {}) {
     let x = stackX;
     let y = stackStartY + index * stackGapY;
 
-    // v7.65 테스트: 수치 박스는 지도 왼쪽 옆, 세로 중앙 기준으로 작은 수치부터 정렬합니다.
+    // Ver.2.0.9: 처음 생성할 때만 왼쪽에 정렬하고, 사용자가 옮긴 뒤 다시 렌더링되면 저장된 위치를 유지합니다.
     // 지역 색칠/묶기/파싱/범례 등 다른 기능은 그대로 둡니다.
-    if (false && !ignoreSaved) {
+    if (!ignoreSaved) {
       const saved = loadLabelPos(group.amount);
       if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
         x = saved.x;
@@ -9348,5 +9348,119 @@ if (document.readyState === 'loading') {
 })();
 </script>
 
+
+
+<style id="v2-10-map-label-color-sync-transition">
+/* 수동 인덱스 변경 시 지도와 수치 박스가 같은 타이밍에 부드럽게 변경 */
+.mapwrap.manual-color-changing .region,
+.mapwrap.manual-color-changing .amount-label-box,
+.mapwrap.manual-color-changing .mountain-triangle,
+.mapwrap.manual-color-changing .mountain-value-label-group rect {
+  transition: fill 180ms ease-out !important;
+}
+</style>
+
+<script id="v2-10-map-label-color-sync-transition">
+(function(){
+  var oldManual = (typeof applyManualIndexColorToSelectedAmount === 'function')
+    ? applyManualIndexColorToSelectedAmount
+    : null;
+
+  if (!oldManual || oldManual.__v210MapLabelSync) return;
+
+  var wrappedManual = function(color){
+    var mapwrap = document.querySelector('.mapwrap');
+    if (mapwrap) mapwrap.classList.add('manual-color-changing');
+
+    /*
+      기존 함수가 지도·수치·산지·인덱스를 갱신합니다.
+      transition class를 먼저 붙여 두어 모두 같은 프레임에서 색이 바뀌게 합니다.
+    */
+    var result = oldManual.apply(this, arguments);
+
+    function finalSync(){
+      try {
+        if (typeof syncAmountLabelBoxColors === 'function') {
+          syncAmountLabelBoxColors();
+        }
+      } catch(e) {}
+    }
+
+    finalSync();
+    requestAnimationFrame(function(){
+      finalSync();
+      requestAnimationFrame(function(){
+        setTimeout(function(){
+          if (mapwrap) mapwrap.classList.remove('manual-color-changing');
+        }, 210);
+      });
+    });
+
+    return result;
+  };
+
+  wrappedManual.__v210MapLabelSync = true;
+  window.applyManualIndexColorToSelectedAmount =
+    applyManualIndexColorToSelectedAmount = wrappedManual;
+})();
+</script>
+
+
+<script id="v2-11-reset-selection-after-color-change">
+(function(){
+  var oldManual = (typeof applyManualIndexColorToSelectedAmount === 'function')
+    ? applyManualIndexColorToSelectedAmount
+    : null;
+
+  if (!oldManual || oldManual.__v211ResetAfterColor) return;
+
+  function restoreWholeMap(){
+    document.querySelectorAll(
+      '.region.hover-dim, .region.hover-focus,' +
+      '.amount-label-group.hover-dim, .amount-label-group.hover-focus,' +
+      '.mountain-value-label-group.hover-dim, .mountain-value-label-group.hover-focus,' +
+      '.mountain-icon-group.hover-dim, .mountain-icon-group.hover-focus'
+    ).forEach(function(el){
+      el.classList.remove('hover-dim', 'hover-focus');
+      el.style.removeProperty('opacity');
+    });
+
+    document.querySelectorAll('.amount-label-group.manual-index-selected')
+      .forEach(function(el){
+        el.classList.remove('manual-index-selected');
+      });
+
+    try { selectedManualAmountKey = ''; } catch(e) {}
+    try { selectedManualColor = ''; } catch(e) {}
+    try { selectedAmountKey = ''; } catch(e) {}
+    window.__selectedManualAmountElementKey = '';
+
+    var mapwrap = document.querySelector('.mapwrap');
+    if (mapwrap) {
+      mapwrap.classList.remove('manual-color-changing');
+    }
+  }
+
+  var wrappedManual = function(){
+    var result = oldManual.apply(this, arguments);
+
+    /*
+      지도와 수치 박스의 색 전환이 끝난 직후
+      노란 테두리와 흐림/강조 상태를 모두 해제하여
+      전체 지도를 새 색상으로 다시 표시합니다.
+    */
+    setTimeout(function(){
+      restoreWholeMap();
+      requestAnimationFrame(restoreWholeMap);
+    }, 190);
+
+    return result;
+  };
+
+  wrappedManual.__v211ResetAfterColor = true;
+  window.applyManualIndexColorToSelectedAmount =
+    applyManualIndexColorToSelectedAmount = wrappedManual;
+})();
+</script>
 
 </body></html>
