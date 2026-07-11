@@ -2279,7 +2279,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.1.1</div>
+   <div class="app-version">Ver.2.1.3</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -9458,6 +9458,172 @@ if (document.readyState === 'loading') {
   };
 
   wrappedManual.__v211ResetAfterColor = true;
+  window.applyManualIndexColorToSelectedAmount =
+    applyManualIndexColorToSelectedAmount = wrappedManual;
+})();
+</script>
+
+
+<style id="v2-12-instant-selected-smooth-others">
+/* 선택한 색은 즉시 변경하고, 나머지 흐린 지역만 자연스럽게 복귀 */
+.mapwrap.manual-color-changing .region,
+.mapwrap.manual-color-changing .amount-label-box,
+.mapwrap.manual-color-changing .mountain-triangle,
+.mapwrap.manual-color-changing .mountain-value-label-group rect {
+  transition: none !important;
+}
+
+.region,
+.amount-label-group,
+.mountain-value-label-group,
+.mountain-icon-group {
+  transition: opacity 260ms ease-out !important;
+}
+</style>
+
+<script id="v2-12-instant-selected-smooth-others">
+(function(){
+  var oldManual = (typeof applyManualIndexColorToSelectedAmount === 'function')
+    ? applyManualIndexColorToSelectedAmount
+    : null;
+
+  if (!oldManual || oldManual.__v212InstantSelectedSmoothOthers) return;
+
+  function clearSelectionBorderOnly(){
+    document.querySelectorAll('.amount-label-group.manual-index-selected')
+      .forEach(function(el){
+        el.classList.remove('manual-index-selected');
+      });
+
+    try { selectedManualAmountKey = ''; } catch(e) {}
+    try { selectedManualColor = ''; } catch(e) {}
+    try { selectedAmountKey = ''; } catch(e) {}
+    window.__selectedManualAmountElementKey = '';
+  }
+
+  function smoothlyRestoreOthers(){
+    document.querySelectorAll(
+      '.region.hover-dim, .region.hover-focus,' +
+      '.amount-label-group.hover-dim, .amount-label-group.hover-focus,' +
+      '.mountain-value-label-group.hover-dim, .mountain-value-label-group.hover-focus,' +
+      '.mountain-icon-group.hover-dim, .mountain-icon-group.hover-focus'
+    ).forEach(function(el){
+      el.classList.remove('hover-dim', 'hover-focus');
+      el.style.removeProperty('opacity');
+    });
+
+    var mapwrap = document.querySelector('.mapwrap');
+    if (mapwrap) mapwrap.classList.remove('manual-color-changing');
+  }
+
+  var wrappedManual = function(){
+    var mapwrap = document.querySelector('.mapwrap');
+    if (mapwrap) mapwrap.classList.add('manual-color-changing');
+
+    /*
+      기존 색 변경은 즉시 실행됩니다.
+      그 다음 노란 테두리는 바로 해제하고,
+      흐려진 나머지 지역만 opacity 전환으로 부드럽게 복귀합니다.
+    */
+    var result = oldManual.apply(this, arguments);
+
+    clearSelectionBorderOnly();
+
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        smoothlyRestoreOthers();
+      });
+    });
+
+    return result;
+  };
+
+  wrappedManual.__v212InstantSelectedSmoothOthers = true;
+  window.applyManualIndexColorToSelectedAmount =
+    applyManualIndexColorToSelectedAmount = wrappedManual;
+})();
+</script>
+
+
+<script id="v2-13-freeze-label-position-on-color-change">
+(function(){
+  var oldManual = (typeof applyManualIndexColorToSelectedAmount === 'function')
+    ? applyManualIndexColorToSelectedAmount
+    : null;
+
+  if (!oldManual || oldManual.__v213FreezeLabelPosition) return;
+
+  function norm(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+
+  function capturePositions(){
+    var map = {};
+    document.querySelectorAll('.amount-label-group').forEach(function(el){
+      var key = norm(el.dataset.amount || '');
+      if (!key) return;
+
+      var x = Number(el.dataset.x);
+      var y = Number(el.dataset.y);
+
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        var tr = el.getAttribute('transform') || '';
+        var m = tr.match(/translate\(\s*([-\d.]+)[ ,]+([-\d.]+)\s*\)/);
+        if (m) {
+          x = Number(m[1]);
+          y = Number(m[2]);
+        }
+      }
+
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        map[key] = {x:x, y:y};
+      }
+    });
+    return map;
+  }
+
+  function restorePositions(map){
+    document.querySelectorAll('.amount-label-group').forEach(function(el){
+      var key = norm(el.dataset.amount || '');
+      var p = map[key];
+      if (!p) return;
+
+      el.dataset.x = p.x;
+      el.dataset.y = p.y;
+      el.setAttribute('transform', 'translate(' + p.x + ' ' + p.y + ')');
+
+      /*
+        이후 다른 색을 다시 변경해도 같은 자리를 유지하도록
+        현재 화면 위치를 저장 위치에도 반영합니다.
+      */
+      try {
+        if (typeof saveLabelPos === 'function') {
+          saveLabelPos(el.dataset.amount || key, p.x, p.y);
+        }
+      } catch(e) {}
+    });
+  }
+
+  var wrappedManual = function(){
+    /*
+      수동 인덱스 색 변경 전 현재 모든 수치 박스 위치를 먼저 보관합니다.
+      색 변경 과정에서 renderAmountLabels()가 다시 실행되더라도
+      변경 후 원래 위치를 그대로 복원합니다.
+    */
+    var positions = capturePositions();
+    var result = oldManual.apply(this, arguments);
+
+    restorePositions(positions);
+    requestAnimationFrame(function(){
+      restorePositions(positions);
+      setTimeout(function(){ restorePositions(positions); }, 60);
+    });
+
+    return result;
+  };
+
+  wrappedManual.__v213FreezeLabelPosition = true;
   window.applyManualIndexColorToSelectedAmount =
     applyManualIndexColorToSelectedAmount = wrappedManual;
 })();
