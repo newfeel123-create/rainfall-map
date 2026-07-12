@@ -2377,7 +2377,7 @@ input[type="range"] {
           <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
         </div>
       </div>
-      <div class="manual-color-grid mode-12" id="manualColorGrid"><button type="button" class="manual-color-chip mode-palette-chip" data-color="#FFD400" title="기본 수동 인덱스 1단계" aria-label="기본 수동 인덱스 1단계" style="background: rgb(255, 212, 0);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#E53935" title="기본 수동 인덱스 2단계" aria-label="기본 수동 인덱스 2단계" style="background: rgb(229, 57, 53);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#1E88E5" title="기본 수동 인덱스 3단계" aria-label="기본 수동 인덱스 3단계" style="background: rgb(30, 136, 229);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#43A047" title="기본 수동 인덱스 4단계" aria-label="기본 수동 인덱스 4단계" style="background: rgb(67, 160, 71);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#8E24AA" title="기본 수동 인덱스 5단계" aria-label="기본 수동 인덱스 5단계" style="background: rgb(142, 36, 170);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#FB8C00" title="기본 수동 인덱스 6단계" aria-label="기본 수동 인덱스 6단계" style="background: rgb(251, 140, 0);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#00ACC1" title="기본 수동 인덱스 7단계" aria-label="기본 수동 인덱스 7단계" style="background: rgb(0, 172, 193);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#6D4C41" title="기본 수동 인덱스 8단계" aria-label="기본 수동 인덱스 8단계" style="background: rgb(109, 76, 65);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#D81B60" title="기본 수동 인덱스 9단계" aria-label="기본 수동 인덱스 9단계" style="background: rgb(216, 27, 96);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#3949AB" title="기본 수동 인덱스 10단계" aria-label="기본 수동 인덱스 10단계" style="background: rgb(57, 73, 171);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#7CB342" title="기본 수동 인덱스 11단계" aria-label="기본 수동 인덱스 11단계" style="background: rgb(124, 179, 66);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#F06292" title="기본 수동 인덱스 12단계" aria-label="기본 수동 인덱스 12단계" style="background: rgb(240, 98, 146);"></button></div>
+      <div class="manual-color-grid" id="manualColorGrid"></div>
     </div>
 
     <div class="manual-merge-panel" id="manualMergePanel">
@@ -10754,6 +10754,95 @@ if (document.readyState === 'loading') {
       }
     }, 0);
   });
+})();
+</script>
+
+
+
+<!-- v2.27: 오른쪽 강우량/소나기 버튼 연동 인덱스 전환 -->
+<script id="v227-right-mode-index-sync">
+(function(){
+  const DEFAULT_12 = (typeof MANUAL_COLOR_PALETTE !== 'undefined')
+    ? Array.from(MANUAL_COLOR_PALETTE).slice(0, 12)
+    : [
+        '#FFD400','#E53935','#1E88E5','#43A047','#8E24AA','#FB8C00',
+        '#00ACC1','#6D4C41','#D81B60','#3949AB','#7CB342','#F06292'
+      ];
+  const RAIN_12 = [
+    '#EAF8FF','#CDEEFF','#9DD7FF','#63B8FF','#2F91F2','#176FD1',
+    '#1257B5','#173F96','#282A78','#5940A8','#76258F','#4A075F'
+  ];
+  const SHOWER_12 = [
+    '#EDFFE8','#D3F7C8','#ACEB9B','#7FDA74','#58C55B','#37AF49',
+    '#23983D','#147F34','#0B682B','#075424','#043F1B','#022D13'
+  ];
+
+  function makeChip(color, title, modeClass){
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'manual-color-chip' + (modeClass ? ' mode-palette-chip' : '');
+    chip.style.background = color;
+    chip.dataset.color = color;
+    chip.title = title;
+    chip.setAttribute('aria-label', title);
+    chip.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedManualAmountKey) return;
+      applyManualIndexColorToSelectedAmount(color);
+    });
+    return chip;
+  }
+
+  function renderRightModeSyncedIndex(){
+    const grid = document.getElementById('manualColorGrid');
+    const title = document.getElementById('manualColorTitleText');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    grid.classList.remove('mode-12','mode-24');
+
+    /* 오른쪽 두 버튼이 모두 꺼진 기본 상태 */
+    if (typeof currentMapColorMode === 'undefined' || currentMapColorMode === 'default') {
+      if (title) title.textContent = '수동 인덱스';
+      grid.classList.add('mode-12');
+      DEFAULT_12.forEach(function(color, i){
+        grid.appendChild(makeChip(color, '기본 수동 인덱스 ' + (i + 1) + '단계', false));
+      });
+      window.__manualPaletteMode = 'default';
+    } else {
+      /* 예상 강수량 또는 소나기 중 하나라도 켜져 있을 때 */
+      if (title) title.textContent = '강우량+소나기 단계 인덱스';
+      grid.classList.add('mode-24');
+      RAIN_12.forEach(function(color, i){
+        grid.appendChild(makeChip(color, '강우량 ' + (i + 1) + '단계', true));
+      });
+      SHOWER_12.forEach(function(color, i){
+        grid.appendChild(makeChip(color, '소나기 ' + (i + 1) + '단계', true));
+      });
+      window.__manualPaletteMode = 'both';
+    }
+
+    if (typeof updateManualColorPaletteState === 'function') {
+      updateManualColorPaletteState();
+    }
+  }
+
+  /* 기존 여러 버전의 팔레트 렌더링을 최종 규칙으로 통일 */
+  window.renderManualColorPalette = renderManualColorPalette = renderRightModeSyncedIndex;
+
+  const rainBtn = document.getElementById('mapRainColorToggle');
+  const showerBtn = document.getElementById('mapShowerColorToggle');
+  [rainBtn, showerBtn].forEach(function(btn){
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      /* 기존 setMapColorMode 처리 완료 후 현재 ON/OFF 상태를 반영 */
+      setTimeout(renderRightModeSyncedIndex, 0);
+      setTimeout(renderRightModeSyncedIndex, 140);
+    });
+  });
+
+  renderRightModeSyncedIndex();
 })();
 </script>
 
