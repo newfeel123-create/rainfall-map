@@ -6,6 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="강수량 지도">
 <meta name="theme-color" content="#ffffff">
+<link rel="preconnect" href="https://r.jina.ai" crossorigin>
+<link rel="preconnect" href="https://api.allorigins.win" crossorigin>
+<link rel="dns-prefetch" href="//r.jina.ai">
+<link rel="dns-prefetch" href="//api.allorigins.win">
+
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   html, body {
@@ -2336,7 +2341,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.4</div>
+   <div class="app-version">Ver.2.4.5</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -11119,4 +11124,118 @@ if (document.readyState === 'loading') {
   window.applyCurrentMountainSectionColors = applyCurrentMountainSectionColors;
 })();
 </script>
+
+<script id="v245-overall-speed-optimization">
+/* v2.4.5 전체 속도 추가 최적화
+   - 기상청 원문 90초 메모리 캐시
+   - 빠른 프록시 3개 병렬 경쟁(첫 성공 즉시 사용)
+   - 페이지 로드 직후 백그라운드 사전 불러오기
+   - 같은 원문 파싱 결과 재사용
+*/
+(function(){
+  'use strict';
+
+  const RAW_CACHE_MS = 90000;
+  const rawCache = new Map();
+  const pendingCache = new Map();
+  const blockCache = new Map();
+
+  function validKmaRaw(raw){
+    if (!raw || String(raw).length < 80) return false;
+    let plain = String(raw);
+    try { if (typeof __kmaPlainText === 'function') plain = __kmaPlainText(raw); } catch(e) {}
+    return /(예상\s*강수량|소나기|강수량)/.test(plain) && /mm/.test(plain);
+  }
+
+  async function fetchCandidate(url, timeoutMs){
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs || 7000);
+    try {
+      const res = await fetch(url, {
+        cache:'no-store',
+        signal:controller.signal,
+        headers:{'Accept':'text/html,text/plain,application/json,*/*'}
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const raw = await res.text();
+      if (!validKmaRaw(raw)) throw new Error('예상 강수량 문구 없음');
+      return raw;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function fastFetchKma(url, onTry){
+    const now = Date.now();
+    const cached = rawCache.get(url);
+    if (cached && now - cached.time < RAW_CACHE_MS) return cached.raw;
+    if (pendingCache.has(url)) return pendingCache.get(url);
+
+    const encoded = encodeURIComponent(url);
+    const candidates = [
+      'https://r.jina.ai/' + url,
+      'https://api.allorigins.win/raw?url=' + encoded,
+      'https://api.codetabs.com/v1/proxy?quest=' + encoded
+    ];
+
+    const task = (async function(){
+      if (onTry) onTry(1, candidates.length);
+      let winner;
+      try {
+        // 세 경로를 동시에 요청해 가장 먼저 정상 응답한 결과를 사용합니다.
+        winner = await Promise.any(candidates.map((u, i) =>
+          new Promise((resolve, reject) => {
+            setTimeout(() => {
+              if (onTry) onTry(i + 1, candidates.length);
+              fetchCandidate(u, 7500).then(resolve, reject);
+            }, i * 120);
+          })
+        ));
+      } catch(e) {
+        // 병렬 경로가 모두 실패하면 기존의 폭넓은 순차 fallback을 그대로 사용합니다.
+        if (typeof window.__v244OriginalFetchTextWithFallback === 'function') {
+          winner = await window.__v244OriginalFetchTextWithFallback(url, onTry);
+        } else {
+          throw e;
+        }
+      }
+      rawCache.set(url, {time:Date.now(), raw:winner});
+      return winner;
+    })();
+
+    pendingCache.set(url, task);
+    try { return await task; }
+    finally { pendingCache.delete(url); }
+  }
+
+  if (typeof fetchTextWithFallback === 'function') {
+    window.__v244OriginalFetchTextWithFallback = fetchTextWithFallback;
+    window.fetchTextWithFallback = fetchTextWithFallback = fastFetchKma;
+  }
+
+  if (typeof __extractKmaRainBlocksDetailed === 'function') {
+    const oldExtract = __extractKmaRainBlocksDetailed;
+    window.__extractKmaRainBlocksDetailed = __extractKmaRainBlocksDetailed = function(raw){
+      const key = String(raw || '');
+      const hit = blockCache.get(key);
+      if (hit) return hit;
+      const value = oldExtract(raw);
+      if (blockCache.size > 5) blockCache.clear();
+      blockCache.set(key, value);
+      return value;
+    };
+  }
+
+  // 사용자가 오늘/내일 버튼을 누르기 전에 원문을 미리 받아 둡니다.
+  function prewarmKma(){
+    const url = 'https://www.weather.go.kr/w/forecast/overall/short-term.do';
+    fastFetchKma(url).catch(function(){});
+  }
+  if (document.readyState === 'complete') setTimeout(prewarmKma, 250);
+  else window.addEventListener('load', function(){ setTimeout(prewarmKma, 250); }, {once:true});
+
+  window.__kmaFastCacheClear = function(){ rawCache.clear(); blockCache.clear(); };
+})();
+</script>
+
 </body></html>
