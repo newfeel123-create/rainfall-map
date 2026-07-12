@@ -1980,6 +1980,19 @@ input[type="range"] {
   overflow:hidden;
 }
 
+
+/* v2.4.0 기상청 특보 테스트 패널 */
+.warning-test-panel{border:1px solid #d0d7de;background:#f8fafc;border-radius:10px;padding:8px;margin:7px 0 0 0;}
+.warning-test-toggle{width:100%;font-size:12px;font-weight:900;padding:6px 8px;border-radius:8px;background:#fff;}
+.warning-test-body{display:none;margin-top:7px;}
+.warning-test-body.open{display:block;}
+.warning-test-text{width:100%;height:92px;resize:vertical;box-sizing:border-box;border:1px solid #c8d0d8;border-radius:8px;padding:8px;font-size:11.5px;background:#fff;}
+.warning-test-actions{display:flex;gap:6px;margin-top:6px;}
+.warning-test-actions button{flex:1 1 0;font-size:11px;padding:6px 4px;}
+.warning-test-apply{background:#d62828!important;color:#fff!important;border-color:#a4161a!important;}
+.warning-test-result{margin-top:6px;font-size:10.5px;line-height:1.4;color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:7px;padding:5px 6px;}
+.region.warning-highlight{stroke:#111!important;stroke-width:1.35!important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.30));}
+@media(max-width:768px){.warning-test-panel{border-radius:18px;padding:10px;margin:8px 0 0 0;box-shadow:0 6px 18px rgba(31,71,130,.10)}.warning-test-toggle{height:40px;border-radius:14px;font-size:14px}.warning-test-text{height:105px;border-radius:13px;font-size:12px}.warning-test-actions button{min-height:40px;border-radius:12px;font-size:12px}.warning-test-result{font-size:11.5px;border-radius:11px;padding:7px 8px}}
 </style>
 
 <style id="v8-10-ui-index-fix">
@@ -2380,6 +2393,22 @@ input[type="range"] {
       <div class="manual-color-grid" id="manualColorGrid"></div>
     </div>
 
+
+
+    <div class="warning-test-panel" id="warningTestPanel">
+      <button id="warningTestToggle" type="button" class="warning-test-toggle">▶ 기상청 특보 테스트</button>
+      <div id="warningTestBody" class="warning-test-body">
+        <textarea id="warningTestText" class="warning-test-text" placeholder="기상청 특보 원문을 붙여넣으세요.
+예) 호우주의보: 서울, 인천, 경기도(수원, 용인)
+강풍주의보: 제주도"></textarea>
+        <div class="warning-test-actions">
+          <button id="warningTestApply" type="button" class="warning-test-apply">특보 지도 적용</button>
+          <button id="warningTestClear" type="button">특보 지우기</button>
+        </div>
+        <div id="warningTestResult" class="warning-test-result">특보 원문을 붙여넣고 적용을 눌러 확인하세요.</div>
+      </div>
+    </div>
+
     <div class="manual-merge-panel" id="manualMergePanel">
       <button id="manualMergeToggle" type="button" class="manual-merge-toggle">▶ 수치 병합</button>
       <div id="manualMergeBody" class="manual-merge-body">
@@ -2460,7 +2489,121 @@ input[type="range"] {
   </section>
 </div>
 
-<script src="map_data.js"></script>
+<script src="map_data.js">
+
+// ===== v2.4.0 기상청 특보 테스트 =====
+(function(){
+  const TYPE_INFO = [
+    {re:/호우/, name:'호우', color:'#e53935'},
+    {re:/강풍/, name:'강풍', color:'#fb8c00'},
+    {re:/풍랑/, name:'풍랑', color:'#1e88e5'},
+    {re:/대설/, name:'대설', color:'#8e24aa'},
+    {re:/한파/, name:'한파', color:'#3949ab'},
+    {re:/폭염/, name:'폭염', color:'#f4511e'},
+    {re:/건조/, name:'건조', color:'#8d6e63'},
+    {re:/태풍/, name:'태풍', color:'#6a1b9a'},
+    {re:/해일|지진해일/, name:'해일', color:'#00838f'}
+  ];
+
+  function warningNormalize(v){
+    return String(v||'').replace(/\s+/g,'').replace(/[·ㆍ]/g,'.').replace(/[()（）]/g,' ').trim();
+  }
+
+  function clearWarningOverlay(){
+    document.querySelectorAll('#regions .region').forEach(function(el){
+      if(el.dataset.warningOriginalFill !== undefined){
+        const old=el.dataset.warningOriginalFill;
+        if(old) el.style.fill=old; else el.style.removeProperty('fill');
+        delete el.dataset.warningOriginalFill;
+      }
+      el.classList.remove('warning-highlight');
+      delete el.dataset.warningType;
+    });
+    const r=document.getElementById('warningTestResult');
+    if(r) r.textContent='특보 표시를 지웠습니다.';
+  }
+
+  function detectType(line){
+    return TYPE_INFO.find(function(x){return x.re.test(line);}) || null;
+  }
+
+  function lineRegionText(line){
+    let v=String(line||'');
+    v=v.replace(/^(발표|발효|해제|변경|연장|대치)[^:：]*[:：]?/,'');
+    v=v.replace(/(호우|강풍|풍랑|대설|한파|폭염|건조|태풍|해일|지진해일)(경보|주의보)?/g,' ');
+    v=v.replace(/(경보|주의보|예비특보|특보)/g,' ');
+    return warningNormalize(v);
+  }
+
+  function textMatchesRegion(regionText, sido, sig, code){
+    const text=warningNormalize(regionText);
+    const ns=warningNormalize(sido), ng=warningNormalize(sig);
+    if(!text) return false;
+    if(ng && text.includes(ng)) return true;
+    if(ns && text.includes(ns)) return true;
+    const chunks=text.split(/[,:;\/|\n\-]+/).map(function(x){return x.trim();}).filter(Boolean);
+    for(const token of chunks){
+      try{
+        if(typeof regionMatchesToken==='function' && regionMatchesToken(sido,sig,token,code)) return true;
+      }catch(e){}
+    }
+    return false;
+  }
+
+  function applyWarnings(){
+    const box=document.getElementById('warningTestText');
+    const result=document.getElementById('warningTestResult');
+    const raw=box ? box.value.trim() : '';
+    clearWarningOverlay();
+    if(!raw){ if(result) result.textContent='특보 원문을 입력해주세요.'; return; }
+
+    const lines=raw.split(/\r?\n/).map(function(v){return v.trim();}).filter(Boolean);
+    const typed=[];
+    let currentType=null;
+    lines.forEach(function(line){
+      const t=detectType(line);
+      if(t) currentType=t;
+      if(currentType) typed.push({type:currentType,text:lineRegionText(line)});
+    });
+    if(!typed.length){ if(result) result.textContent='호우·강풍·대설 등 특보 종류를 찾지 못했습니다.'; return; }
+
+    const counts={};
+    document.querySelectorAll('#regions .region').forEach(function(el){
+      const sido=el.dataset.sido||'', sig=el.dataset.sig||el.dataset.name||'', code=el.dataset.code||'';
+      let hit=null;
+      for(const item of typed){
+        if(textMatchesRegion(item.text,sido,sig,code)){ hit=item.type; break; }
+      }
+      if(hit){
+        el.dataset.warningOriginalFill=el.style.fill||'';
+        el.style.fill=hit.color;
+        el.classList.add('warning-highlight');
+        el.dataset.warningType=hit.name;
+        counts[hit.name]=(counts[hit.name]||0)+1;
+      }
+    });
+    const total=Object.values(counts).reduce(function(a,b){return a+b;},0);
+    if(result){
+      result.textContent=total ? ('특보 표시 완료: '+Object.entries(counts).map(function(x){return x[0]+' '+x[1]+'개 지역';}).join(', ')) : '매칭된 지도 지역이 없습니다. 지역명이 포함된 특보 원문인지 확인해주세요.';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    const toggle=document.getElementById('warningTestToggle');
+    const body=document.getElementById('warningTestBody');
+    const apply=document.getElementById('warningTestApply');
+    const clear=document.getElementById('warningTestClear');
+    if(toggle&&body) toggle.addEventListener('click',function(){
+      const open=!body.classList.contains('open');
+      body.classList.toggle('open',open);
+      toggle.textContent=(open?'▼':'▶')+' 기상청 특보 테스트';
+    });
+    if(apply) apply.addEventListener('click',applyWarnings);
+    if(clear) clear.addEventListener('click',clearWarningOverlay);
+  });
+})();
+
+</script>
 <script>
 
 function displayAmountNoMm(v) {
