@@ -2341,7 +2341,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.7</div>
+   <div class="app-version">Ver.2.4.9</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2441,6 +2441,7 @@ input[type="range"] {
       <div id="mapColorModePanel" class="map-color-mode-panel" aria-label="지도 색상 전환">
         <button id="mapRainColorToggle" type="button" class="map-color-mode-btn" title="누르면 파랑·보라 계열로 변경, 다시 누르면 기본 색상">🌧 예상 강수량</button>
         <button id="mapShowerColorToggle" type="button" class="map-color-mode-btn" title="누르면 초록 계열로 변경, 다시 누르면 기본 색상">⚡ 소나기</button>
+        <button id="mapBothColorToggle" type="button" class="map-color-mode-btn" title="예상 강수량은 강우량 색, 소나기는 초록색으로 함께 표시" style="display: block;">🌦 강우량+소나기</button>
 
         <button id="mapColorIndexReset" type="button" title="현재 모드의 자동 단계 색상으로 되돌립니다">인덱스 초기화</button>
       </div>
@@ -11511,6 +11512,143 @@ if (document.readyState === 'loading') {
   });
 
   window.addEventListener('load',function(){ setTimeout(scheduleFix,120); });
+})();
+</script>
+
+
+
+<!-- v2.4.8: 산지 토글 시 초록색 순간 표시 제거 -->
+<script id="v2-4-8-mountain-no-flash-fix">
+(function(){
+  function nk(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+  function clean(v){ return String(v || '').replace(/[.·ㆍ\s]/g,''); }
+
+  function parseRecords(){
+    var input=document.getElementById('forecastText');
+    var records=[], kind='';
+    String(input ? input.value : '').split(/\n+/).forEach(function(line){
+      var s=String(line||'').trim();
+      if(!s) return;
+      if(/소나기에\s*의한\s*예상\s*강수량/i.test(s)){ kind='shower'; return; }
+      if(/예상\s*강수량/i.test(s) && !/소나기에\s*의한/i.test(s)){ kind='rain'; return; }
+      if(!kind || !/mm/i.test(s)) return;
+      try{
+        splitForecastParts(s).forEach(function(part){
+          if(part && part.type==='mountain'){
+            records.push({kind:kind, mountain:clean(part.area), amount:nk(part.amount)});
+          }
+        });
+      }catch(e){}
+    });
+    return records;
+  }
+
+  function buildMaps(records){
+    var rk=[], sk=[];
+    records.forEach(function(r){
+      var a=r.kind==='shower'?sk:rk;
+      if(r.amount && a.indexOf(r.amount)<0) a.push(r.amount);
+    });
+    return {
+      rain:(typeof buildDistinctModeColorMap==='function')?buildDistinctModeColorMap(rk,'rain'):{},
+      shower:(typeof buildDistinctModeColorMap==='function')?buildDistinctModeColorMap(sk,'shower'):{}
+    };
+  }
+
+  function getColor(rec,maps,hasBoth){
+    var mode=(typeof currentMapColorMode!=='undefined' && currentMapColorMode)?currentMapColorMode:'default';
+    if(mode==='rain' || mode==='shower'){
+      if(window.amountColorMap && amountColorMap[rec.amount]) return amountColorMap[rec.amount];
+      try{return makeModeColor(rec.amount,mode);}catch(e){}
+    }
+    if(hasBoth){
+      var m=rec.kind==='shower'?maps.shower:maps.rain;
+      if(m && m[rec.amount]) return m[rec.amount];
+      try{return makeModeColor(rec.amount,rec.kind);}catch(e){}
+    }
+    if(window.amountColorMap && amountColorMap[rec.amount]) return amountColorMap[rec.amount];
+    try{return makeModeColor(rec.amount,rec.kind);}catch(e){}
+    return '#fff';
+  }
+
+  var correcting=false;
+  function correctNow(){
+    if(correcting) return;
+    correcting=true;
+    try{
+      var records=parseRecords();
+      if(!records.length) return;
+      var hasRain=records.some(function(r){return r.kind==='rain';});
+      var hasShower=records.some(function(r){return r.kind==='shower';});
+      var hasBoth=hasRain&&hasShower;
+      var maps=buildMaps(records);
+      var mode=(typeof currentMapColorMode!=='undefined' && currentMapColorMode)?currentMapColorMode:'default';
+      records.forEach(function(rec){
+        var color=getColor(rec,maps,hasBoth);
+        var finalKind=(mode==='rain'||mode==='shower')?mode:rec.kind;
+        document.querySelectorAll('.mountain-icon-group').forEach(function(g){
+          if(clean(g.dataset.mountain||'')===rec.mountain && nk(g.dataset.amount||'')===rec.amount){
+            g.dataset.precipKind=finalKind;
+            var tri=g.querySelector('.mountain-triangle');
+            if(tri){
+              if(tri.getAttribute('fill')!==color) tri.setAttribute('fill',color);
+              if(tri.style.fill!==color) tri.style.setProperty('fill',color,'important');
+            }
+          }
+        });
+        document.querySelectorAll('.mountain-value-label-group').forEach(function(g){
+          if(clean(g.dataset.mountain||'')===rec.mountain && nk(g.dataset.amount||'')===rec.amount){
+            g.dataset.precipKind=finalKind;
+            var rect=g.querySelector('rect');
+            if(rect){
+              if(rect.getAttribute('fill')!==color) rect.setAttribute('fill',color);
+              if(rect.style.fill!==color) rect.style.setProperty('fill',color,'important');
+            }
+          }
+        });
+      });
+    }finally{ correcting=false; }
+  }
+
+  // 버튼 토글 직후, 브라우저가 화면을 그리기 전에 올바른 산지색으로 확정합니다.
+  ['mapRainColorToggle','mapShowerColorToggle','kmaChoiceRain','kmaChoiceShower','kmaChoiceBoth','pasteMatchBtn'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.addEventListener('click',function(){ queueMicrotask(correctNow); },true);
+  });
+
+  // 기존 지연 렌더링이 산지를 잠깐 초록색으로 되돌려도 같은 렌더링 주기 안에서 즉시 복구합니다.
+  var svg=document.getElementById('mapSvg') || document.querySelector('svg');
+  if(svg && window.MutationObserver){
+    var queued=false;
+    var obs=new MutationObserver(function(muts){
+      if(correcting) return;
+      var relevant=muts.some(function(m){
+        var el=m.target;
+        return el && el.closest && (el.closest('.mountain-icon-group') || el.closest('.mountain-value-label-group'));
+      });
+      if(relevant && !queued){
+        queued=true;
+        queueMicrotask(function(){ queued=false; correctNow(); });
+      }
+    });
+    obs.observe(svg,{subtree:true,attributes:true,attributeFilter:['fill','style']});
+  }
+
+  var oldSet=(typeof setMapColorMode==='function')?setMapColorMode:null;
+  if(oldSet && !oldSet.__v248NoFlash){
+    var wrapped=function(){
+      var r=oldSet.apply(this,arguments);
+      correctNow();
+      return r;
+    };
+    wrapped.__v248NoFlash=true;
+    window.setMapColorMode=setMapColorMode=wrapped;
+  }
+
+  window.addEventListener('load',function(){correctNow();});
 })();
 </script>
 
