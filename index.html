@@ -2336,7 +2336,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.3.0</div>
+   <div class="app-version">Ver.2.4.0</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -10883,6 +10883,59 @@ if (document.readyState === 'loading') {
   }
 
   syncManualBothButtonActive();
+})();
+</script>
+
+
+
+<!-- Ver.2.4.0 patch: 소나기 캐릭터는 지도 안 소나기 버튼 단독 활성화 시에만 표시 -->
+<script id="v240-shower-character-only-when-shower-active">
+(function(){
+  function enforceShowerCharacterVisibility(){
+    const g = document.getElementById('showerCharacter');
+    if (!g) return;
+
+    const showerBtn = document.getElementById('mapShowerColorToggle');
+    const showerOnlyOn = !!(
+      showerBtn &&
+      showerBtn.classList.contains('shower-active') &&
+      typeof currentMapColorMode !== 'undefined' &&
+      currentMapColorMode === 'shower'
+    );
+
+    g.classList.toggle('hidden', !showerOnlyOn);
+    g.style.display = showerOnlyOn ? '' : 'none';
+  }
+
+  /* 기존 가시성 함수의 마지막 결과를 소나기 버튼 상태로 다시 확정합니다. */
+  const oldVisibility = (typeof updateShowerCharacterVisibility === 'function')
+    ? updateShowerCharacterVisibility
+    : null;
+
+  if (oldVisibility && !oldVisibility.__v240ShowerOnly) {
+    const wrappedVisibility = function(){
+      const result = oldVisibility.apply(this, arguments);
+      enforceShowerCharacterVisibility();
+      return result;
+    };
+    wrappedVisibility.__v240ShowerOnly = true;
+    window.updateShowerCharacterVisibility = updateShowerCharacterVisibility = wrappedVisibility;
+  }
+
+  ['mapRainColorToggle','mapShowerColorToggle','mapBothColorToggle'].forEach(function(id){
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      setTimeout(enforceShowerCharacterVisibility, 0);
+      setTimeout(enforceShowerCharacterVisibility, 160);
+    });
+  });
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(enforceShowerCharacterVisibility, 0);
+  });
+
+  setTimeout(enforceShowerCharacterVisibility, 0);
 })();
 </script>
 
