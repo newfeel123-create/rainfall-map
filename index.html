@@ -2336,7 +2336,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.0</div>
+   <div class="app-version">Ver.2.4.3</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -5908,6 +5908,28 @@ function initHeavyGroupToggle() {
   autoHeavyGroupEnabled = true;
 }
 
+// v2.4.3: 지역 목록/토큰 결과 캐시 + 지도 DOM 일괄 반영으로 매칭 속도 개선
+let __forecastRegionCache = null;
+const __forecastTokenMatchCache = new Map();
+function __getForecastRegionCache() {
+  if (!__forecastRegionCache || !__forecastRegionCache.length || !__forecastRegionCache[0].isConnected) {
+    __forecastRegionCache = Array.from(document.querySelectorAll('.region'));
+    __forecastTokenMatchCache.clear();
+  }
+  return __forecastRegionCache;
+}
+function __getForecastMatchedRegions(token) {
+  const key = String(token || '');
+  if (__forecastTokenMatchCache.has(key)) return __forecastTokenMatchCache.get(key);
+  const matched = __getForecastRegionCache().filter(el => {
+    const sido = el.dataset.sido || '';
+    const sig = el.dataset.sig || el.dataset.name || '';
+    return regionMatchesToken(sido, sig, token, el.dataset.code || '');
+  });
+  __forecastTokenMatchCache.set(key, matched);
+  return matched;
+}
+
 function applyForecastMatch() {
   clearRainMatch();
   const raw = document.getElementById('forecastText').value;
@@ -5924,36 +5946,37 @@ function applyForecastMatch() {
     splitForecastParts(line).forEach(p => allParts.push(p));
   });
 
+  // 지역별 최종 결과만 메모리에 모은 뒤 마지막에 DOM에 한 번만 반영합니다.
+  // 뒤에 나온 세부 예보가 앞의 광역 예보보다 우선되는 기존 동작은 그대로 유지됩니다.
+  const pendingRegionUpdates = new Map();
   applyAutoHeavyGroupingToParts(allParts).forEach(part => {
-      if (part.type === 'mountain') {
-        addMountainIcon(part.area, part.zone, part.amount);
-        summaries.push(`▲ ${part.area} → ${part.amount || '수치 없음'}`);
-        return;
-      }
+    if (part.type === 'mountain') {
+      addMountainIcon(part.area, part.zone, part.amount);
+      summaries.push(`▲ ${part.area} → ${part.amount || '수치 없음'}`);
+      return;
+    }
 
-      const tokens = tokensFromArea(part.area, part.zone);
-      const color = amountColor(part.amount);
-      let count = 0;
-      tokens.forEach(token => {
-        document.querySelectorAll('.region').forEach(el => {
-          const sido = el.dataset.sido || '';
-          const sig = el.dataset.sig || el.dataset.name || '';
-          if (regionMatchesToken(sido, sig, token, el.dataset.code || '')) {
-            // 뒤에 나온 세부 예보가 앞의 광역 예보보다 우선입니다.
-            // 예: 인천 10~60mm 뒤에 서해5도 10~40mm가 나오면 서해5도는 10~40mm 색으로 덮어씁니다.
-            el.classList.add('matched');
-            el.style.fill = color;
-            el.dataset.amount = part.amount;
-            count++;
-          }
-        });
+    const tokens = tokensFromArea(part.area, part.zone);
+    const color = amountColor(part.amount);
+    let count = 0;
+    tokens.forEach(token => {
+      const matchedRegions = __getForecastMatchedRegions(token);
+      matchedRegions.forEach(el => {
+        pendingRegionUpdates.set(el, { amount: part.amount, color });
+        count++;
       });
-      matchedCount += count;
-      summaries.push(`${tokens.join(', ')} → ${part.amount || '수치 없음'} / ${count}개 지역`);
     });
+    matchedCount += count;
+    summaries.push(`${tokens.join(', ')} → ${part.amount || '수치 없음'} / ${count}개 지역`);
+  });
 
-  // 최종 칠해진 지도 기준으로 수치 박스를 다시 만들기 때문에
-  // 지도 색과 박스 색이 서로 다르게 나오는 문제가 없습니다.
+  pendingRegionUpdates.forEach((update, el) => {
+    el.classList.add('matched');
+    el.style.fill = update.color;
+    el.dataset.amount = update.amount;
+  });
+
+  // 모든 지역 적용이 끝난 뒤 화면 요소를 한 번만 다시 그립니다.
   rebuildAmountLabelGroupsFromMap();
   renderAmountLabels({ignoreSaved:true});
   renderMountainIcons();
@@ -5965,7 +5988,6 @@ function applyForecastMatch() {
     ? `매칭 완료: ${matchedCount}개 지역<br>${summaries.join('<br>')}`
     : '매칭된 지역이 없습니다. 지역명 표기를 확인해 주세요.';
 
-  // Ver.1.8.1: 지도 매칭 적용 완료/실패 효과음
   if (matchedCount > 0 && typeof window.playUiDoneSound === 'function') {
     window.playUiDoneSound();
   } else if (matchedCount === 0 && typeof window.playUiErrorSound === 'function') {
@@ -10280,6 +10302,9 @@ if (document.readyState === 'loading') {
       원문 순서대로 적용하되, 같은 지역에 강우량과 소나기가 모두 있으면
       강우량 색을 배경으로 두고 소나기 색 45도 사선 빗금을 올립니다.
     */
+    // v2.4.1: 산지 ▲도 수치가 아니라 원문 문단(예상 강수량/소나기)을 기준으로 색을 기억합니다.
+    const mountainKindColorMap = {};
+
     records.forEach(function(rec){
       const part = rec.part || {};
       const key = nk(part.amount);
@@ -10292,7 +10317,11 @@ if (document.readyState === 'loading') {
       if (!window.__mixedAmountKindMap[key]) window.__mixedAmountKindMap[key] = rec.kind;
       else if (window.__mixedAmountKindMap[key] !== rec.kind) window.__mixedAmountKindMap[key] = 'both';
 
-      if (part.type === 'mountain') return;
+      if (part.type === 'mountain') {
+        const mountainKey = String(part.area || '').replace(/[.·ㆍ\s]/g, '');
+        if (mountainKey) mountainKindColorMap[mountainKey + '|' + key] = { kind:rec.kind, color:color };
+        return;
+      }
 
       let tokens = [];
       try { tokens = tokensFromArea(part.area, part.zone) || []; } catch(e) {}
@@ -10335,6 +10364,27 @@ if (document.readyState === 'loading') {
     if (typeof renderAmountLabels === 'function') renderAmountLabels();
     if (typeof renderMountainIcons === 'function') renderMountainIcons();
     if (typeof renderRainLegend === 'function') renderRainLegend();
+
+    // v2.4.1: renderMountainIcons()가 공통 amountColorMap으로 다시 칠한 뒤에도
+    // 각 산지 ▲와 산지 전용 수치 글자는 실제 문단의 색으로 최종 확정합니다.
+    document.querySelectorAll('.mountain-icon-group').forEach(function(g){
+      const mountainKey = String(g.dataset.mountain || '').replace(/[.·ㆍ\s]/g, '');
+      const amountKey = nk(g.dataset.amount || '');
+      const info = mountainKindColorMap[mountainKey + '|' + amountKey];
+      if (!info) return;
+      g.dataset.precipKind = info.kind;
+      const tri = g.querySelector('.mountain-triangle');
+      if (tri) tri.setAttribute('fill', info.color);
+    });
+    document.querySelectorAll('.mountain-value-label-group').forEach(function(g){
+      const mountainKey = String(g.dataset.mountain || '').replace(/[.·ㆍ\s]/g, '');
+      const amountKey = nk(g.dataset.amount || '');
+      const info = mountainKindColorMap[mountainKey + '|' + amountKey];
+      if (!info) return;
+      g.dataset.precipKind = info.kind;
+      const txt = g.querySelector('.amount-label');
+      if (txt) txt.style.fill = info.color;
+    });
 
     /*
       렌더링 후 지역별 혼합 색을 다시 고정합니다.
@@ -10949,4 +10999,104 @@ if (document.readyState === 'loading') {
 })();
 </script>
 
+
+
+<script id="v2-4-2-mountain-section-color-final-fix">
+(function(){
+  function nk(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+
+  function getCurrentSectionKind(raw){
+    const text = String(raw || '');
+    const hasShower = /소나기에\s*의한\s*예상\s*강수량/i.test(text);
+    const hasRain = /(?:^|\n)\s*\*?\s*예상\s*강수량/i.test(text.replace(/소나기에\s*의한\s*예상\s*강수량/gi,''));
+    if (hasShower && !hasRain) return 'shower';
+    if (hasRain && !hasShower) return 'rain';
+    return '';
+  }
+
+  function collectMountainRecords(raw){
+    const kind = getCurrentSectionKind(raw);
+    if (!kind) return [];
+    const out = [];
+    String(raw || '').split(/\n+/).forEach(function(line){
+      const s = String(line || '').trim();
+      if (!s || !/mm/i.test(s)) return;
+      try {
+        splitForecastParts(s).forEach(function(part){
+          if (part && part.type === 'mountain') {
+            out.push({
+              kind: kind,
+              key: String(part.area || '').replace(/[.·ㆍ\s]/g,''),
+              amount: nk(part.amount)
+            });
+          }
+        });
+      } catch(e) {}
+    });
+    return out;
+  }
+
+  function applyCurrentMountainSectionColors(){
+    const input = document.getElementById('forecastText');
+    if (!input) return;
+    const records = collectMountainRecords(input.value);
+    if (!records.length) return;
+
+    records.forEach(function(rec){
+      const color = makeModeColor(rec.amount, rec.kind);
+      document.querySelectorAll('.mountain-icon-group').forEach(function(g){
+        const gKey = String(g.dataset.mountain || '').replace(/[.·ㆍ\s]/g,'');
+        const gAmount = nk(g.dataset.amount || '');
+        if (gKey === rec.key && gAmount === rec.amount) {
+          g.dataset.precipKind = rec.kind;
+          const tri = g.querySelector('.mountain-triangle');
+          if (tri) {
+            tri.setAttribute('fill', color);
+            tri.style.fill = color;
+          }
+        }
+      });
+      document.querySelectorAll('.mountain-value-label-group').forEach(function(g){
+        const gKey = String(g.dataset.mountain || '').replace(/[.·ㆍ\s]/g,'');
+        const gAmount = nk(g.dataset.amount || '');
+        if (gKey === rec.key && gAmount === rec.amount) {
+          g.dataset.precipKind = rec.kind;
+          const txt = g.querySelector('.amount-label');
+          if (txt) txt.style.fill = color;
+        }
+      });
+    });
+  }
+
+  const oldApply = (typeof applyForecastMatch === 'function') ? applyForecastMatch : null;
+  if (oldApply && !oldApply.__v242MountainSectionFinal) {
+    const wrapped = function(){
+      const result = oldApply.apply(this, arguments);
+      applyCurrentMountainSectionColors();
+      requestAnimationFrame(applyCurrentMountainSectionColors);
+      setTimeout(applyCurrentMountainSectionColors, 80);
+      return result;
+    };
+    wrapped.__v242MountainSectionFinal = true;
+    window.applyForecastMatch = applyForecastMatch = wrapped;
+  }
+
+  const oldRender = (typeof renderMountainIcons === 'function') ? renderMountainIcons : null;
+  if (oldRender && !oldRender.__v242MountainSectionFinal) {
+    const wrappedRender = function(){
+      const result = oldRender.apply(this, arguments);
+      applyCurrentMountainSectionColors();
+      requestAnimationFrame(applyCurrentMountainSectionColors);
+      return result;
+    };
+    wrappedRender.__v242MountainSectionFinal = true;
+    window.renderMountainIcons = renderMountainIcons = wrappedRender;
+  }
+
+  window.applyCurrentMountainSectionColors = applyCurrentMountainSectionColors;
+})();
+</script>
 </body></html>
