@@ -2436,7 +2436,7 @@ input[type="range"] {
       <div id="mapColorModePanel" class="map-color-mode-panel" aria-label="지도 색상 전환">
         <button id="mapRainColorToggle" type="button" class="map-color-mode-btn" title="누르면 파랑·보라 계열로 변경, 다시 누르면 기본 색상">🌧 예상 강수량</button>
         <button id="mapShowerColorToggle" type="button" class="map-color-mode-btn" title="누르면 초록 계열로 변경, 다시 누르면 기본 색상">⚡ 소나기</button>
-        <button id="mapBothColorToggle" type="button" class="map-color-mode-btn map-both-toggle" title="예상 강우량은 강우량 색으로, 소나기는 소나기 색으로 동시에 적용" style="display: block;">🌦 강우량+소나기</button>
+
         <button id="mapColorIndexReset" type="button" title="현재 모드의 자동 단계 색상으로 되돌립니다">인덱스 초기화</button>
       </div>
       <div class="map-legend" id="mapLegendBox" style="display:none;">
@@ -10167,8 +10167,61 @@ if (document.readyState === 'loading') {
     const showerMap = buildDistinctModeColorMap(showerKeys, 'shower');
     window.__mixedAmountKindMap = {};
 
+    /* 강우량+소나기 겹침 지역용 SVG 사선 빗금 패턴 */
+    const svgRoot = document.querySelector('.mapwrap svg') || document.querySelector('svg');
+    let defs = svgRoot ? svgRoot.querySelector('defs') : null;
+    if (svgRoot && !defs) {
+      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      svgRoot.insertBefore(defs, svgRoot.firstChild);
+    }
+    if (defs) defs.querySelectorAll('pattern[data-rain-shower-hatch="1"]').forEach(function(p){ p.remove(); });
+
+    const patternCache = {};
+    function safeColorId(color){ return String(color || '').replace(/[^a-z0-9]/gi,'').toLowerCase(); }
+    function ensureOverlapPattern(rainColor, showerColor){
+      const cacheKey = String(rainColor) + '|' + String(showerColor);
+      if (patternCache[cacheKey]) return patternCache[cacheKey];
+      if (!defs) return rainColor;
+
+      const id = 'rainShowerHatch_' + safeColorId(rainColor) + '_' + safeColorId(showerColor);
+      let pattern = defs.querySelector('#' + id);
+      if (!pattern) {
+        pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+        pattern.setAttribute('id', id);
+        pattern.setAttribute('data-rain-shower-hatch', '1');
+        pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+        pattern.setAttribute('width', '10');
+        pattern.setAttribute('height', '10');
+        pattern.setAttribute('patternTransform', 'rotate(45)');
+
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('width', '10');
+        bg.setAttribute('height', '10');
+        bg.setAttribute('fill', rainColor);
+        pattern.appendChild(bg);
+
+        const stripe = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        stripe.setAttribute('x', '0');
+        stripe.setAttribute('y', '0');
+        stripe.setAttribute('width', '3');
+        stripe.setAttribute('height', '10');
+        stripe.setAttribute('fill', showerColor);
+        pattern.appendChild(stripe);
+        defs.appendChild(pattern);
+      }
+      patternCache[cacheKey] = 'url(#' + id + ')';
+      return patternCache[cacheKey];
+    }
+
+    document.querySelectorAll('.region').forEach(function(el){
+      delete el.dataset.rainMixColor;
+      delete el.dataset.showerMixColor;
+      delete el.dataset.precipKind;
+    });
+
     /*
-      원문 순서대로 다시 적용하여 세부 지역이 뒤에서 덮어쓰는 기존 규칙을 유지합니다.
+      원문 순서대로 적용하되, 같은 지역에 강우량과 소나기가 모두 있으면
+      강우량 색을 배경으로 두고 소나기 색 45도 사선 빗금을 올립니다.
     */
     records.forEach(function(rec){
       const part = rec.part || {};
@@ -10191,8 +10244,21 @@ if (document.readyState === 'loading') {
           const sido = el.dataset.sido || '';
           const sig = el.dataset.sig || el.dataset.name || '';
           if (regionMatchesToken(sido, sig, token, el.dataset.code || '')) {
-            el.dataset.precipKind = rec.kind;
-            el.style.fill = color;
+            if (rec.kind === 'rain') el.dataset.rainMixColor = color;
+            else el.dataset.showerMixColor = color;
+
+            const rainColor = el.dataset.rainMixColor || '';
+            const showerColor = el.dataset.showerMixColor || '';
+            if (rainColor && showerColor) {
+              el.dataset.precipKind = 'both';
+              el.style.fill = ensureOverlapPattern(rainColor, showerColor);
+            } else if (showerColor) {
+              el.dataset.precipKind = 'shower';
+              el.style.fill = showerColor;
+            } else {
+              el.dataset.precipKind = 'rain';
+              el.style.fill = rainColor;
+            }
           }
         });
       });
@@ -10216,12 +10282,18 @@ if (document.readyState === 'loading') {
     /*
       렌더링 후 지역별 혼합 색을 다시 고정합니다.
     */
-    document.querySelectorAll('.region.matched[data-amount]').forEach(function(el){
-      const key = nk(el.dataset.amount || '');
-      if (el.dataset.precipKind === 'shower') {
-        el.style.fill = showerMap[key] || makeModeColor(key,'shower');
-      } else if (el.dataset.precipKind === 'rain') {
-        el.style.fill = rainMap[key] || makeModeColor(key,'rain');
+    document.querySelectorAll('.region.matched').forEach(function(el){
+      const rainColor = el.dataset.rainMixColor || '';
+      const showerColor = el.dataset.showerMixColor || '';
+      if (rainColor && showerColor) {
+        el.dataset.precipKind = 'both';
+        el.style.fill = ensureOverlapPattern(rainColor, showerColor);
+      } else if (showerColor) {
+        el.dataset.precipKind = 'shower';
+        el.style.fill = showerColor;
+      } else if (rainColor) {
+        el.dataset.precipKind = 'rain';
+        el.style.fill = rainColor;
       }
     });
 
