@@ -10846,4 +10846,44 @@ if (document.readyState === 'loading') {
 })();
 </script>
 
+
+
+<!-- Ver.8.11 patch: 지도 색상 토글과 하단 강우량+소나기 버튼 눌림 상태 자동 연동 -->
+<script id="v811-map-manual-button-active-sync">
+(function(){
+  function syncManualBothButtonActive(){
+    const manualBtn = document.getElementById('manualBothModeBtn');
+    if (!manualBtn) return;
+
+    const mapModeOn = (typeof currentMapColorMode !== 'undefined' && currentMapColorMode !== 'default');
+    manualBtn.classList.toggle('mode-active', mapModeOn);
+    manualBtn.setAttribute('aria-pressed', mapModeOn ? 'true' : 'false');
+  }
+
+  const mapRainBtn = document.getElementById('mapRainColorToggle');
+  const mapShowerBtn = document.getElementById('mapShowerColorToggle');
+
+  [mapRainBtn, mapShowerBtn].forEach(function(btn){
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      setTimeout(syncManualBothButtonActive, 0);
+      setTimeout(syncManualBothButtonActive, 150);
+    });
+  });
+
+  const oldUpdate = (typeof updateMapColorModeButtons === 'function') ? updateMapColorModeButtons : null;
+  if (oldUpdate && !oldUpdate.__v811ManualButtonSync) {
+    const wrappedUpdate = function(){
+      const result = oldUpdate.apply(this, arguments);
+      syncManualBothButtonActive();
+      return result;
+    };
+    wrappedUpdate.__v811ManualButtonSync = true;
+    window.updateMapColorModeButtons = updateMapColorModeButtons = wrappedUpdate;
+  }
+
+  syncManualBothButtonActive();
+})();
+</script>
+
 </body></html>
