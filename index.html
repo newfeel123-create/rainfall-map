@@ -6,8 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="강수량 지도">
 <meta name="theme-color" content="#ffffff">
-<link rel="preconnect" href="https://r.jina.ai" crossorigin>
-<link rel="preconnect" href="https://api.allorigins.win" crossorigin>
+<link rel="preconnect" href="https://r.jina.ai" crossorigin="">
+<link rel="preconnect" href="https://api.allorigins.win" crossorigin="">
 <link rel="dns-prefetch" href="//r.jina.ai">
 <link rel="dns-prefetch" href="//api.allorigins.win">
 
@@ -2341,7 +2341,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.5</div>
+   <div class="app-version">Ver.2.4.6</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -11235,6 +11235,117 @@ if (document.readyState === 'loading') {
   else window.addEventListener('load', function(){ setTimeout(prewarmKma, 250); }, {once:true});
 
   window.__kmaFastCacheClear = function(){ rawCache.clear(); blockCache.clear(); };
+})();
+</script>
+
+
+
+<!-- v2.4.6: 산지 ▲ 색상은 현재 선택 문단/모드의 실제 인덱스 색을 그대로 사용 -->
+<script id="v2-4-6-mountain-color-by-section-and-active-palette">
+(function(){
+  function nk(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+  function clean(v){ return String(v || '').replace(/[.·ㆍ\s]/g,''); }
+
+  function parseMountainRecords(raw){
+    var records=[];
+    var kind='';
+    String(raw || '').split(/\n+/).forEach(function(line){
+      var s=String(line || '').trim();
+      if(!s) return;
+      if(/소나기에\s*의한\s*예상\s*강수량/i.test(s)){ kind='shower'; return; }
+      if(/예상\s*강수량/i.test(s) && !/소나기에\s*의한/i.test(s)){ kind='rain'; return; }
+      if(!kind || !/mm/i.test(s)) return;
+      try{
+        splitForecastParts(s).forEach(function(part){
+          if(part && part.type==='mountain'){
+            records.push({kind:kind, mountain:clean(part.area), amount:nk(part.amount)});
+          }
+        });
+      }catch(e){}
+    });
+    return records;
+  }
+
+  function buildSectionMaps(records){
+    var rainKeys=[], showerKeys=[];
+    records.forEach(function(r){
+      var arr=r.kind==='shower'?showerKeys:rainKeys;
+      if(r.amount && arr.indexOf(r.amount)<0) arr.push(r.amount);
+    });
+    return {
+      rain: (typeof buildDistinctModeColorMap==='function') ? buildDistinctModeColorMap(rainKeys,'rain') : {},
+      shower: (typeof buildDistinctModeColorMap==='function') ? buildDistinctModeColorMap(showerKeys,'shower') : {}
+    };
+  }
+
+  function colorFor(rec, maps, hasBoth){
+    /* 단일 문단에서는 지도와 범례가 실제 사용 중인 amountColorMap 색을 최우선 사용 */
+    if(!hasBoth && window.amountColorMap && amountColorMap[rec.amount]) return amountColorMap[rec.amount];
+    var m = rec.kind==='shower' ? maps.shower : maps.rain;
+    if(m && m[rec.amount]) return m[rec.amount];
+    try { return makeModeColor(rec.amount, rec.kind); } catch(e) {}
+    return (window.amountColorMap && amountColorMap[rec.amount]) || '#ffffff';
+  }
+
+  function applyMountainColors(){
+    var input=document.getElementById('forecastText');
+    if(!input) return;
+    var records=parseMountainRecords(input.value);
+    if(!records.length) return;
+    var hasRain=records.some(function(r){return r.kind==='rain';});
+    var hasShower=records.some(function(r){return r.kind==='shower';});
+    var hasBoth=hasRain && hasShower;
+    var maps=buildSectionMaps(records);
+
+    records.forEach(function(rec){
+      var color=colorFor(rec,maps,hasBoth);
+      document.querySelectorAll('.mountain-icon-group').forEach(function(g){
+        var mk=clean(g.dataset.mountain || '');
+        var ak=nk(g.dataset.amount || '');
+        if(mk===rec.mountain && ak===rec.amount){
+          g.dataset.precipKind=rec.kind;
+          var tri=g.querySelector('.mountain-triangle');
+          if(tri){ tri.setAttribute('fill',color); tri.style.fill=color; }
+        }
+      });
+      document.querySelectorAll('.mountain-value-label-group').forEach(function(g){
+        var mk=clean(g.dataset.mountain || '');
+        var ak=nk(g.dataset.amount || '');
+        if(mk===rec.mountain && ak===rec.amount){
+          g.dataset.precipKind=rec.kind;
+          var rect=g.querySelector('rect');
+          if(rect){ rect.setAttribute('fill',color); rect.style.fill=color; }
+          var txt=g.querySelector('.amount-label');
+          if(txt){ txt.style.fill='#ffffff'; txt.setAttribute('fill','#ffffff'); }
+        }
+      });
+    });
+  }
+
+  var oldApply=(typeof applyForecastMatch==='function')?applyForecastMatch:null;
+  if(oldApply && !oldApply.__v246MountainExact){
+    var wrapped=function(){
+      var result=oldApply.apply(this,arguments);
+      applyMountainColors();
+      requestAnimationFrame(applyMountainColors);
+      setTimeout(applyMountainColors,40);
+      setTimeout(applyMountainColors,140);
+      return result;
+    };
+    wrapped.__v246MountainExact=true;
+    window.applyForecastMatch=applyForecastMatch=wrapped;
+  }
+
+  ['mapRainColorToggle','mapShowerColorToggle','kmaChoiceRain','kmaChoiceShower','kmaChoiceBoth'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.addEventListener('click',function(){
+      requestAnimationFrame(applyMountainColors);
+      setTimeout(applyMountainColors,80);
+    });
+  });
 })();
 </script>
 
