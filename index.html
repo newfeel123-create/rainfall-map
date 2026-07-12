@@ -2341,7 +2341,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.6</div>
+   <div class="app-version">Ver.2.4.7</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -11346,6 +11346,171 @@ if (document.readyState === 'loading') {
       setTimeout(applyMountainColors,80);
     });
   });
+})();
+</script>
+
+
+
+<!-- v2.4.7: 산지 색상 최종 우선순위 수정
+     1) 예상 강수량 버튼 활성화: 산지 포함 전체를 강우량 인덱스 색
+     2) 소나기 버튼 활성화: 산지 포함 전체를 소나기 인덱스 색
+     3) 기본 상태: 단일 문단은 현재 기본 인덱스 색, 둘 다 불러온 경우에만 문단별 색 -->
+<script id="v2-4-7-mountain-mode-authoritative-fix">
+(function(){
+  function nk(v){
+    try { return normalizeAmountKey(String(v || '')); }
+    catch(e){ return String(v || '').replace(/\s+/g,'').replace(/mm/gi,''); }
+  }
+  function clean(v){ return String(v || '').replace(/[.·ㆍ\s]/g,''); }
+
+  function parseMountainSections(raw){
+    var records=[];
+    var kind='';
+    String(raw || '').split(/\n+/).forEach(function(line){
+      var s=String(line || '').trim();
+      if(!s) return;
+      if(/소나기에\s*의한\s*예상\s*강수량/i.test(s)){ kind='shower'; return; }
+      if(/예상\s*강수량/i.test(s) && !/소나기에\s*의한/i.test(s)){ kind='rain'; return; }
+      if(!kind || !/mm/i.test(s)) return;
+      try {
+        splitForecastParts(s).forEach(function(part){
+          if(part && part.type==='mountain'){
+            records.push({ kind:kind, mountain:clean(part.area), amount:nk(part.amount) });
+          }
+        });
+      } catch(e) {}
+    });
+    return records;
+  }
+
+  function sectionMaps(records){
+    var rainKeys=[], showerKeys=[];
+    records.forEach(function(r){
+      var arr=r.kind==='shower' ? showerKeys : rainKeys;
+      if(r.amount && arr.indexOf(r.amount)<0) arr.push(r.amount);
+    });
+    return {
+      rain:(typeof buildDistinctModeColorMap==='function') ? buildDistinctModeColorMap(rainKeys,'rain') : {},
+      shower:(typeof buildDistinctModeColorMap==='function') ? buildDistinctModeColorMap(showerKeys,'shower') : {}
+    };
+  }
+
+  function desiredColor(rec, maps, hasBoth){
+    var mode=(typeof currentMapColorMode!=='undefined' && currentMapColorMode) ? currentMapColorMode : 'default';
+
+    // 지도 오른쪽 버튼이 활성화된 경우 그 모드가 무조건 최우선입니다.
+    if(mode==='rain' || mode==='shower'){
+      if(window.amountColorMap && amountColorMap[rec.amount]) return amountColorMap[rec.amount];
+      try { return makeModeColor(rec.amount, mode); } catch(e) {}
+    }
+
+    // 기본 상태에서 두 문단을 함께 불러온 경우에만 문단별 색을 사용합니다.
+    if(hasBoth){
+      var m=rec.kind==='shower' ? maps.shower : maps.rain;
+      if(m && m[rec.amount]) return m[rec.amount];
+      try { return makeModeColor(rec.amount, rec.kind); } catch(e) {}
+    }
+
+    // 예상 강수량만 또는 소나기만 불러온 일반 매칭은 현재 인덱스 색을 그대로 사용합니다.
+    if(window.amountColorMap && amountColorMap[rec.amount]) return amountColorMap[rec.amount];
+    try { return makeModeColor(rec.amount, rec.kind); } catch(e) {}
+    return '#ffffff';
+  }
+
+  function enforceMountainModeColors(){
+    var input=document.getElementById('forecastText');
+    if(!input) return;
+    var records=parseMountainSections(input.value);
+    if(!records.length) return;
+
+    var hasRain=records.some(function(r){ return r.kind==='rain'; });
+    var hasShower=records.some(function(r){ return r.kind==='shower'; });
+    var hasBoth=hasRain && hasShower;
+    var maps=sectionMaps(records);
+    var mode=(typeof currentMapColorMode!=='undefined' && currentMapColorMode) ? currentMapColorMode : 'default';
+
+    records.forEach(function(rec){
+      var color=desiredColor(rec,maps,hasBoth);
+      var finalKind=(mode==='rain' || mode==='shower') ? mode : rec.kind;
+
+      document.querySelectorAll('.mountain-icon-group').forEach(function(g){
+        if(clean(g.dataset.mountain||'')===rec.mountain && nk(g.dataset.amount||'')===rec.amount){
+          g.dataset.precipKind=finalKind;
+          var tri=g.querySelector('.mountain-triangle');
+          if(tri){
+            tri.setAttribute('fill',color);
+            tri.style.setProperty('fill',color,'important');
+          }
+        }
+      });
+
+      document.querySelectorAll('.mountain-value-label-group').forEach(function(g){
+        if(clean(g.dataset.mountain||'')===rec.mountain && nk(g.dataset.amount||'')===rec.amount){
+          g.dataset.precipKind=finalKind;
+          var rect=g.querySelector('rect');
+          if(rect){
+            rect.setAttribute('fill',color);
+            rect.style.setProperty('fill',color,'important');
+          }
+          var txt=g.querySelector('.amount-label');
+          if(txt){
+            txt.setAttribute('fill','#ffffff');
+            txt.style.setProperty('fill','#ffffff','important');
+          }
+        }
+      });
+    });
+  }
+
+  function scheduleFix(){
+    enforceMountainModeColors();
+    requestAnimationFrame(enforceMountainModeColors);
+    setTimeout(enforceMountainModeColors,60);
+    setTimeout(enforceMountainModeColors,180);
+    setTimeout(enforceMountainModeColors,360);
+  }
+
+  // 기존 함수들의 뒤에서 최종 색을 확정합니다.
+  var oldApply=(typeof applyForecastMatch==='function') ? applyForecastMatch : null;
+  if(oldApply && !oldApply.__v247MountainModeFix){
+    var wrappedApply=function(){
+      var result=oldApply.apply(this,arguments);
+      scheduleFix();
+      return result;
+    };
+    wrappedApply.__v247MountainModeFix=true;
+    window.applyForecastMatch=applyForecastMatch=wrappedApply;
+  }
+
+  var oldSet=(typeof setMapColorMode==='function') ? setMapColorMode : null;
+  if(oldSet && !oldSet.__v247MountainModeFix){
+    var wrappedSet=function(){
+      var result=oldSet.apply(this,arguments);
+      scheduleFix();
+      return result;
+    };
+    wrappedSet.__v247MountainModeFix=true;
+    window.setMapColorMode=setMapColorMode=wrappedSet;
+  }
+
+  var oldRender=(typeof renderMountainIcons==='function') ? renderMountainIcons : null;
+  if(oldRender && !oldRender.__v247MountainModeFix){
+    var wrappedRender=function(){
+      var result=oldRender.apply(this,arguments);
+      setTimeout(enforceMountainModeColors,0);
+      setTimeout(enforceMountainModeColors,220);
+      return result;
+    };
+    wrappedRender.__v247MountainModeFix=true;
+    window.renderMountainIcons=renderMountainIcons=wrappedRender;
+  }
+
+  ['mapRainColorToggle','mapShowerColorToggle','pasteMatchBtn','kmaChoiceRain','kmaChoiceShower','kmaChoiceBoth'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.addEventListener('click',scheduleFix);
+  });
+
+  window.addEventListener('load',function(){ setTimeout(scheduleFix,120); });
 })();
 </script>
 
