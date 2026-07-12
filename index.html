@@ -4577,6 +4577,19 @@ function saveLabelPos(amount, x, y) {
 }
 
 function svgPointFromClient(evt) {
+  // v8.11: 화면 좌표를 실제 viewport 내부 SVG 좌표로 직접 변환합니다.
+  // CSS 크기·모바일 화면 비율·현재 지도 확대 배율과 관계없이
+  // 처음 잡은 지점이 손가락/마우스를 그대로 따라가도록 합니다.
+  try {
+    const ctm = viewport.getScreenCTM();
+    if (ctm) {
+      const p = new DOMPoint(Number(evt.clientX) || 0, Number(evt.clientY) || 0);
+      const local = p.matrixTransform(ctm.inverse());
+      return { x:local.x, y:local.y };
+    }
+  } catch(_) {}
+
+  // 구형 브라우저용 예비 계산
   const rect = svg.getBoundingClientRect();
   const rawX = (evt.clientX - rect.left) / rect.width * WIDTH;
   const rawY = (evt.clientY - rect.top) / rect.height * HEIGHT;
@@ -6955,11 +6968,32 @@ function clearSavedMapView() {
   } catch(e) {}
 }
 
+let mapMoveEnabled = false;
 let view = loadSavedMapView() || defaultMapView();
+// v8.11: 지도 이동 OFF일 때 절대로 변하지 않는 잠금 좌표입니다.
+let lockedMapView = normalizeMapView(view) || defaultMapView();
+let restoringLockedMapView = false;
 let viewRaf = 0;
+
+function copyMapView(v) {
+  return { x:Number(v.x), y:Number(v.y), k:Number(v.k) };
+}
+
+function restoreLockedMapView() {
+  if (mapMoveEnabled || restoringLockedMapView || !lockedMapView) return;
+  restoringLockedMapView = true;
+  view = copyMapView(lockedMapView);
+  const expected = `translate(${view.x} ${view.y}) scale(${view.k})`;
+  if (viewport.getAttribute('transform') !== expected) viewport.setAttribute('transform', expected);
+  restoringLockedMapView = false;
+}
+
 function applyView() {
+  // OFF 상태에서는 어떤 버튼/재렌더링 코드가 view를 건드려도 잠금값으로 복원합니다.
+  if (!mapMoveEnabled && lockedMapView) view = copyMapView(lockedMapView);
   if (viewRaf) return;
   viewRaf = requestAnimationFrame(() => {
+    if (!mapMoveEnabled && lockedMapView) view = copyMapView(lockedMapView);
     viewport.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
     viewRaf = 0;
   });
@@ -6969,7 +7003,6 @@ window.addEventListener('beforeunload', saveMapView);
 
 // 지도 잠금/해제: 처음 실행 시에는 잠금 상태입니다.
 // ON일 때만 지도 이동, 휠 확대/축소, 휴대폰 핀치 확대가 가능합니다.
-let mapMoveEnabled = false;
 const mapMoveToggle = document.getElementById('mapMoveToggle');
 
 function updateMapMoveToggle() {
@@ -6985,10 +7018,24 @@ function updateMapMoveToggle() {
 if (mapMoveToggle) {
   mapMoveToggle.addEventListener('click', () => {
     mapMoveEnabled = !mapMoveEnabled;
+    if (!mapMoveEnabled) {
+      // OFF를 누른 바로 그 위치와 확대 배율을 잠급니다.
+      lockedMapView = normalizeMapView(view) || defaultMapView();
+      view = copyMapView(lockedMapView);
+      applyView();
+      saveMapView();
+    }
     updateMapMoveToggle();
   });
 }
 updateMapMoveToggle();
+
+// 강우량/소나기 모드 전환이나 레이어 재생성 과정에서 viewport transform이
+// 직접 변경되더라도 OFF 상태에서는 즉시 잠금 위치로 되돌립니다.
+const lockedMapTransformObserver = new MutationObserver(() => {
+  if (!mapMoveEnabled) restoreLockedMapView();
+});
+lockedMapTransformObserver.observe(viewport, {attributes:true, attributeFilter:['transform']});
 
 // 버튼을 누르면 노란색 불이 들어오게 표시합니다.
 // 지도 이동 ON/OFF 버튼은 상태 표시가 유지되고, 나머지 버튼은 짧게 점등됩니다.
