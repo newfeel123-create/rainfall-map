@@ -2336,7 +2336,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.2.9</div>
+   <div class="app-version">Ver.2.3.0</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -10147,7 +10147,7 @@ if (document.readyState === 'loading') {
   function recolorMixedRainShower(){
     const input = document.getElementById('forecastText');
     const raw = input ? input.value : '';
-    const hasRain = /(?:^|\n)\s*\*\s*예상\s*강수량/im.test(raw);
+    const hasRain = /(?:^|\n)\s*\*?\s*예상\s*강수량/im.test(raw);
     const hasShower = /소나기에\s*의한\s*예상\s*강수량/im.test(raw);
     if (!(hasRain && hasShower)) return;
 
@@ -10558,8 +10558,8 @@ if (document.readyState === 'loading') {
   function hasBothForecasts(){
     const text = input ? String(input.value || '') : '';
 
-    const rainHeader = /(?:^|\n)\s*\*?\s*예상\s*강수량\s*\([^)]*\)/im.test(text);
-    const showerHeader = /(?:^|\n)\s*\*?\s*소나기에\s*의한\s*예상\s*강수량\s*\([^)]*\)/im.test(text);
+    const rainHeader = /(?:^|\n)\s*\*?\s*예상\s*강수량(?:\s*\([^)]*\))?/im.test(text);
+    const showerHeader = /(?:^|\n)\s*\*?\s*소나기에\s*의한\s*예상\s*강수량(?:\s*\([^)]*\))?/im.test(text);
 
     return rainHeader && showerHeader;
   }
@@ -10612,6 +10612,29 @@ if (document.readyState === 'loading') {
   }
 
   refreshButton();
+})();
+</script>
+
+
+<script id="v2-30-mixed-color-final-sync">
+(function(){
+  const btn = document.getElementById('mapBothColorToggle');
+  if (!btn) return;
+
+  btn.addEventListener('click', function(){
+    setTimeout(function(){
+      if (typeof recolorMixedRainShower === 'function') {
+        recolorMixedRainShower();
+        window.__mixedRainShowerApplied = true;
+        btn.classList.add('both-active');
+        btn.textContent = '🌦 강우량+소나기 적용됨';
+
+        if (typeof renderRainLegend === 'function') {
+          renderRainLegend();
+        }
+      }
+    }, 0);
+  });
 })();
 </script>
 
