@@ -2493,7 +2493,7 @@ input[type="range"] {
 
 </script>
 <script>
-// ===== v2.4.0 기상청 특보 테스트 =====
+// ===== v2.4.1 기상청 특보 테스트: 주의보=빗금, 경보=단색, 중대경보=진한 단색 =====
 (function(){
   const TYPE_INFO = [
     {re:/호우/, name:'호우', color:'#e53935'},
@@ -2501,7 +2501,8 @@ input[type="range"] {
     {re:/풍랑/, name:'풍랑', color:'#1e88e5'},
     {re:/대설/, name:'대설', color:'#8e24aa'},
     {re:/한파/, name:'한파', color:'#3949ab'},
-    {re:/폭염/, name:'폭염', color:'#f4511e'},
+    // 기상청 폭염 지도 표출 방식에 맞춤: 주의보는 자주색 빗금, 경보는 자주색 단색
+    {re:/폭염/, name:'폭염', color:'#c000c8', severeColor:'#7a007f'},
     {re:/건조/, name:'건조', color:'#8d6e63'},
     {re:/태풍/, name:'태풍', color:'#6a1b9a'},
     {re:/해일|지진해일/, name:'해일', color:'#00838f'}
@@ -2509,6 +2510,40 @@ input[type="range"] {
 
   function warningNormalize(v){
     return String(v||'').replace(/\s+/g,'').replace(/[·ㆍ]/g,'.').replace(/[()（）]/g,' ').trim();
+  }
+
+  function ensureWarningPattern(color){
+    const svg=document.getElementById('mapSvg') || document.querySelector('.mapwrap svg') || document.querySelector('svg');
+    if(!svg) return color;
+    let defs=svg.querySelector('defs');
+    if(!defs){
+      defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+      svg.insertBefore(defs,svg.firstChild);
+    }
+    const safe=String(color).replace(/[^a-zA-Z0-9]/g,'');
+    const id='warning-advisory-hatch-'+safe;
+    let pattern=defs.querySelector('#'+id);
+    if(!pattern){
+      pattern=document.createElementNS('http://www.w3.org/2000/svg','pattern');
+      pattern.setAttribute('id',id);
+      pattern.setAttribute('data-warning-pattern','1');
+      pattern.setAttribute('patternUnits','userSpaceOnUse');
+      pattern.setAttribute('width','8');
+      pattern.setAttribute('height','8');
+
+      const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      bg.setAttribute('width','8'); bg.setAttribute('height','8'); bg.setAttribute('fill','#ffffff');
+      pattern.appendChild(bg);
+
+      const p1=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      p1.setAttribute('x','0'); p1.setAttribute('y','0'); p1.setAttribute('width','4'); p1.setAttribute('height','4'); p1.setAttribute('fill',color);
+      pattern.appendChild(p1);
+      const p2=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      p2.setAttribute('x','4'); p2.setAttribute('y','4'); p2.setAttribute('width','4'); p2.setAttribute('height','4'); p2.setAttribute('fill',color);
+      pattern.appendChild(p2);
+      defs.appendChild(pattern);
+    }
+    return 'url(#'+id+')';
   }
 
   function clearWarningOverlay(){
@@ -2520,20 +2555,28 @@ input[type="range"] {
       }
       el.classList.remove('warning-highlight');
       delete el.dataset.warningType;
+      delete el.dataset.warningLevel;
     });
     const r=document.getElementById('warningTestResult');
     if(r) r.textContent='특보 표시를 지웠습니다.';
   }
 
   function detectType(line){
-    return TYPE_INFO.find(function(x){return x.re.test(line);}) || null;
+    const base=TYPE_INFO.find(function(x){return x.re.test(line);}) || null;
+    if(!base) return null;
+    // 반드시 중대경보 → 경보 → 주의보 순서로 판별
+    let level='특보';
+    if(/중대경보/.test(line)) level='중대경보';
+    else if(/경보/.test(line)) level='경보';
+    else if(/주의보/.test(line)) level='주의보';
+    return Object.assign({},base,{level:level, displayName:base.name+(level==='특보'?'':level)});
   }
 
   function lineRegionText(line){
     let v=String(line||'');
     v=v.replace(/^(발표|발효|해제|변경|연장|대치)[^:：]*[:：]?/,'');
-    v=v.replace(/(호우|강풍|풍랑|대설|한파|폭염|건조|태풍|해일|지진해일)(경보|주의보)?/g,' ');
-    v=v.replace(/(경보|주의보|예비특보|특보)/g,' ');
+    v=v.replace(/(호우|강풍|풍랑|대설|한파|폭염|건조|태풍|해일|지진해일)(중대경보|경보|주의보)?/g,' ');
+    v=v.replace(/(중대경보|경보|주의보|예비특보|특보)/g,' ');
     return warningNormalize(v);
   }
 
@@ -2550,6 +2593,17 @@ input[type="range"] {
       }catch(e){}
     }
     return false;
+  }
+
+  function warningFill(hit){
+    if(hit.name==='폭염'){
+      if(hit.level==='주의보') return ensureWarningPattern(hit.color);
+      if(hit.level==='중대경보') return hit.severeColor || '#7a007f';
+      return hit.color; // 경보 및 단계 미표기
+    }
+    // 다른 특보도 주의보는 같은 색의 빗금, 경보는 단색으로 구분
+    if(hit.level==='주의보') return ensureWarningPattern(hit.color);
+    return hit.level==='중대경보' ? (hit.severeColor || hit.color) : hit.color;
   }
 
   function applyWarnings(){
@@ -2578,10 +2632,12 @@ input[type="range"] {
       }
       if(hit){
         el.dataset.warningOriginalFill=el.style.fill||'';
-        el.style.fill=hit.color;
+        el.style.fill=warningFill(hit);
         el.classList.add('warning-highlight');
         el.dataset.warningType=hit.name;
-        counts[hit.name]=(counts[hit.name]||0)+1;
+        el.dataset.warningLevel=hit.level;
+        const key=hit.displayName || hit.name;
+        counts[key]=(counts[key]||0)+1;
       }
     });
     const total=Object.values(counts).reduce(function(a,b){return a+b;},0);
@@ -2604,7 +2660,6 @@ input[type="range"] {
     if(clear) clear.addEventListener('click',clearWarningOverlay);
   });
 })();
-
 
 </script>
 <script>
