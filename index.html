@@ -2336,7 +2336,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.3</div>
+   <div class="app-version">Ver.2.4.4</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -5747,7 +5747,8 @@ function clearSavedLabelPositions() {
   } catch(e) {}
 }
 
-function clearRainMatch() {
+function clearRainMatch(options = {}) {
+  const deferRender = !!options.deferRender;
   selectedManualAmountKey = '';
   hiddenAmountLabelKeys = new Set();
   saveHiddenAmountLabels();
@@ -5759,22 +5760,30 @@ function clearRainMatch() {
   amountDisplayCompositeMap = {};
   amountPeriodMap = {};
   amountCompositeSplitColorMap = {};
-  renderRainLegend();
-  document.querySelectorAll('.region').forEach(el => {
+
+  // v2.4.4: 매칭 직전에는 범례를 먼저 다시 그리지 않고 최종 결과에서 한 번만 갱신합니다.
+  if (!deferRender) renderRainLegend();
+  const regions = (typeof __getForecastRegionCache === 'function')
+    ? __getForecastRegionCache()
+    : Array.from(document.querySelectorAll('.region'));
+  regions.forEach(el => {
     el.classList.remove('matched','selected');
     el.style.fill = '';
     el.dataset.amount = '';
     el.dataset.manualColor = '';
   });
   amountLabelGroups = {};
-  if (amountLabelsG) amountLabelsG.innerHTML = '';
+  if (amountLabelsG) amountLabelsG.replaceChildren();
   mountainIconGroups = {};
-  if (mountainIconsG) mountainIconsG.innerHTML = '';
+  if (mountainIconsG) mountainIconsG.replaceChildren();
 }
 
 function rebuildAmountLabelGroupsFromMap() {
   amountLabelGroups = {};
-  document.querySelectorAll('.region').forEach(el => {
+  const regions = (typeof __getForecastRegionCache === 'function')
+    ? __getForecastRegionCache()
+    : Array.from(document.querySelectorAll('.region'));
+  regions.forEach(el => {
     const amount = displayCompositeAmountForGroup(el.dataset.amount || '');
     if (amount) addGroupAmountLabel([el], amount);
   });
@@ -5908,7 +5917,7 @@ function initHeavyGroupToggle() {
   autoHeavyGroupEnabled = true;
 }
 
-// v2.4.3: 지역 목록/토큰 결과 캐시 + 지도 DOM 일괄 반영으로 매칭 속도 개선
+// v2.4.4: 지역 목록/토큰 결과 캐시 + 지도 DOM 일괄 반영으로 매칭 속도 개선
 let __forecastRegionCache = null;
 const __forecastTokenMatchCache = new Map();
 function __getForecastRegionCache() {
@@ -5919,7 +5928,7 @@ function __getForecastRegionCache() {
   return __forecastRegionCache;
 }
 function __getForecastMatchedRegions(token) {
-  const key = String(token || '');
+  const key = normText(String(token || ''));
   if (__forecastTokenMatchCache.has(key)) return __forecastTokenMatchCache.get(key);
   const matched = __getForecastRegionCache().filter(el => {
     const sido = el.dataset.sido || '';
@@ -5931,7 +5940,8 @@ function __getForecastMatchedRegions(token) {
 }
 
 function applyForecastMatch() {
-  clearRainMatch();
+  const __matchStartedAt = (window.performance && performance.now) ? performance.now() : Date.now();
+  clearRainMatch({deferRender:true});
   const raw = document.getElementById('forecastText').value;
   amountPeriodMap = buildAmountPeriodMap(raw);
   const lines = raw.split(/\n+/).map(v => v.trim()).filter(Boolean);
@@ -5958,14 +5968,15 @@ function applyForecastMatch() {
 
     const tokens = tokensFromArea(part.area, part.zone);
     const color = amountColor(part.amount);
-    let count = 0;
+    // v2.4.4: 동일 지역이 여러 토큰에 중복 매칭되어도 한 번만 계산/집계합니다.
+    const partMatchedRegions = new Set();
     tokens.forEach(token => {
-      const matchedRegions = __getForecastMatchedRegions(token);
-      matchedRegions.forEach(el => {
-        pendingRegionUpdates.set(el, { amount: part.amount, color });
-        count++;
-      });
+      __getForecastMatchedRegions(token).forEach(el => partMatchedRegions.add(el));
     });
+    partMatchedRegions.forEach(el => {
+      pendingRegionUpdates.set(el, { amount: part.amount, color });
+    });
+    const count = partMatchedRegions.size;
     matchedCount += count;
     summaries.push(`${tokens.join(', ')} → ${part.amount || '수치 없음'} / ${count}개 지역`);
   });
@@ -5978,15 +5989,17 @@ function applyForecastMatch() {
 
   // 모든 지역 적용이 끝난 뒤 화면 요소를 한 번만 다시 그립니다.
   rebuildAmountLabelGroupsFromMap();
-  renderAmountLabels({ignoreSaved:true});
+  renderAmountLabels({ignoreSaved:true}); // 내부에서 범례도 한 번 갱신
   renderMountainIcons();
-  renderRainLegend();
   if (manualMergeState && manualMergeState.opened) refreshManualMergeList();
 
   const box = document.getElementById('matchResult');
   box.innerHTML = matchedCount
     ? `매칭 완료: ${matchedCount}개 지역<br>${summaries.join('<br>')}`
     : '매칭된 지역이 없습니다. 지역명 표기를 확인해 주세요.';
+
+  const __matchEndedAt = (window.performance && performance.now) ? performance.now() : Date.now();
+  console.log(`[v2.4.4] 예보 매칭 완료: ${Math.round(__matchEndedAt - __matchStartedAt)}ms`);
 
   if (matchedCount > 0 && typeof window.playUiDoneSound === 'function') {
     window.playUiDoneSound();
@@ -6891,6 +6904,13 @@ let labelMoveMode = false;
 
 
 initHeavyGroupToggle();
+
+// v2.4.4: 사용자가 불러오기/매칭 버튼을 누르기 전에 지역 DOM 캐시를 미리 준비합니다.
+(function prewarmForecastRegionCache(){
+  const run = () => { try { __getForecastRegionCache(); } catch(e) {} };
+  if ('requestIdleCallback' in window) requestIdleCallback(run, {timeout:700});
+  else setTimeout(run, 0);
+})();
 
 document.getElementById('pasteMatchBtn').addEventListener('click', () => {
   applyForecastMatch();
