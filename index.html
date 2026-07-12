@@ -2341,7 +2341,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.5.0</div>
+   <div class="app-version">Ver.2.4.9</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2441,7 +2441,7 @@ input[type="range"] {
       <div id="mapColorModePanel" class="map-color-mode-panel" aria-label="지도 색상 전환">
         <button id="mapRainColorToggle" type="button" class="map-color-mode-btn" title="누르면 파랑·보라 계열로 변경, 다시 누르면 기본 색상">🌧 예상 강수량</button>
         <button id="mapShowerColorToggle" type="button" class="map-color-mode-btn" title="누르면 초록 계열로 변경, 다시 누르면 기본 색상">⚡ 소나기</button>
-        <button id="mapBothColorToggle" type="button" class="map-color-mode-btn" title="예상 강수량은 강우량 색, 소나기는 초록색으로 함께 표시" style="display: block;" aria-pressed="false">🌦 강우량+소나기</button>
+        <button id="mapBothColorToggle" type="button" class="map-color-mode-btn" title="예상 강수량은 강우량 색, 소나기는 초록색으로 함께 표시" style="display: block;">🌦 강우량+소나기</button>
 
         <button id="mapColorIndexReset" type="button" title="현재 모드의 자동 단계 색상으로 되돌립니다">인덱스 초기화</button>
       </div>
@@ -11649,158 +11649,6 @@ if (document.readyState === 'loading') {
   }
 
   window.addEventListener('load',function(){correctNow();});
-})();
-</script>
-
-
-
-<!-- Ver.2.5.0: 강우량+소나기 토글 ON/OFF + 소나기 캐릭터 동시 표시 -->
-<style id="v250-both-toggle-final-style">
-#mapBothColorToggle{
-  display:block !important;
-}
-#mapBothColorToggle.both-active{
-  color:#fff !important;
-  border-color:#5b21b6 !important;
-  background:linear-gradient(90deg,#2563eb 0 50%,#16a34a 50% 100%) !important;
-  box-shadow:0 0 0 3px rgba(91,33,182,.22) !important;
-}
-</style>
-<script id="v250-both-toggle-final">
-(function(){
-  var oldBtn=document.getElementById('mapBothColorToggle');
-  if(!oldBtn) return;
-
-  /* 이전 버전에서 중복으로 붙은 클릭 이벤트를 제거합니다. */
-  var btn=oldBtn.cloneNode(true);
-  oldBtn.replaceWith(btn);
-  btn.textContent='🌦 강우량+소나기';
-  btn.setAttribute('aria-pressed','false');
-
-  var bothOn=false;
-  var previousMode='default';
-
-  function hasBothForecasts(){
-    var input=document.getElementById('forecastText');
-    var raw=input ? String(input.value||'') : '';
-    return /(?:^|\n)\s*\*?\s*예상\s*강수량(?:\s*\([^)]*\))?/im.test(raw)
-      && /(?:^|\n)\s*\*?\s*소나기에\s*의한\s*예상\s*강수량(?:\s*\([^)]*\))?/im.test(raw);
-  }
-
-  function clearMixedMarkers(){
-    document.querySelectorAll('.region').forEach(function(el){
-      delete el.dataset.rainMixColor;
-      delete el.dataset.showerMixColor;
-      delete el.dataset.precipKind;
-    });
-    document.querySelectorAll('.mountain-icon-group,.mountain-value-label-group').forEach(function(el){
-      delete el.dataset.precipKind;
-    });
-    var svg=document.querySelector('.mapwrap svg')||document.querySelector('svg');
-    if(svg){
-      svg.querySelectorAll('pattern[data-rain-shower-hatch="1"]').forEach(function(p){p.remove();});
-    }
-    window.__mixedRainShowerApplied=false;
-    window.__mixedAmountKindMap={};
-  }
-
-  function showCharacter(show){
-    if(typeof createShowerCharacter==='function') createShowerCharacter();
-    var g=document.getElementById('showerCharacter');
-    var layer=document.getElementById('showerCharacterLayer');
-    if(!g) return;
-    g.classList.toggle('hidden',!show);
-    g.style.display=show?'':'none';
-    if(show && layer) layer.appendChild(g);
-  }
-
-  function refreshButton(){
-    btn.classList.toggle('both-active',bothOn);
-    btn.setAttribute('aria-pressed',bothOn?'true':'false');
-    btn.textContent='🌦 강우량+소나기';
-  }
-
-  function renderBoth(){
-    if(typeof recolorMixedRainShower==='function') recolorMixedRainShower();
-    window.__mixedRainShowerApplied=true;
-    showCharacter(true);
-    if(typeof renderRainLegend==='function') renderRainLegend();
-  }
-
-  function restorePrevious(){
-    clearMixedMarkers();
-    if(typeof currentMapColorMode!=='undefined') currentMapColorMode=previousMode||'default';
-    if(typeof clearManualColorSelection==='function') clearManualColorSelection();
-    if(typeof repaintCurrentMapColors==='function') repaintCurrentMapColors();
-    if(typeof updateMapColorModeButtons==='function') updateMapColorModeButtons();
-    if(typeof renderManualColorPalette==='function') renderManualColorPalette();
-    showCharacter((typeof currentMapColorMode!=='undefined') && currentMapColorMode==='shower');
-    if(typeof renderRainLegend==='function') renderRainLegend();
-  }
-
-  btn.addEventListener('click',function(e){
-    e.preventDefault();
-    e.stopPropagation();
-
-    if(!bothOn){
-      if(!hasBothForecasts()){
-        alert('예상 강수량과 소나기 예상 강수량이 함께 있을 때 사용할 수 있습니다.');
-        return;
-      }
-      previousMode=(typeof currentMapColorMode!=='undefined') ? currentMapColorMode : 'default';
-      bothOn=true;
-      refreshButton();
-      renderBoth();
-      requestAnimationFrame(renderBoth);
-      setTimeout(renderBoth,80);
-    }else{
-      bothOn=false;
-      refreshButton();
-      restorePrevious();
-      requestAnimationFrame(restorePrevious);
-    }
-  });
-
-  /* 다른 단독 모드 버튼을 누르면 복합 토글은 자동으로 꺼집니다. */
-  ['mapRainColorToggle','mapShowerColorToggle'].forEach(function(id){
-    var modeBtn=document.getElementById(id);
-    if(!modeBtn) return;
-    modeBtn.addEventListener('click',function(){
-      if(!bothOn) return;
-      bothOn=false;
-      clearMixedMarkers();
-      refreshButton();
-      setTimeout(function(){
-        showCharacter((typeof currentMapColorMode!=='undefined') && currentMapColorMode==='shower');
-      },0);
-    });
-  });
-
-  /* 붙여넣기/원문 변경 시 토글 상태를 안전하게 초기화합니다. */
-  var input=document.getElementById('forecastText');
-  if(input){
-    input.addEventListener('input',function(){
-      if(!bothOn) return;
-      bothOn=false;
-      clearMixedMarkers();
-      refreshButton();
-      restorePrevious();
-    });
-  }
-
-  /* 기존 가시성 함수가 복합 모드 캐릭터를 숨기지 못하도록 최종 확정합니다. */
-  var oldVisibility=(typeof updateShowerCharacterVisibility==='function')?updateShowerCharacterVisibility:null;
-  if(oldVisibility && !oldVisibility.__v250BothAware){
-    var wrapped=function(){
-      var result=oldVisibility.apply(this,arguments);
-      if(bothOn) showCharacter(true);
-      return result;
-    };
-    wrapped.__v250BothAware=true;
-    window.updateShowerCharacterVisibility=updateShowerCharacterVisibility=wrapped;
-  }
-
-  refreshButton();
 })();
 </script>
 
