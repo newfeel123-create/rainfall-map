@@ -7272,13 +7272,23 @@ function saveCurrentMapImage() {
       el.style.removeProperty('visibility');
     });
 
-    // 현재가 소나기 모드이면 소나기 캐릭터를 저장 이미지에도 표시합니다.
-    if (typeof currentMapColorMode !== 'undefined' && currentMapColorMode === 'shower') {
+    // 이미지 저장에서는 지도 안 '소나기' 모드일 때만 소나기 캐릭터를 포함합니다.
+    const isShowerImageExport = (
+      typeof currentMapColorMode !== 'undefined' &&
+      currentMapColorMode === 'shower'
+    );
+
+    if (isShowerImageExport) {
       clonedSvg.querySelectorAll('.shower-character-group').forEach(function(el){
         el.classList.remove('hidden');
         el.style.display = '';
         el.style.visibility = 'visible';
         el.style.opacity = '1';
+      });
+    } else {
+      // 저장용 CSS가 강제로 다시 표시하지 못하도록 복제 SVG에서 완전히 제거합니다.
+      clonedSvg.querySelectorAll('.shower-character-group').forEach(function(el){
+        el.remove();
       });
     }
 
