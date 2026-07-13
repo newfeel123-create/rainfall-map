@@ -11347,4 +11347,25 @@ window.addEventListener('load',()=>setTimeout(sync,50));
 })();
 </script>
 
+
+<!-- v8.28 모바일 지도 영역 터치 스크롤 차단 -->
+<style id="v8-28-map-touch-scroll-lock">
+  .mapwrap,
+  .mapwrap svg {
+    touch-action: none !important;
+    overscroll-behavior: contain !important;
+  }
+</style>
+<script id="v8-28-map-touch-scroll-lock-script">
+(function(){
+  'use strict';
+  function blockMapScroll(e){
+    var map = e.target && e.target.closest ? e.target.closest('.mapwrap') : null;
+    if (!map) return;
+    e.preventDefault();
+  }
+  document.addEventListener('touchmove', blockMapScroll, { passive:false, capture:true });
+})();
+</script>
+
 </body></html>
