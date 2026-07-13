@@ -2350,7 +2350,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.8</div>
+   <div class="app-version">Ver.2.9.0</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -2390,7 +2390,7 @@ input[type="range"] {
           <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
         </div>
       </div>
-      <div class="manual-color-grid mode-12" id="manualColorGrid"><button type="button" class="manual-color-chip mode-palette-chip" data-color="#FFD400" title="기본 수동 인덱스 1단계" aria-label="기본 수동 인덱스 1단계" style="background: rgb(255, 212, 0);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#E53935" title="기본 수동 인덱스 2단계" aria-label="기본 수동 인덱스 2단계" style="background: rgb(229, 57, 53);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#1E88E5" title="기본 수동 인덱스 3단계" aria-label="기본 수동 인덱스 3단계" style="background: rgb(30, 136, 229);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#43A047" title="기본 수동 인덱스 4단계" aria-label="기본 수동 인덱스 4단계" style="background: rgb(67, 160, 71);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#8E24AA" title="기본 수동 인덱스 5단계" aria-label="기본 수동 인덱스 5단계" style="background: rgb(142, 36, 170);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#FB8C00" title="기본 수동 인덱스 6단계" aria-label="기본 수동 인덱스 6단계" style="background: rgb(251, 140, 0);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#00ACC1" title="기본 수동 인덱스 7단계" aria-label="기본 수동 인덱스 7단계" style="background: rgb(0, 172, 193);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#6D4C41" title="기본 수동 인덱스 8단계" aria-label="기본 수동 인덱스 8단계" style="background: rgb(109, 76, 65);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#D81B60" title="기본 수동 인덱스 9단계" aria-label="기본 수동 인덱스 9단계" style="background: rgb(216, 27, 96);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#3949AB" title="기본 수동 인덱스 10단계" aria-label="기본 수동 인덱스 10단계" style="background: rgb(57, 73, 171);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#7CB342" title="기본 수동 인덱스 11단계" aria-label="기본 수동 인덱스 11단계" style="background: rgb(124, 179, 66);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#F06292" title="기본 수동 인덱스 12단계" aria-label="기본 수동 인덱스 12단계" style="background: rgb(240, 98, 146);"></button></div>
+      <div class="manual-color-grid" id="manualColorGrid"></div>
     </div>
 
     <div class="manual-merge-panel" id="manualMergePanel">
@@ -5177,6 +5177,14 @@ function makeDraggableLabel(g, rect, text, amount) {
     }
     const p = currentPos();
     saveLabelPos(amount, p.x, p.y);
+
+    // v8.35: 실제 수치 박스 드래그가 끝난 직후 높은 곳 병합을 검사합니다.
+    // 기존 window pointerup 이벤트가 stopPropagation으로 막혀도 확실히 실행됩니다.
+    try {
+      if (typeof window.tryMergeDroppedHeavyLabel === 'function') {
+        setTimeout(function(){ window.tryMergeDroppedHeavyLabel(g); }, 30);
+      }
+    } catch(_) {}
     if (wasMoved) {
       restoreLabelHoldFocusAfterMove(true);
     } else {
@@ -5627,6 +5635,42 @@ function periodLabelForAmount(amount) {
   return bk && amountPeriodMap[bk] && amountPeriodMap[bk].length ? amountPeriodMap[bk].join('·') : '';
 }
 
+
+function getVisibleLegendColorForAmountPart(part){
+  const norm = String(part == null ? '' : part)
+    .replace(/mm/gi,'')
+    .replace(/\s+/g,'')
+    .replace(/[∼－–—～〜]/g,'~')
+    .replace(/이상/g,'↑')
+    .replace(/[()]/g,'')
+    .trim();
+
+  if (!norm) return '';
+
+  const rows = document.querySelectorAll('#rainLegend .rain-row');
+  for (const row of rows) {
+    const labelEl = row.querySelector('span:last-child');
+    const chip = row.querySelector('.chip');
+    if (!labelEl || !chip) continue;
+
+    const rowNorm = String(labelEl.textContent || '')
+      .replace(/mm/gi,'')
+      .replace(/\s+/g,'')
+      .replace(/[∼－–—～〜]/g,'~')
+      .replace(/이상/g,'↑')
+      .replace(/[()]/g,'')
+      .trim();
+
+    if (rowNorm === norm) {
+      return chip.style.backgroundColor ||
+             chip.style.background ||
+             getComputedStyle(chip).backgroundColor ||
+             '';
+    }
+  }
+  return '';
+}
+
 function renderAmountLabels(options = {}) {
   const ignoreSaved = !!options.ignoreSaved;
   amountLabelsG.innerHTML = '';
@@ -5699,7 +5743,10 @@ function renderAmountLabels(options = {}) {
     const baseKeyForColor = baseAmountKeyForHeavyGroup(baseCompositeShown) || baseAmountKeyForHeavyGroup(labelText) || amountKeyFromDisplayLabelPart(basePartLabel) || normalizeAmountKey(group.amount);
     // v7.94 핵심 수정: 5~40(60↑) 같은 복합 라벨의 앞부분은 무조건 '5~40' 기본 수치 색을 사용합니다.
     // 많은 곳(60↑) 또는 경기북부내륙 색이 앞부분 5~40 색을 덮어쓰지 못하게 합니다.
-    let baseColor = getPlainAmountColorByDisplayPart(basePartLabel);
+    // 앞부분은 현재 오른쪽 지도 인덱스의 같은 수치 색을 최우선으로 사용합니다.
+    // 예: 30~100(120↑)에서 30~100은 현재 인덱스의 30~100 색(노란색).
+    let baseColor = getVisibleLegendColorForAmountPart(basePartLabel);
+    if (!baseColor) baseColor = getPlainAmountColorByDisplayPart(basePartLabel);
     if (!baseColor || baseColor === '#ffffff') {
       baseColor = (amountColorMap && amountColorMap[baseKeyForColor])
         ? amountColorMap[baseKeyForColor]
@@ -5711,7 +5758,10 @@ function renderAmountLabels(options = {}) {
     let highColor = '';
     if (doSplitColor) {
       // 많은 곳 수치는 괄호 안 수치(예: 60↑) 색을 우선 사용합니다.
-      if (highKeyForColor && amountColorMap && amountColorMap[highKeyForColor]) highColor = amountColorMap[highKeyForColor];
+      // 괄호 안 많은 곳 수치도 현재 오른쪽 지도 인덱스의 같은 수치 색을 최우선으로 사용합니다.
+      // 예: 30~100(120↑)에서 (120↑)은 현재 인덱스의 120↑ 색(빨간색).
+      highColor = getVisibleLegendColorForAmountPart(highPartLabel);
+      if (!highColor && highKeyForColor && amountColorMap && amountColorMap[highKeyForColor]) highColor = amountColorMap[highKeyForColor];
       if (!highColor && highKeyForColor) highColor = getAmountColorByAnyKey(highKeyForColor, highPartLabel);
       if (!highColor) highColor = (__fillColors.find(c => c && c !== baseColor) || __fillColors[0] || '');
       if (!highColor) highColor = '#E53935';
@@ -5882,8 +5932,13 @@ function buildAmountDisplayCompositeMap(rawText) {
     const base = `${m[1]}~${m[2]}mm`;
     const heavy = `${m[3]}mm이상`;
     const composite = `${m[1]}~${m[2]}mm(${m[3]}mm이상)`;
+    // 기본 수치는 기존처럼 복합 박스(예: 30~80(100↑))로 표시합니다.
     map[normalizeAmountKey(base)] = composite;
-    map[normalizeAmountKey(heavy)] = composite;
+
+    // 많은 곳 수치(예: 100↑, 120↑)는 복합 박스에 합치지 않고
+    // 독립된 수치 박스로 한 번 더 표시되게 그대로 둡니다.
+    // 따라서 heavy 키는 composite로 치환하지 않습니다.
+
     map[normalizeAmountKey(composite)] = composite;
   }
   return map;
@@ -9556,10 +9611,21 @@ if (document.readyState === 'loading') {
       box.setAttribute('fill', '#ffffff');
       box.style.setProperty('fill', '#ffffff', 'important');
 
-      group.querySelectorAll('.amount-label, .amount-label tspan').forEach(function(text){
-        text.setAttribute('fill', color);
-        text.style.setProperty('fill', color, 'important');
-      });
+      var label = group.querySelector('.amount-label');
+      if (!label) return;
+
+      var parts = label.querySelectorAll('tspan');
+
+      if (parts.length >= 2) {
+        // 복합 수치 박스는 렌더링할 때 이미 앞/뒤 색을 따로 계산합니다.
+        // 예: 30~100은 노란색, (120↑)은 빨간색.
+        // 여기서 한 가지 색으로 다시 덮어쓰지 않습니다.
+        label.setAttribute('fill', 'none');
+        label.style.setProperty('fill', 'none', 'important');
+      } else {
+        label.setAttribute('fill', color);
+        label.style.setProperty('fill', color, 'important');
+      }
     });
   }
   window.syncAmountLabelBoxColors = syncAmountLabelBoxColors;
@@ -11395,6 +11461,148 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     if(document.body.classList.contains('map-move-enabled')) e.preventDefault();
   }
   document.addEventListener('touchmove',handleMapTouchMove,{passive:false,capture:true});
+})();
+</script>
+
+
+
+
+
+<!-- v8.35 높은 곳 수치 박스 드래그 병합 - 실제 드래그 종료 함수 직접 연결 -->
+<script id="v8-35-direct-heavy-label-merge">
+(function(){
+  'use strict';
+
+  function shown(group){
+    var text = group && group.querySelector('.amount-label');
+    return text ? String(text.textContent || '').replace(/\s+/g,'') : '';
+  }
+
+  function heavyNumber(group){
+    var m = shown(group).match(/^(\d+)↑$/);
+    return m ? m[1] : '';
+  }
+
+  function isPlainRange(group){
+    return /^\d+~\d+$/.test(shown(group));
+  }
+
+  function labelColor(group){
+    var text = group && group.querySelector('.amount-label');
+    if (!text) return '#111111';
+    var node = text.querySelector('tspan') || text;
+    return node.getAttribute('fill') ||
+           node.style.fill ||
+           getComputedStyle(node).fill ||
+           '#111111';
+  }
+
+  function forecastPairs(){
+    var result = [];
+    var field = document.getElementById('forecastText');
+    var raw = field ? String(field.value || '') : '';
+    raw = raw.replace(/[∼－–—～〜]/g,'~');
+
+    // 30~100mm(많은 곳 경기북부 120mm 이상)
+    var re = /(\d+)\s*~\s*(\d+)\s*mm\s*\([^)]*(?:많은\s*곳|높은\s*곳)[^)]*?(\d+)\s*mm\s*(?:이상|초과)[^)]*\)/gi;
+    var m;
+    while ((m = re.exec(raw)) !== null) {
+      result.push({
+        base: m[1] + '~' + m[2],
+        heavy: m[3]
+      });
+    }
+    return result;
+  }
+
+  function expectedBaseForHeavy(number){
+    var pair = forecastPairs().find(function(item){ return item.heavy === number; });
+    return pair ? pair.base : '';
+  }
+
+  function overlapsOrNear(a, b){
+    var ar = a.getBoundingClientRect();
+    var br = b.getBoundingClientRect();
+
+    var ix = Math.max(0, Math.min(ar.right, br.right) - Math.max(ar.left, br.left));
+    var iy = Math.max(0, Math.min(ar.bottom, br.bottom) - Math.max(ar.top, br.top));
+    if (ix > 0 && iy > 0) return true;
+
+    var acx = (ar.left + ar.right) / 2;
+    var acy = (ar.top + ar.bottom) / 2;
+    var bcx = (br.left + br.right) / 2;
+    var bcy = (br.top + br.bottom) / 2;
+
+    return Math.abs(acx - bcx) <= Math.max(ar.width, br.width) * 0.62 &&
+           Math.abs(acy - bcy) <= Math.max(ar.height, br.height) * 0.85;
+  }
+
+  function resizeBox(group){
+    requestAnimationFrame(function(){
+      try {
+        var text = group.querySelector('.amount-label');
+        var rect = group.querySelector('.amount-label-box');
+        if (!text || !rect) return;
+        var box = text.getBBox();
+        rect.setAttribute('x', (box.x - 12).toFixed(1));
+        rect.setAttribute('y', (box.y - 7).toFixed(1));
+        rect.setAttribute('width', (box.width + 24).toFixed(1));
+        rect.setAttribute('height', (box.height + 14).toFixed(1));
+      } catch(_) {}
+    });
+  }
+
+  function merge(baseGroup, heavyGroup){
+    var baseLabel = shown(baseGroup);
+    var heavyLabel = shown(heavyGroup);
+    var text = baseGroup.querySelector('.amount-label');
+    if (!text) return false;
+
+    var baseColor = labelColor(baseGroup);
+    var heavyColor = labelColor(heavyGroup);
+
+    while (text.firstChild) text.removeChild(text.firstChild);
+    text.setAttribute('fill','none');
+    text.style.setProperty('fill','none','important');
+
+    var basePart = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    basePart.textContent = baseLabel + ' ';
+    basePart.setAttribute('fill',baseColor);
+    basePart.style.setProperty('fill',baseColor,'important');
+
+    var heavyPart = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    heavyPart.textContent = '(' + heavyLabel + ')';
+    heavyPart.setAttribute('fill',heavyColor);
+    heavyPart.style.setProperty('fill',heavyColor,'important');
+
+    text.appendChild(basePart);
+    text.appendChild(heavyPart);
+
+    heavyGroup.style.display = 'none';
+    baseGroup.dataset.dragMergedHeavy = heavyLabel;
+    resizeBox(baseGroup);
+    return true;
+  }
+
+  window.tryMergeDroppedHeavyLabel = function(droppedGroup){
+    if (!droppedGroup || !droppedGroup.isConnected) return false;
+
+    var number = heavyNumber(droppedGroup);
+    if (!number) return false;
+
+    var expectedBase = expectedBaseForHeavy(number);
+    if (!expectedBase) return false;
+
+    var target = Array.from(document.querySelectorAll('#amountLabels .amount-label-group')).find(function(group){
+      return group !== droppedGroup &&
+             group.style.display !== 'none' &&
+             isPlainRange(group) &&
+             shown(group) === expectedBase &&
+             overlapsOrNear(droppedGroup, group);
+    });
+
+    return target ? merge(target, droppedGroup) : false;
+  };
 })();
 </script>
 
