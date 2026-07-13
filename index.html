@@ -5105,6 +5105,33 @@ function makeDraggableLabel(g, rect, text, amount) {
     } else {
       return;
     }
+    // v8.21: 수치 박스가 지도 네모 영역 밖으로 빠지지 않도록 현재 보이는 SVG 영역으로 제한합니다.
+    try {
+      const svgRect = svg.getBoundingClientRect();
+      const padPx = 6;
+      const leftTop = svgPointFromClient({clientX:svgRect.left + padPx, clientY:svgRect.top + padPx});
+      const rightBottom = svgPointFromClient({clientX:svgRect.right - padPx, clientY:svgRect.bottom - padPx});
+      const bb = g.getBBox();
+      const minX = Math.min(leftTop.x, rightBottom.x) - bb.x;
+      const maxX = Math.max(leftTop.x, rightBottom.x) - (bb.x + bb.width);
+      const minY = Math.min(leftTop.y, rightBottom.y) - bb.y;
+      const maxY = Math.max(leftTop.y, rightBottom.y) - (bb.y + bb.height);
+      if (Number.isFinite(minX) && Number.isFinite(maxX)) nx = Math.max(minX, Math.min(maxX, nx));
+      if (Number.isFinite(minY) && Number.isFinite(maxY)) ny = Math.max(minY, Math.min(maxY, ny));
+    } catch(_) {}
+
+    // 지도 이동 OFF 상태에서는 수치 박스만 움직이고 지도 transform은 즉시 고정합니다.
+    try {
+      if (typeof mapMoveEnabled !== 'undefined' && !mapMoveEnabled && lockedMapView) {
+        dragging = false; last = null; touchMode = null; touchLast = null;
+        view.x = Number(lockedMapView.x);
+        view.y = Number(lockedMapView.y);
+        view.k = Number(lockedMapView.k);
+        const fixedTransform = `translate(${view.x} ${view.y}) scale(${view.k})`;
+        if (viewport.getAttribute('transform') !== fixedTransform) viewport.setAttribute('transform', fixedTransform);
+      }
+    } catch(_) {}
+
     g.dataset.x = nx;
     g.dataset.y = ny;
     g.setAttribute('transform', `translate(${nx} ${ny})`);
@@ -10936,6 +10963,185 @@ if (document.readyState === 'loading') {
 
   window.syncMountainToVisibleLegend=syncMountainToVisibleLegend;
   schedule();
+})();
+</script>
+
+
+<!-- v8.20: 수치 박스 선택 시 삭제 점등 + 지도 이동 OFF 완전 입력 차단 -->
+<style id="v8-20-hard-map-lock">
+  #labelTrashBin.label-selected-ready {
+    background:#fff7ed !important;
+    border-color:#f59e0b !important;
+    color:#c2410c !important;
+    box-shadow:0 0 0 4px rgba(245,158,11,.22), 0 5px 14px rgba(15,23,42,.16) !important;
+  }
+  #labelTrashBin.label-selected-ready.trash-hot {
+    background:#fff1f2 !important;
+    border-color:#ef4444 !important;
+    color:#b91c1c !important;
+    box-shadow:0 0 0 4px rgba(239,68,68,.22), 0 5px 14px rgba(15,23,42,.18) !important;
+  }
+</style>
+<script id="v8-20-hard-map-lock-script">
+(function(){
+  'use strict';
+
+  var labelDragActive = false;
+  var selectedLabel = null;
+  var trash = document.getElementById('labelTrashBin');
+
+  function isLabelTarget(target){
+    return !!(target && target.closest && target.closest('.amount-label-group, .mountain-value-label-group'));
+  }
+  function isMountainTarget(target){
+    return !!(target && target.closest && target.closest('.mountain-icon-group'));
+  }
+  function setTrashReady(on){
+    if (!trash) return;
+    trash.classList.toggle('label-selected-ready', !!on);
+  }
+  function cancelMapGesture(){
+    try { dragging = false; } catch(_) {}
+    try { last = null; } catch(_) {}
+    try { touchMode = null; } catch(_) {}
+    try { touchLast = null; } catch(_) {}
+    try { svg.classList.remove('panning'); } catch(_) {}
+  }
+  function enforceLockedViewWithoutAnimation(){
+    try {
+      if (typeof mapMoveEnabled !== 'undefined' && !mapMoveEnabled && lockedMapView) {
+        cancelMapGesture();
+        var lx = Number(lockedMapView.x), ly = Number(lockedMapView.y), lk = Number(lockedMapView.k);
+        if (Number.isFinite(lx) && Number.isFinite(ly) && Number.isFinite(lk)) {
+          view.x = lx; view.y = ly; view.k = lk;
+          var expected = 'translate(' + lx + ' ' + ly + ') scale(' + lk + ')';
+          if (viewport.getAttribute('transform') !== expected) viewport.setAttribute('transform', expected);
+        }
+      }
+    } catch(_) {}
+  }
+
+  // 수치 박스를 누르는 즉시 지도 드래그 상태를 끊고 삭제 영역을 점등합니다.
+  function onLabelPress(e){
+    var box = e.target && e.target.closest ? e.target.closest('.amount-label-group') : null;
+    if (!box) return;
+    labelDragActive = true;
+    selectedLabel = box;
+    setTrashReady(true);
+    cancelMapGesture();
+    enforceLockedViewWithoutAnimation();
+  }
+  document.addEventListener('pointerdown', onLabelPress, true);
+  document.addEventListener('mousedown', onLabelPress, true);
+  document.addEventListener('touchstart', onLabelPress, {capture:true, passive:true});
+
+  function finishLabelPointer(){
+    labelDragActive = false;
+    enforceLockedViewWithoutAnimation();
+  }
+  window.addEventListener('pointerup', finishLabelPointer, true);
+  window.addEventListener('pointercancel', finishLabelPointer, true);
+  window.addEventListener('mouseup', finishLabelPointer, true);
+  window.addEventListener('touchend', finishLabelPointer, true);
+  window.addEventListener('touchcancel', finishLabelPointer, true);
+
+  // 빈 곳을 누르면 삭제 점등을 해제합니다.
+  document.addEventListener('pointerdown', function(e){
+    if (isLabelTarget(e.target)) return;
+    if (trash && (e.target === trash || (e.target.closest && e.target.closest('#labelTrashBin')))) return;
+    selectedLabel = null;
+    setTrashReady(false);
+  }, true);
+
+  // 지도 이동 OFF에서는 지도 자체의 입력 시작을 캡처 단계에서 완전히 차단합니다.
+  function blockMapStart(e){
+    try {
+      if (typeof mapMoveEnabled === 'undefined' || mapMoveEnabled) return;
+      if (isLabelTarget(e.target) || isMountainTarget(e.target)) return;
+      cancelMapGesture();
+      enforceLockedViewWithoutAnimation();
+      if (e.cancelable) e.preventDefault();
+      e.stopImmediatePropagation();
+    } catch(_) {}
+  }
+  svg.addEventListener('pointerdown', blockMapStart, {capture:true, passive:false});
+  svg.addEventListener('mousedown', blockMapStart, {capture:true, passive:false});
+  svg.addEventListener('touchstart', blockMapStart, {capture:true, passive:false});
+  svg.addEventListener('wheel', blockMapStart, {capture:true, passive:false});
+
+  // 기존 window 이동 핸들러가 남아 있어도 OFF 상태에서는 지도용 상태값을 먼저 제거합니다.
+  function guardMove(e){
+    try {
+      if (typeof mapMoveEnabled === 'undefined' || mapMoveEnabled) return;
+      cancelMapGesture();
+      enforceLockedViewWithoutAnimation();
+      // 수치 박스 드래그는 막지 않습니다. 지도만 고정합니다.
+    } catch(_) {}
+  }
+  window.addEventListener('pointermove', guardMove, {capture:true, passive:false});
+  window.addEventListener('mousemove', guardMove, true);
+  window.addEventListener('touchmove', guardMove, {capture:true, passive:false});
+
+  // OFF로 전환되는 순간 현재 위치를 고정하고 모든 진행 중인 지도 제스처를 취소합니다.
+  var toggle = document.getElementById('mapMoveToggle');
+  if (toggle) {
+    toggle.addEventListener('click', function(){
+      setTimeout(function(){
+        try {
+          if (!mapMoveEnabled) {
+            cancelMapGesture();
+            if (lockedMapView) {
+              view.x = Number(lockedMapView.x);
+              view.y = Number(lockedMapView.y);
+              view.k = Number(lockedMapView.k);
+            }
+            enforceLockedViewWithoutAnimation();
+          }
+        } catch(_) {}
+      }, 0);
+    }, true);
+  }
+
+  // 삭제 후 선택 대상이 사라지면 점등도 자동 해제합니다.
+  if (trash && window.MutationObserver) {
+    new MutationObserver(function(){
+      if (selectedLabel && !document.documentElement.contains(selectedLabel)) {
+        selectedLabel = null;
+        setTrashReady(false);
+      }
+    }).observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['display','class','style']});
+  }
+})();
+</script>
+
+<!-- v8.21 수치 박스 경계 제한 + 지도 OFF 절대 고정 -->
+<script id="v8-21-final-label-boundary-map-lock">
+(function(){
+  'use strict';
+  function isLabel(t){ return !!(t && t.closest && t.closest('.amount-label-group, .mountain-value-label-group')); }
+  function hardFreeze(){
+    try {
+      if (typeof mapMoveEnabled === 'undefined' || mapMoveEnabled || !lockedMapView) return;
+      dragging = false; last = null; touchMode = null; touchLast = null;
+      if (svg) svg.classList.remove('panning');
+      view.x = Number(lockedMapView.x);
+      view.y = Number(lockedMapView.y);
+      view.k = Number(lockedMapView.k);
+      var tr = 'translate(' + view.x + ' ' + view.y + ') scale(' + view.k + ')';
+      if (viewport && viewport.getAttribute('transform') !== tr) viewport.setAttribute('transform', tr);
+    } catch(_) {}
+  }
+  ['pointerdown','mousedown','touchstart','pointermove','mousemove','touchmove'].forEach(function(type){
+    window.addEventListener(type, function(e){
+      try {
+        if (typeof mapMoveEnabled === 'undefined' || mapMoveEnabled) return;
+        hardFreeze();
+        // 수치 박스 이벤트는 그대로 통과시켜 박스 이동을 허용합니다.
+        if (isLabel(e.target)) return;
+      } catch(_) {}
+    }, {capture:true, passive:false});
+  });
+  setInterval(hardFreeze, 80);
 })();
 </script>
 </body></html>
