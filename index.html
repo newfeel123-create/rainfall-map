@@ -2333,6 +2333,15 @@ input[type="range"] {
 }
 </style>
 
+
+<style id="v8-30-off-map-page-scroll-fix">
+  body:not(.map-move-enabled) .mapwrap,
+  body:not(.map-move-enabled) .mapwrap svg {
+    touch-action: pan-y !important;
+    overscroll-behavior-y: auto !important;
+  }
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -2341,7 +2350,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.5.0</div>
+   <div class="app-version">Ver.2.6.0</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -11083,8 +11092,14 @@ if (document.readyState === 'loading') {
     try {
       if (typeof mapMoveEnabled === 'undefined' || mapMoveEnabled) return;
       if (isLabelTarget(e.target) || isMountainTarget(e.target)) return;
+
       cancelMapGesture();
       enforceLockedViewWithoutAnimation();
+
+      // 지도 이동 OFF의 터치 입력은 페이지 세로 스크롤에 넘깁니다.
+      // 마우스/펜 입력만 기존처럼 지도 조작 시작을 차단합니다.
+      if (e.type === 'touchstart') return;
+
       if (e.cancelable) e.preventDefault();
       e.stopImmediatePropagation();
     } catch(_) {}
@@ -11348,23 +11363,31 @@ window.addEventListener('load',()=>setTimeout(sync,50));
 </script>
 
 
-<!-- v8.28 모바일 지도 영역 터치 스크롤 차단 -->
-<style id="v8-28-map-touch-scroll-lock">
-  .mapwrap,
-  .mapwrap svg {
+
+
+
+<!-- v8.29 지도 잠금/이동 모드별 터치 스크롤 처리 -->
+<style id="v8-29-map-touch-mode">
+  body:not(.map-move-enabled) .mapwrap,
+  body:not(.map-move-enabled) .mapwrap svg {
+    touch-action: pan-y !important;
+    overscroll-behavior: auto !important;
+  }
+  body.map-move-enabled .mapwrap,
+  body.map-move-enabled .mapwrap svg {
     touch-action: none !important;
     overscroll-behavior: contain !important;
   }
 </style>
-<script id="v8-28-map-touch-scroll-lock-script">
+<script id="v8-29-map-touch-mode-script">
 (function(){
   'use strict';
-  function blockMapScroll(e){
-    var map = e.target && e.target.closest ? e.target.closest('.mapwrap') : null;
-    if (!map) return;
-    e.preventDefault();
+  function handleMapTouchMove(e){
+    var map=e.target&&e.target.closest?e.target.closest('.mapwrap'):null;
+    if(!map) return;
+    if(document.body.classList.contains('map-move-enabled')) e.preventDefault();
   }
-  document.addEventListener('touchmove', blockMapScroll, { passive:false, capture:true });
+  document.addEventListener('touchmove',handleMapTouchMove,{passive:false,capture:true});
 })();
 </script>
 
