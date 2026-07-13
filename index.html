@@ -2381,7 +2381,7 @@ input[type="range"] {
           <button id="manualColorOff" type="button" class="manual-color-off">선택 해제</button>
         </div>
       </div>
-      <div class="manual-color-grid" id="manualColorGrid"></div>
+      <div class="manual-color-grid mode-12" id="manualColorGrid"><button type="button" class="manual-color-chip mode-palette-chip" data-color="#FFD400" title="기본 수동 인덱스 1단계" aria-label="기본 수동 인덱스 1단계" style="background: rgb(255, 212, 0);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#E53935" title="기본 수동 인덱스 2단계" aria-label="기본 수동 인덱스 2단계" style="background: rgb(229, 57, 53);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#1E88E5" title="기본 수동 인덱스 3단계" aria-label="기본 수동 인덱스 3단계" style="background: rgb(30, 136, 229);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#43A047" title="기본 수동 인덱스 4단계" aria-label="기본 수동 인덱스 4단계" style="background: rgb(67, 160, 71);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#8E24AA" title="기본 수동 인덱스 5단계" aria-label="기본 수동 인덱스 5단계" style="background: rgb(142, 36, 170);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#FB8C00" title="기본 수동 인덱스 6단계" aria-label="기본 수동 인덱스 6단계" style="background: rgb(251, 140, 0);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#00ACC1" title="기본 수동 인덱스 7단계" aria-label="기본 수동 인덱스 7단계" style="background: rgb(0, 172, 193);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#6D4C41" title="기본 수동 인덱스 8단계" aria-label="기본 수동 인덱스 8단계" style="background: rgb(109, 76, 65);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#D81B60" title="기본 수동 인덱스 9단계" aria-label="기본 수동 인덱스 9단계" style="background: rgb(216, 27, 96);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#3949AB" title="기본 수동 인덱스 10단계" aria-label="기본 수동 인덱스 10단계" style="background: rgb(57, 73, 171);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#7CB342" title="기본 수동 인덱스 11단계" aria-label="기본 수동 인덱스 11단계" style="background: rgb(124, 179, 66);"></button><button type="button" class="manual-color-chip mode-palette-chip" data-color="#F06292" title="기본 수동 인덱스 12단계" aria-label="기본 수동 인덱스 12단계" style="background: rgb(240, 98, 146);"></button></div>
     </div>
 
     <div class="manual-merge-panel" id="manualMergePanel">
@@ -11317,6 +11317,33 @@ if (document.readyState === 'loading') {
     paintRegion(region, armedColor);
     clearArmedColor();
   }, true);
+})();
+</script>
+
+
+<!-- v8.27 map toggle sync -->
+<script>
+(function(){
+function sync(){
+ const both=document.getElementById('manualBothModeBtn');
+ if(!both) return;
+ const mode=window.currentMapColorMode||'default';
+ const on=both.classList.contains('mode-active')||both.classList.contains('btn-active');
+ if(mode!=='default' && !on) both.click();
+ if(mode==='default' && on) both.click();
+}
+if(window.setMapColorMode && !window.setMapColorMode.__sync207){
+ const orig=window.setMapColorMode;
+ const wrap=function(){
+   const r=orig.apply(this,arguments);
+   setTimeout(sync,0);
+   setTimeout(sync,100);
+   return r;
+ };
+ wrap.__sync207=true;
+ window.setMapColorMode=wrap;
+}
+window.addEventListener('load',()=>setTimeout(sync,50));
 })();
 </script>
 
