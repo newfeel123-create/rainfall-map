@@ -2350,7 +2350,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.6.0</div>
+   <div class="app-version">Ver.2.4.8</div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -9552,13 +9552,13 @@ if (document.readyState === 'loading') {
       if (!box) return;
       var color = getLabelColor(group);
 
-      box.setAttribute('fill', color);
-      box.style.setProperty('fill', color, 'important');
+      // 원래 방식 복원: 박스는 항상 흰색, 수치 글자에 인덱스 색 적용
+      box.setAttribute('fill', '#ffffff');
+      box.style.setProperty('fill', '#ffffff', 'important');
 
-      // 색상 박스 위 글자는 항상 흰색으로 통일합니다.
       group.querySelectorAll('.amount-label, .amount-label tspan').forEach(function(text){
-        text.setAttribute('fill', '#ffffff');
-        text.style.setProperty('fill', '#ffffff', 'important');
+        text.setAttribute('fill', color);
+        text.style.setProperty('fill', color, 'important');
       });
     });
   }
@@ -10948,10 +10948,17 @@ if (document.readyState === 'loading') {
 
       var color=getLegendColor(g.dataset.amount || '');
       if(!color) return;
+
+      // 산지 수치도 박스는 흰색, 글자만 현재 인덱스 색으로 표시
       var rect=g.querySelector('.amount-label-box, rect');
       if(rect){
-        rect.style.fill=color;
-        rect.setAttribute('fill', color);
+        rect.style.fill='#ffffff';
+        rect.setAttribute('fill', '#ffffff');
+      }
+      var txt=g.querySelector('.amount-label');
+      if(txt){
+        txt.style.fill=color;
+        txt.setAttribute('fill', color);
       }
     });
   }
