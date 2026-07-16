@@ -47,7 +47,8 @@
     margin:0 0 8px 0;
   }
   .side p {
-    font-size:11.5px;
+    font-size:16px;
+  font-weight:900;
     line-height:1.5;
     color:#444;
   }
@@ -263,7 +264,7 @@
     display:flex;
     gap:8px;
     flex-wrap:wrap;
-    justify-content:center;
+    justify-content:flex-start;
   }
   .kma-day-buttons button {
     flex:1 1 0;
@@ -646,7 +647,7 @@
   }
   .kma-day-title {
     color:var(--ui-text) !important;
-    font-size:14px !important;
+    font-size:13px !important;
     letter-spacing:-0.4px;
   }
   .kma-day-buttons button,
@@ -1271,7 +1272,7 @@ svg {
   line-height:1.05 !important;
 }
 #rainLegend .chip {
-  width:14px !important;
+  width:10px !important;
   height:10px !important;
   border:1px solid rgba(120,120,120,.50) !important;
   border-radius:2px !important;
@@ -1632,7 +1633,7 @@ input[type="range"] {
 }
 .manual-merge-row .chip {
   width:12px;
-  height:10px;
+  height:12px;
   margin:0;
   border-radius:2px;
   flex:0 0 auto;
@@ -1670,7 +1671,7 @@ input[type="range"] {
     background:#FFFFFF !important;
     border:1px solid #C8D6E8 !important;
     color:var(--ui-blue) !important;
-    font-size:14px !important;
+    font-size:13px !important;
     border-radius:15px !important;
   }
   .manual-merge-list { max-height:170px !important; }
@@ -1864,7 +1865,7 @@ input[type="range"] {
   border:1px solid #b8c2cc;
   background:#fff;
   color:#334155;
-  font-size:9.5px;
+  font-size:11.5px;
   font-weight:900;
   white-space:nowrap;
   box-shadow:none !important;
@@ -2350,7 +2351,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version-row"><div class="app-version">Ver.2.4.9</div><div id="kmaConnectionStatus" class="kma-connection-status loading"><span class="kma-status-dot"></span><span class="kma-status-text">기상청 연결 중</span></div></div>
+   <div class="app-version-row"><div class="app-version">Ver.2.4.8</div><div id="kmaConnectionStatus" class="kma-connection-status loading"><span class="kma-status-dot"></span><span class="kma-status-text">기상청 연결 중</span></div></div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -11621,6 +11622,7 @@ window.addEventListener('load',()=>setTimeout(sync,50));
 }
 .app-version-row .app-version{
   margin:0 !important;
+  margin-right:auto !important;
 }
 .kma-connection-status{
   position:absolute;
@@ -11630,19 +11632,19 @@ window.addEventListener('load',()=>setTimeout(sync,50));
   display:inline-flex;
   align-items:center;
   gap:4px;
-  padding:2px 5px;
+  padding:5px 11px;
   border-radius:999px;
-  font-size:9.5px;
+  font-size:11.5px;
   line-height:1;
   font-weight:900;
   white-space:nowrap;
   user-select:none;
 }
 .kma-status-dot{
-  width:7px;
-  height:7px;
+  width:12px;
+  height:10px;
   border-radius:50%;
-  flex:0 0 7px;
+  flex:0 0 12px;
 }
 .kma-connection-status.loading{
   color:#9a6700;
@@ -11880,5 +11882,137 @@ window.addEventListener('load',()=>setTimeout(sync,50));
   }
 })();
 </script>
+
+
+<style id="kma-connection-large-box-override">
+/* 기상청 연결 상태 박스만 크게 표시 */
+.app-version-row{
+  min-height:40px !important;
+  height:40px !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  margin-bottom:8px !important;
+}
+.app-version-row .app-version{
+  margin:0 auto 0 0 !important;
+  flex:0 0 auto !important;
+}
+#kmaConnectionStatus.kma-connection-status{
+  position:absolute !important;
+  right:0 !important;
+  top:50% !important;
+  transform:translateY(-50%) !important;
+  min-width:145px !important;
+  height:26px !important;
+  box-sizing:border-box !important;
+  padding:0 7px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  font-size:13px !important;
+  line-height:26px !important;
+  font-weight:900 !important;
+  letter-spacing:-0.4px !important;
+  white-space:nowrap !important;
+}
+#kmaConnectionStatus .kma-status-dot{
+  width:14px !important;
+  height:10px !important;
+  min-width:10px !important;
+  flex:0 0 10px !important;
+}
+#kmaConnectionStatus .kma-status-text{
+  display:inline-block !important;
+  font-size:13px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+}
+@media(max-width:768px){
+  .app-version-row{
+    min-height:38px !important;
+    height:38px !important;
+  }
+  #kmaConnectionStatus.kma-connection-status{
+    min-width:174px !important;
+    height:32px !important;
+    padding:0 11px !important;
+    font-size:15px !important;
+    line-height:32px !important;
+    gap:7px !important;
+  }
+  #kmaConnectionStatus .kma-status-text{
+    font-size:15px !important;
+  }
+  #kmaConnectionStatus .kma-status-dot{
+    width:13px !important;
+    height:13px !important;
+    min-width:13px !important;
+    flex-basis:13px !important;
+  }
+}
+</style>
+
+
+<style id="kma-connection-final-small-override">
+/* PC/모바일 공통: 기상청 연결 상태 박스를 실제 내용 크기로 축소 */
+.app-version-row{
+  min-height:28px !important;
+  height:28px !important;
+  margin-bottom:8px !important;
+}
+#kmaConnectionStatus.kma-connection-status{
+  width:auto !important;
+  min-width:0 !important;
+  max-width:none !important;
+  height:24px !important;
+  min-height:24px !important;
+  padding:0 7px !important;
+  gap:4px !important;
+  border-radius:999px !important;
+  box-sizing:border-box !important;
+  font-size:11px !important;
+  line-height:24px !important;
+  font-weight:900 !important;
+}
+#kmaConnectionStatus .kma-status-text{
+  font-size:11px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+}
+#kmaConnectionStatus .kma-status-dot{
+  width:8px !important;
+  height:8px !important;
+  min-width:8px !important;
+  flex:0 0 8px !important;
+}
+@media(max-width:768px){
+  .app-version-row{
+    min-height:28px !important;
+    height:28px !important;
+  }
+  #kmaConnectionStatus.kma-connection-status{
+    width:auto !important;
+    min-width:0 !important;
+    max-width:none !important;
+    height:24px !important;
+    min-height:24px !important;
+    padding:0 7px !important;
+    gap:4px !important;
+    font-size:11px !important;
+    line-height:24px !important;
+  }
+  #kmaConnectionStatus .kma-status-text{
+    font-size:11px !important;
+  }
+  #kmaConnectionStatus .kma-status-dot{
+    width:8px !important;
+    height:8px !important;
+    min-width:8px !important;
+    flex:0 0 8px !important;
+  }
+}
+</style>
 
 </body></html>
