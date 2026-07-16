@@ -2350,7 +2350,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version">Ver.2.4.8</div>
+   <div class="app-version-row"><div class="app-version">Ver.2.4.9</div><div id="kmaConnectionStatus" class="kma-connection-status loading"><span class="kma-status-dot"></span><span class="kma-status-text">기상청 연결 중</span></div></div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -11606,6 +11606,278 @@ window.addEventListener('load',()=>setTimeout(sync,50));
 
     return target ? merge(target, droppedGroup) : false;
   };
+})();
+</script>
+
+
+<style id="kma-preload-connection-style">
+.app-version-row{
+  position:relative;
+  min-height:22px;
+  margin:0 0 8px 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.app-version-row .app-version{
+  margin:0 !important;
+}
+.kma-connection-status{
+  position:absolute;
+  right:0;
+  top:50%;
+  transform:translateY(-50%);
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:2px 5px;
+  border-radius:999px;
+  font-size:9.5px;
+  line-height:1;
+  font-weight:900;
+  white-space:nowrap;
+  user-select:none;
+}
+.kma-status-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  flex:0 0 7px;
+}
+.kma-connection-status.loading{
+  color:#9a6700;
+  background:#fff8db;
+  border:1px solid #f0cf65;
+}
+.kma-connection-status.loading .kma-status-dot{
+  background:#f5a800;
+  animation:kmaConnectionBlink .75s infinite;
+}
+.kma-connection-status.ready{
+  color:#08783e;
+  background:#edfff4;
+  border:1px solid #77d49e;
+}
+.kma-connection-status.ready .kma-status-dot{
+  background:#14a44d;
+  box-shadow:0 0 0 2px rgba(20,164,77,.14);
+}
+.kma-connection-status.error{
+  color:#b42318;
+  background:#fff1f0;
+  border:1px solid #f1a7a2;
+  cursor:pointer;
+}
+.kma-connection-status.error .kma-status-dot{
+  background:#d92d20;
+}
+@keyframes kmaConnectionBlink{
+  0%,100%{opacity:1; transform:scale(1)}
+  50%{opacity:.22; transform:scale(.72)}
+}
+@media(max-width:768px){
+  .app-version-row{
+    min-height:25px;
+    margin-bottom:7px;
+  }
+  .kma-connection-status{
+    right:1px;
+    font-size:8.8px;
+    padding:2px 4px;
+  }
+  .kma-status-dot{
+    width:6px;
+    height:6px;
+    flex-basis:6px;
+  }
+}
+</style>
+
+<script id="kma-preload-connection-script">
+(function(){
+  'use strict';
+
+  const KMA_PRELOAD_URLS = [
+    'https://www.weather.go.kr/w/forecast/overall/short-term.do',
+    'https://www.weather.go.kr/w/forecast/notice.do'
+  ];
+
+  let __kmaPreloadPromise = null;
+  let __kmaPreloadedDocs = [];
+  let __kmaPreloadedAt = 0;
+  let __kmaRetryTimer = null;
+  const KMA_MEMORY_TTL = 5 * 60 * 1000;
+
+  function __setKmaConnectionStatus(state, text){
+    const el = document.getElementById('kmaConnectionStatus');
+    if (!el) return;
+    el.classList.remove('loading','ready','error');
+    el.classList.add(state);
+    const label = el.querySelector('.kma-status-text');
+    if (label) label.textContent = text;
+    el.title = state === 'ready'
+      ? '오늘·내일 예보통보문 선불러오기 완료'
+      : (state === 'error' ? '클릭하면 다시 연결합니다.' : '기상청 예보통보문을 미리 불러오는 중입니다.');
+  }
+
+  function __validKmaDocument(raw){
+    if (!raw) return false;
+    try {
+      const blocks = __extractKmaRainBlocksDetailed(raw);
+      return Array.isArray(blocks) && blocks.some(b => b && /mm/.test(b.text || ''));
+    } catch(e) {
+      return /mm/.test(String(raw));
+    }
+  }
+
+  async function __preloadKmaDocuments(force){
+    const fresh = __kmaPreloadedDocs.length &&
+                  (Date.now() - __kmaPreloadedAt < KMA_MEMORY_TTL);
+    if (!force && fresh) return __kmaPreloadedDocs;
+    if (__kmaPreloadPromise) return __kmaPreloadPromise;
+
+    __setKmaConnectionStatus('loading', '기상청 연결 중');
+
+    __kmaPreloadPromise = Promise.allSettled(
+      KMA_PRELOAD_URLS.map(url => fetchTextWithFallback(url))
+    ).then(results => {
+      const docs = [];
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && __validKmaDocument(result.value)) {
+          docs.push({ url:KMA_PRELOAD_URLS[index], raw:result.value });
+        }
+      });
+
+      if (!docs.length) throw new Error('예보통보문 선불러오기 실패');
+
+      __kmaPreloadedDocs = docs;
+      __kmaPreloadedAt = Date.now();
+
+      try { __updateKmaForecastTimeFromRaw(docs[0].raw); } catch(e) {}
+      __setKmaConnectionStatus('ready', '기상청 연결됨');
+
+      if (__kmaRetryTimer) {
+        clearTimeout(__kmaRetryTimer);
+        __kmaRetryTimer = null;
+      }
+      return docs;
+    }).catch(err => {
+      __setKmaConnectionStatus('error', '기상청 연결 실패');
+      if (!__kmaRetryTimer) {
+        __kmaRetryTimer = setTimeout(() => {
+          __kmaRetryTimer = null;
+          __preloadKmaDocuments(true).catch(() => {});
+        }, 15000);
+      }
+      throw err;
+    }).finally(() => {
+      __kmaPreloadPromise = null;
+    });
+
+    return __kmaPreloadPromise;
+  }
+
+  function __combinedKmaBlocks(docs){
+    const blocks = [];
+    (docs || []).forEach(doc => {
+      try {
+        const list = __extractKmaRainBlocksDetailed(doc.raw);
+        if (Array.isArray(list)) blocks.push.apply(blocks, list);
+      } catch(e) {}
+    });
+    return blocks;
+  }
+
+  // 기존 함수 이름을 그대로 교체하여 기존 버튼/UI/지도 기능은 유지합니다.
+  window.showKmaChoice = async function(dayOffset){
+    __resetKmaChoiceForNewDay(dayOffset);
+    const input = document.getElementById('forecastText');
+    if (input) input.value = '';
+
+    const info = __kmaDateInfo(__selectedKmaDayOffset);
+    __setKmaChoiceNoButtons(info.label + ' 강수 항목 확인 중...');
+
+    try {
+      const docs = await __preloadKmaDocuments(false);
+      const blocks = __combinedKmaBlocks(docs);
+      const hasRain = __hasKmaKindStrict(blocks, __selectedKmaDayOffset, 'rain');
+      const hasShower = __hasKmaKindStrict(blocks, __selectedKmaDayOffset, 'shower');
+      __applyKmaChoiceAvailability(__selectedKmaDayOffset, hasRain, hasShower);
+    } catch(err) {
+      __setKmaChoiceNoButtons(info.label + ' 강수 항목 확인 실패');
+      console.warn('KMA cached choice check failed:', err);
+    }
+  };
+
+  window.loadKmaByDayAndKind = async function(dayOffset, kind){
+    const box = document.getElementById('matchResult');
+    const input = document.getElementById('forecastText');
+    const info = __kmaDateInfo(dayOffset);
+    const kindLabel = kind === 'rain' ? '예상 강수량' :
+                      (kind === 'shower' ? '소나기' : '예상 강수량/소나기');
+
+    try {
+      const docs = await __preloadKmaDocuments(false);
+      const blocks = __combinedKmaBlocks(docs);
+      const selected = __filterKmaBlocks(blocks, dayOffset, kind);
+      const result = selected.map(b => b.text).join('\n\n').trim();
+
+      if (!result || !/mm/.test(result)) {
+        throw new Error(info.label + ' ' + kindLabel + ' 문구를 찾지 못했습니다.');
+      }
+
+      if (input) input.value = result;
+      if (box) box.innerHTML = '미리 불러온 기상청 ' + info.label + ' ' + kindLabel +
+        ' 정보를 사용합니다.<br>지도 매칭을 실행합니다.';
+      applyForecastMatch();
+    } catch(err) {
+      if (box) box.innerHTML = '자동 불러오기에 실패했습니다.<br>원인: ' +
+        (err && err.message ? err.message : String(err));
+    }
+  };
+
+  // 예보 통보문 버튼도 이미 받은 원문을 우선 사용합니다.
+  window.loadRainfallFromKma = async function(){
+    const box = document.getElementById('matchResult');
+    const input = document.getElementById('forecastText');
+    try {
+      const docs = await __preloadKmaDocuments(false);
+      let result = '';
+      for (const doc of docs) {
+        const rain = __extractKmaRainBlocks(doc.raw);
+        if (rain && /mm/.test(rain)) {
+          result = rain;
+          break;
+        }
+      }
+      if (!result) throw new Error('예상 강수량/소나기 문구를 찾지 못했습니다.');
+      if (input) input.value = result;
+      if (box) box.innerHTML = '미리 불러온 기상청 예보통보문을 사용합니다.<br>지도 매칭을 실행합니다.';
+      applyForecastMatch();
+    } catch(err) {
+      if (box) box.innerHTML = '자동 불러오기에 실패했습니다.<br>원인: ' +
+        (err && err.message ? err.message : String(err));
+    }
+  };
+
+  function __startKmaPreload(){
+    const status = document.getElementById('kmaConnectionStatus');
+    if (status) {
+      status.addEventListener('click', () => {
+        if (status.classList.contains('error')) {
+          __preloadKmaDocuments(true).catch(() => {});
+        }
+      });
+    }
+    // 프로그램 화면과 기본 지도 로딩을 먼저 허용한 뒤 즉시 선불러오기 시작
+    setTimeout(() => __preloadKmaDocuments(false).catch(() => {}), 30);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', __startKmaPreload, {once:true});
+  } else {
+    __startKmaPreload();
+  }
 })();
 </script>
 
