@@ -6459,12 +6459,22 @@ function __extractKmaRainBlocks(raw) {
   return out;
 }
 
-async function __fetchOneText(u, timeoutMs) {
+async function __fetchOneText(u, timeoutMs, externalSignal) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs || 12000);
+  const timeout = Math.max(2500, Number(timeoutMs) || 6500);
+  const timer = setTimeout(() => controller.abort(), timeout);
+  const abortFromOutside = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', abortFromOutside, { once:true });
+  }
   try {
-    const res = await fetch(__withNoCache(u), {
-      cache: 'no-store',
+    // 같은 30초 안에는 같은 URL을 사용해 프록시/브라우저 캐시를 활용합니다.
+    const bucket = Math.floor(Date.now() / 30000);
+    const sep = u.includes('?') ? '&' : '?';
+    const requestUrl = u + sep + '_t=' + bucket;
+    const res = await fetch(requestUrl, {
+      cache: 'default',
       signal: controller.signal,
       headers: { 'Accept': 'text/html,text/plain,application/json,*/*' }
     });
@@ -6472,34 +6482,90 @@ async function __fetchOneText(u, timeoutMs) {
     return await res.text();
   } finally {
     clearTimeout(timer);
+    if (externalSignal) externalSignal.removeEventListener('abort', abortFromOutside);
   }
 }
 
-async function fetchTextWithFallback(url, onTry) {
-  const encoded = encodeURIComponent(url);
-  const urls = [
-    'https://r.jina.ai/' + url,
-    'https://api.allorigins.win/raw?url=' + encoded,
-    'https://api.allorigins.win/get?url=' + encoded,
-    'https://api.codetabs.com/v1/proxy?quest=' + encoded,
-    'https://api.codetabs.com/v1/proxy/?quest=' + encoded,
-    'https://corsproxy.io/?' + encoded,
-    'https://corsproxy.io/?url=' + encoded,
-    'https://thingproxy.freeboard.io/fetch/' + url
-  ];
-  let lastError = null;
-  for (let i = 0; i < urls.length; i++) {
-    try {
-      if (onTry) onTry(i + 1, urls.length);
-      const raw = await __fetchOneText(urls[i], 12000);
-      const plain = __kmaPlainText(raw);
-      if (plain && plain.length > 80 && /(예상\s*강수량|소나기).*mm|mm/.test(plain)) return raw;
-      lastError = new Error('예상 강수량 문구 없음');
-    } catch(err) {
-      lastError = err;
+const __kmaFastMemoryCache = new Map();
+
+function __kmaCacheGet(url) {
+  const now = Date.now();
+  const mem = __kmaFastMemoryCache.get(url);
+  if (mem && now - mem.time < 90000 && mem.raw) return mem.raw;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('kma-fast-cache:' + url) || 'null');
+    if (saved && now - saved.time < 90000 && saved.raw) {
+      __kmaFastMemoryCache.set(url, saved);
+      return saved.raw;
     }
-  }
-  throw lastError || new Error('불러오기 실패');
+  } catch(e) {}
+  return '';
+}
+
+function __kmaCacheSet(url, raw) {
+  const item = { time:Date.now(), raw:String(raw || '') };
+  __kmaFastMemoryCache.set(url, item);
+  try { sessionStorage.setItem('kma-fast-cache:' + url, JSON.stringify(item)); } catch(e) {}
+}
+
+async function fetchTextWithFallback(url, onTry) {
+  const cached = __kmaCacheGet(url);
+  if (cached) return cached;
+
+  const encoded = encodeURIComponent(url);
+  const candidates = [
+    { id:'jina', url:'https://r.jina.ai/' + url },
+    { id:'allorigins-raw', url:'https://api.allorigins.win/raw?url=' + encoded },
+    { id:'codetabs', url:'https://api.codetabs.com/v1/proxy?quest=' + encoded },
+    { id:'corsproxy', url:'https://corsproxy.io/?' + encoded },
+    { id:'allorigins-get', url:'https://api.allorigins.win/get?url=' + encoded },
+    { id:'direct', url:url }
+  ];
+
+  // 직전에 성공한 경로를 맨 앞으로 이동합니다.
+  let preferred = '';
+  try { preferred = localStorage.getItem('kma-fast-last-proxy') || ''; } catch(e) {}
+  if (preferred) candidates.sort((a,b) => (a.id === preferred ? -1 : b.id === preferred ? 1 : 0));
+
+  const controllers = candidates.map(() => new AbortController());
+  let settled = false;
+  let finished = 0;
+  let lastError = null;
+
+  return await new Promise((resolve, reject) => {
+    const finishError = () => {
+      if (!settled && finished >= candidates.length) {
+        settled = true;
+        reject(lastError || new Error('불러오기 실패'));
+      }
+    };
+
+    candidates.forEach((candidate, index) => {
+      // 상위 4개는 거의 동시에, 나머지는 약간 늦게 시작합니다.
+      const delay = index < 4 ? index * 90 : 450 + (index - 4) * 120;
+      setTimeout(async () => {
+        if (settled) { finished++; finishError(); return; }
+        try {
+          if (onTry) onTry(index + 1, candidates.length);
+          const raw = await __fetchOneText(candidate.url, 6500, controllers[index].signal);
+          const plain = __kmaPlainText(raw);
+          if (!plain || plain.length < 80 || !(/(예상\s*강수량|소나기).*mm|mm/.test(plain))) {
+            throw new Error('예상 강수량 문구 없음');
+          }
+          if (settled) return;
+          settled = true;
+          controllers.forEach((c,i) => { if (i !== index) c.abort(); });
+          try { localStorage.setItem('kma-fast-last-proxy', candidate.id); } catch(e) {}
+          __kmaCacheSet(url, raw);
+          resolve(raw);
+        } catch(err) {
+          lastError = err;
+          finished++;
+          finishError();
+        }
+      }, delay);
+    });
+  });
 }
 
 async function loadRainfallFromKma() {
