@@ -3885,6 +3885,8 @@ function scopedToken(zone, token) {
   if (z === '수도권') {
     if (token === '북부내륙') return '경기북부내륙';
     if (token === '경기북부내륙') return '경기북부내륙';
+    // 기상청 표현 '경기남서부'를 지도 내부 표준명 '경기남서내륙'으로 연결
+    if (token === '경기남서부' || token === '남서부') return '경기남서내륙';
   }
   if (z === '경상권') {
     if (token === '북서내륙') return '경남북서내륙';
