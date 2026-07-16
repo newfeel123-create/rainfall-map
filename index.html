@@ -11675,4 +11675,140 @@ window.addEventListener('load',()=>setTimeout(sync,50));
 })();
 </script>
 
+
+<script id="kma-ultra-fast-v9">
+/* v9 최고속 불러오기: 페이지 병렬 선취득 + 공유 Promise + 파싱 결과 캐시 */
+(function(){
+  const KMA_URLS = [
+    'https://www.weather.go.kr/w/forecast/overall/short-term.do',
+    'https://www.weather.go.kr/w/forecast/notice.do'
+  ];
+  const rawPromiseCache = new Map();
+  const parsedCache = new Map();
+
+  function getRaw(url, force){
+    if (force) rawPromiseCache.delete(url);
+    if (!rawPromiseCache.has(url)) {
+      const p = fetchTextWithFallback(url).catch(err => {
+        rawPromiseCache.delete(url);
+        throw err;
+      });
+      rawPromiseCache.set(url, p);
+    }
+    return rawPromiseCache.get(url);
+  }
+
+  function getParsed(url, raw){
+    const cached = parsedCache.get(url);
+    if (cached && cached.raw === raw) return cached;
+    const item = {
+      raw,
+      rainText: __extractKmaRainBlocks(raw),
+      blocks: __extractKmaRainBlocksDetailed(raw)
+    };
+    parsedCache.set(url, item);
+    return item;
+  }
+
+  async function getAllPages(){
+    const results = await Promise.allSettled(KMA_URLS.map(url => getRaw(url)));
+    return results.map((r,i) => r.status === 'fulfilled'
+      ? {ok:true, url:KMA_URLS[i], raw:r.value, parsed:getParsed(KMA_URLS[i], r.value)}
+      : {ok:false, url:KMA_URLS[i], error:r.reason});
+  }
+
+  function firstErrorMessage(pages){
+    const bad = pages.find(x => !x.ok && x.error);
+    return bad ? (bad.error.message || String(bad.error)) : '강수량 문구를 찾지 못했습니다.';
+  }
+
+  // 화면이 뜨자마자 두 페이지를 동시에 미리 받아 둡니다.
+  function prefetch(){ getAllPages().catch(()=>{}); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', prefetch, {once:true});
+  } else {
+    prefetch();
+  }
+
+  loadRainfallFromKma = async function(){
+    const box = document.getElementById('matchResult');
+    const input = document.getElementById('forecastText');
+    __startKmaLoadingTitle();
+    if (box) box.innerHTML = '기상청 예상 강수량/소나기 정보를 최고속으로 불러오는 중입니다...';
+    try {
+      const pages = await getAllPages();
+      for (const page of pages) {
+        if (!page.ok) continue;
+        __updateKmaForecastTimeFromRaw(page.raw);
+        const rain = page.parsed.rainText;
+        if (rain && /mm/.test(rain)) {
+          __stopKmaLoadingTitle(false);
+          if (input) input.value = rain;
+          if (box) box.innerHTML = '기상청 예상 강수량/소나기 정보를 불러왔습니다.<br>지도 매칭을 실행합니다.';
+          applyForecastMatch();
+          return;
+        }
+      }
+      throw new Error(firstErrorMessage(pages));
+    } catch(err) {
+      __stopKmaLoadingTitle(true);
+      if (box) box.innerHTML = '자동 불러오기에 실패했습니다.<br>원인: ' + (err.message || String(err));
+    }
+  };
+
+  loadKmaByDayAndKind = async function(dayOffset, kind){
+    const box = document.getElementById('matchResult');
+    const input = document.getElementById('forecastText');
+    const info = __kmaDateInfo(dayOffset);
+    const kindLabel = kind === 'rain' ? '예상 강수량' : (kind === 'shower' ? '소나기' : '예상 강수량/소나기');
+    __startKmaLoadingTitle();
+    if (box) box.innerHTML = '기상청 ' + info.label + ' ' + kindLabel + ' 정보를 최고속으로 불러오는 중입니다...';
+    try {
+      const pages = await getAllPages();
+      for (const page of pages) {
+        if (!page.ok) continue;
+        __updateKmaForecastTimeFromRaw(page.raw);
+        const selected = __filterKmaBlocks(page.parsed.blocks, dayOffset, kind);
+        const result = selected.map(b => b.text).join('\n\n').trim();
+        if (result && /mm/.test(result)) {
+          __stopKmaLoadingTitle(false);
+          if (input) input.value = result;
+          if (box) box.innerHTML = '기상청 ' + info.label + ' ' + kindLabel + ' 정보를 불러왔습니다.<br>지도 매칭을 실행합니다.';
+          applyForecastMatch();
+          return;
+        }
+      }
+      throw new Error(info.label + ' ' + kindLabel + ' 문구를 찾지 못했습니다.');
+    } catch(err) {
+      __stopKmaLoadingTitle(true);
+      if (box) box.innerHTML = '자동 불러오기에 실패했습니다.<br>원인: ' + (err.message || String(err));
+    }
+  };
+
+  showKmaChoice = async function(dayOffset){
+    __resetKmaChoiceForNewDay(dayOffset);
+    const input = document.getElementById('forecastText');
+    if (input) input.value = '';
+    const info = __kmaDateInfo(__selectedKmaDayOffset);
+    __setKmaChoiceNoButtons(info.label + ' 강수 항목 확인 중...');
+    try {
+      const pages = await getAllPages();
+      let hasRain = false, hasShower = false;
+      for (const page of pages) {
+        if (!page.ok) continue;
+        __updateKmaForecastTimeFromRaw(page.raw);
+        hasRain = hasRain || __hasKmaKindStrict(page.parsed.blocks, __selectedKmaDayOffset, 'rain');
+        hasShower = hasShower || __hasKmaKindStrict(page.parsed.blocks, __selectedKmaDayOffset, 'shower');
+        if (hasRain && hasShower) break;
+      }
+      __applyKmaChoiceAvailability(__selectedKmaDayOffset, hasRain, hasShower);
+    } catch(err) {
+      __setKmaChoiceNoButtons(info.label + ' 강수 항목 확인 실패');
+      console.warn('KMA ultra-fast choice check failed:', err);
+    }
+  };
+
+  // 기존 클릭 리스너가 전역 함수 이름을 호출하므로 위 재정의가 그대로 적용됩니다.
+})();
+</script>
 </body></html>
