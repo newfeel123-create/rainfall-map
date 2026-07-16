@@ -11703,12 +11703,16 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     'https://www.weather.go.kr/w/forecast/overall/short-term.do',
     'https://www.weather.go.kr/w/forecast/notice.do'
   ];
+  const KMA_STATIC_JSON = './kma_forecast.json';
+  const KMA_STORAGE_KEY = 'kmaForecastPreloadCache_v1';
+  const KMA_MEMORY_TTL = 5 * 60 * 1000;
+  const KMA_STATIC_TIMEOUT = 1200;
 
   let __kmaPreloadPromise = null;
   let __kmaPreloadedDocs = [];
   let __kmaPreloadedAt = 0;
   let __kmaRetryTimer = null;
-  const KMA_MEMORY_TTL = 5 * 60 * 1000;
+  let __kmaBackgroundRefreshing = false;
 
   function __setKmaConnectionStatus(state, text){
     const el = document.getElementById('kmaConnectionStatus');
@@ -11718,8 +11722,8 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     const label = el.querySelector('.kma-status-text');
     if (label) label.textContent = text;
     el.title = state === 'ready'
-      ? '오늘·내일 예보통보문 선불러오기 완료'
-      : (state === 'error' ? '클릭하면 다시 연결합니다.' : '기상청 예보통보문을 미리 불러오는 중입니다.');
+      ? '오늘·내일 예보통보문 준비 완료'
+      : (state === 'error' ? '클릭하면 다시 연결합니다.' : '기상청 예보통보문을 준비하는 중입니다.');
   }
 
   function __validKmaDocument(raw){
@@ -11732,38 +11736,128 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     }
   }
 
+  function __normalizeDocs(data){
+    const list = Array.isArray(data) ? data : (data && Array.isArray(data.docs) ? data.docs : []);
+    return list
+      .map((d, i) => ({
+        url: (d && d.url) || KMA_PRELOAD_URLS[i] || '',
+        raw: d && typeof d.raw === 'string' ? d.raw : ''
+      }))
+      .filter(d => __validKmaDocument(d.raw));
+  }
+
+  function __saveLocalCache(docs){
+    try {
+      localStorage.setItem(KMA_STORAGE_KEY, JSON.stringify({
+        savedAt: Date.now(),
+        docs: docs
+      }));
+    } catch(e) {}
+  }
+
+  function __readLocalCache(){
+    try {
+      const parsed = JSON.parse(localStorage.getItem(KMA_STORAGE_KEY) || 'null');
+      if (!parsed || !Array.isArray(parsed.docs)) return [];
+      return __normalizeDocs(parsed.docs);
+    } catch(e) {
+      return [];
+    }
+  }
+
+  async function __fetchStaticJson(){
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), KMA_STATIC_TIMEOUT);
+    try {
+      const res = await fetch(KMA_STATIC_JSON + '?v=' + Math.floor(Date.now() / 60000), {
+        cache: 'no-cache',
+        signal: controller.signal
+      });
+      if (!res.ok) throw new Error('static json ' + res.status);
+      const data = await res.json();
+      return __normalizeDocs(data);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function __fetchLiveDocs(){
+    const results = await Promise.allSettled(
+      KMA_PRELOAD_URLS.map(url => fetchTextWithFallback(url))
+    );
+    const docs = [];
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && __validKmaDocument(result.value)) {
+        docs.push({ url: KMA_PRELOAD_URLS[index], raw: result.value });
+      }
+    });
+    if (!docs.length) throw new Error('예보통보문 실시간 불러오기 실패');
+    return docs;
+  }
+
+  function __acceptDocs(docs, statusText){
+    if (!docs || !docs.length) return false;
+    __kmaPreloadedDocs = docs;
+    __kmaPreloadedAt = Date.now();
+    try { __updateKmaForecastTimeFromRaw(docs[0].raw); } catch(e) {}
+    __setKmaConnectionStatus('ready', statusText || '기상청 연결됨');
+    return true;
+  }
+
+  async function __refreshLiveInBackground(){
+    if (__kmaBackgroundRefreshing) return;
+    __kmaBackgroundRefreshing = true;
+    try {
+      const liveDocs = await __fetchLiveDocs();
+      __acceptDocs(liveDocs, '기상청 연결됨');
+      __saveLocalCache(liveDocs);
+    } catch(e) {
+      // 캐시로 이미 준비된 경우에는 연결 실패로 바꾸지 않습니다.
+      if (!__kmaPreloadedDocs.length) __setKmaConnectionStatus('error', '기상청 연결 실패');
+    } finally {
+      __kmaBackgroundRefreshing = false;
+    }
+  }
+
   async function __preloadKmaDocuments(force){
     const fresh = __kmaPreloadedDocs.length &&
                   (Date.now() - __kmaPreloadedAt < KMA_MEMORY_TTL);
-    if (!force && fresh) return __kmaPreloadedDocs;
+    if (!force && fresh) {
+      __refreshLiveInBackground();
+      return __kmaPreloadedDocs;
+    }
     if (__kmaPreloadPromise) return __kmaPreloadPromise;
 
     __setKmaConnectionStatus('loading', '기상청 연결 중');
 
-    __kmaPreloadPromise = Promise.allSettled(
-      KMA_PRELOAD_URLS.map(url => fetchTextWithFallback(url))
-    ).then(results => {
-      const docs = [];
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && __validKmaDocument(result.value)) {
-          docs.push({ url:KMA_PRELOAD_URLS[index], raw:result.value });
+    __kmaPreloadPromise = (async () => {
+      // 1. 브라우저 저장 캐시를 즉시 사용합니다.
+      if (!force) {
+        const localDocs = __readLocalCache();
+        if (__acceptDocs(localDocs, '기상청 연결됨')) {
+          __refreshLiveInBackground();
+          return localDocs;
         }
-      });
-
-      if (!docs.length) throw new Error('예보통보문 선불러오기 실패');
-
-      __kmaPreloadedDocs = docs;
-      __kmaPreloadedAt = Date.now();
-
-      try { __updateKmaForecastTimeFromRaw(docs[0].raw); } catch(e) {}
-      __setKmaConnectionStatus('ready', '기상청 연결됨');
-
-      if (__kmaRetryTimer) {
-        clearTimeout(__kmaRetryTimer);
-        __kmaRetryTimer = null;
       }
-      return docs;
-    }).catch(err => {
+
+      // 2. GitHub Pages의 정적 JSON을 짧게 기다려 사용합니다.
+      if (!force) {
+        try {
+          const staticDocs = await __fetchStaticJson();
+          if (__acceptDocs(staticDocs, '기상청 연결됨')) {
+            __saveLocalCache(staticDocs);
+            __refreshLiveInBackground();
+            return staticDocs;
+          }
+        } catch(e) {}
+      }
+
+      // 3. 캐시가 없을 때만 실시간 기상청 연결을 기다립니다.
+      const liveDocs = await __fetchLiveDocs();
+      __acceptDocs(liveDocs, '기상청 연결됨');
+      __saveLocalCache(liveDocs);
+      return liveDocs;
+    })().catch(err => {
       __setKmaConnectionStatus('error', '기상청 연결 실패');
       if (!__kmaRetryTimer) {
         __kmaRetryTimer = setTimeout(() => {
@@ -11790,7 +11884,6 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     return blocks;
   }
 
-  // 기존 함수 이름을 그대로 교체하여 기존 버튼/UI/지도 기능은 유지합니다.
   window.showKmaChoice = async function(dayOffset){
     __resetKmaChoiceForNewDay(dayOffset);
     const input = document.getElementById('forecastText');
@@ -11822,14 +11915,16 @@ window.addEventListener('load',()=>setTimeout(sync,50));
       const docs = await __preloadKmaDocuments(false);
       const blocks = __combinedKmaBlocks(docs);
       const selected = __filterKmaBlocks(blocks, dayOffset, kind);
-      const result = selected.map(b => b.text).join('\n\n').trim();
+      const result = selected.map(b => b.text).join('
+
+').trim();
 
       if (!result || !/mm/.test(result)) {
         throw new Error(info.label + ' ' + kindLabel + ' 문구를 찾지 못했습니다.');
       }
 
       if (input) input.value = result;
-      if (box) box.innerHTML = '미리 불러온 기상청 ' + info.label + ' ' + kindLabel +
+      if (box) box.innerHTML = '미리 준비된 기상청 ' + info.label + ' ' + kindLabel +
         ' 정보를 사용합니다.<br>지도 매칭을 실행합니다.';
       applyForecastMatch();
     } catch(err) {
@@ -11838,7 +11933,6 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     }
   };
 
-  // 예보 통보문 버튼도 이미 받은 원문을 우선 사용합니다.
   window.loadRainfallFromKma = async function(){
     const box = document.getElementById('matchResult');
     const input = document.getElementById('forecastText');
@@ -11854,7 +11948,7 @@ window.addEventListener('load',()=>setTimeout(sync,50));
       }
       if (!result) throw new Error('예상 강수량/소나기 문구를 찾지 못했습니다.');
       if (input) input.value = result;
-      if (box) box.innerHTML = '미리 불러온 기상청 예보통보문을 사용합니다.<br>지도 매칭을 실행합니다.';
+      if (box) box.innerHTML = '미리 준비된 기상청 예보통보문을 사용합니다.<br>지도 매칭을 실행합니다.';
       applyForecastMatch();
     } catch(err) {
       if (box) box.innerHTML = '자동 불러오기에 실패했습니다.<br>원인: ' +
@@ -11868,11 +11962,12 @@ window.addEventListener('load',()=>setTimeout(sync,50));
       status.addEventListener('click', () => {
         if (status.classList.contains('error')) {
           __preloadKmaDocuments(true).catch(() => {});
+        } else {
+          __refreshLiveInBackground();
         }
       });
     }
-    // 프로그램 화면과 기본 지도 로딩을 먼저 허용한 뒤 즉시 선불러오기 시작
-    setTimeout(() => __preloadKmaDocuments(false).catch(() => {}), 30);
+    setTimeout(() => __preloadKmaDocuments(false).catch(() => {}), 20);
   }
 
   if (document.readyState === 'loading') {
