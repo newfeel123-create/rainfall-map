@@ -2612,7 +2612,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version-row"><div class="app-version">Ver.2.5.2</div><div id="kmaConnectionStatus" class="kma-connection-status loading"><span class="kma-status-dot"></span><span class="kma-status-text">기상청 연결 중</span></div></div>
+   <div class="app-version-row"><div class="app-version">Ver.2.5.2</div><div id="kmaConnectionStatus" class="kma-connection-status loading" title="기상청 예보통보문을 미리 불러오는 중입니다."><span class="kma-status-dot"></span><span class="kma-status-text">기상청 연결 중</span></div></div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -8764,6 +8764,30 @@ function refreshManualRegionPanelAfterImport() {
   } catch(e) {}
 }
 
+function clearManualRegionStoredDataForGithubSync() {
+  if (typeof localStorage === 'undefined') return;
+
+  const removeKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i) || '';
+    if (
+      key.startsWith('kmaManualRegionAliases_v2_') ||
+      key.startsWith('kmaManualRegionOverride_v1_') ||
+      key === MANUAL_REGION_CUSTOM_MENU_KEY ||
+      key === MANUAL_REGION_HIDDEN_MENU_KEY ||
+      key === MANUAL_REGION_ORDER_MENU_KEY
+    ) {
+      removeKeys.push(key);
+    }
+  }
+  removeKeys.forEach(key => localStorage.removeItem(key));
+
+  // 메모리에 남은 메뉴 구성도 기본 상태로 되돌린 후 GitHub 최신본을 적용합니다.
+  applyManualRegionCustomMenu({});
+  applyManualRegionHiddenMenu({});
+  applyManualRegionOrderMenu({});
+}
+
 function applyManualRegionBackupObject(data, options) {
   options = options || {};
   if (typeof localStorage === 'undefined') {
@@ -8783,6 +8807,11 @@ function applyManualRegionBackupObject(data, options) {
     return false;
   }
 
+  // GitHub 자동 불러오기는 기존 브라우저 저장값과 합치지 않고 최신 파일로 완전히 교체합니다.
+  if (options.replaceExisting) {
+    clearManualRegionStoredDataForGithubSync();
+  }
+
   Object.keys(normalized.aliases).forEach(k => {
     localStorage.setItem('kmaManualRegionAliases_v2_' + normText(k), JSON.stringify(normalized.aliases[k]));
   });
@@ -8790,23 +8819,33 @@ function applyManualRegionBackupObject(data, options) {
     localStorage.setItem('kmaManualRegionOverride_v1_' + normText(k), JSON.stringify(normalized.overrides[k]));
   });
   if (normalized.customMenu && Object.keys(normalized.customMenu).length) {
-    const currentCustom = getManualRegionCustomMenu();
+    const currentCustom = options.replaceExisting ? {} : getManualRegionCustomMenu();
     Object.keys(normalized.customMenu).forEach(zone => {
       const z = zoneName(zone);
-      const base = Array.isArray(currentCustom[z]) ? currentCustom[z].map(normText).filter(Boolean) : [];
-      const merged = Array.from(new Set([...base, ...(normalized.customMenu[zone] || []).map(normText).filter(Boolean)]));
-      currentCustom[z] = merged;
+      const incoming = (normalized.customMenu[zone] || []).map(normText).filter(Boolean);
+      if (options.replaceExisting) {
+        currentCustom[z] = Array.from(new Set(incoming));
+      } else {
+        const base = Array.isArray(currentCustom[z]) ? currentCustom[z].map(normText).filter(Boolean) : [];
+        currentCustom[z] = Array.from(new Set([...base, ...incoming]));
+      }
     });
     saveManualRegionCustomMenu(currentCustom);
     applyManualRegionCustomMenu(currentCustom);
   }
   if (normalized.hiddenMenu && Object.keys(normalized.hiddenMenu).length) {
-    const currentHidden = getManualRegionHiddenMenu();
+    const currentHidden = options.replaceExisting ? {} : getManualRegionHiddenMenu();
     Object.keys(normalized.hiddenMenu).forEach(zone => {
       const z = zoneName(zone);
-      const base = Array.isArray(currentHidden[z]) ? currentHidden[z].map(normText).filter(Boolean) : [];
-      currentHidden[z] = Array.from(new Set([...base, ...(normalized.hiddenMenu[zone] || []).map(normText).filter(Boolean)]))
-        .filter(name => !isManualRegionBaseButton(z, name));
+      const incoming = (normalized.hiddenMenu[zone] || []).map(normText).filter(Boolean);
+      if (options.replaceExisting) {
+        currentHidden[z] = Array.from(new Set(incoming))
+          .filter(name => !isManualRegionBaseButton(z, name));
+      } else {
+        const base = Array.isArray(currentHidden[z]) ? currentHidden[z].map(normText).filter(Boolean) : [];
+        currentHidden[z] = Array.from(new Set([...base, ...incoming]))
+          .filter(name => !isManualRegionBaseButton(z, name));
+      }
     });
     saveManualRegionHiddenMenu(currentHidden);
     applyManualRegionHiddenMenu(currentHidden);
@@ -8834,21 +8873,61 @@ function applyManualRegionBackupObject(data, options) {
 }
 
 function autoLoadManualRegionBackupJson() {
-  // GitHub Pages에 region_replace.json을 같이 올려두면 모바일/PC에서 자동 적용됩니다.
-  // 파일이 없으면 기존 localStorage 개인 저장값 또는 기본값을 그대로 사용합니다.
+  // GitHub Pages의 최신 region_replace.json을 기존 저장값과 합치지 않고 완전히 교체 적용합니다.
   if (location.protocol === 'file:') {
     setManualRegionJsonStatus('치환 데이터: 로컬 파일 실행 중 · GitHub 자동 불러오기 제외', 'warn');
     return;
   }
-  fetch('region_replace.json?ts=' + Date.now(), { cache:'no-store' })
-    .then(res => {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
+
+  const maxAttempts = 3;
+  let attempt = 0;
+
+  function fetchLatestRegionReplace() {
+    attempt += 1;
+    const url = 'region_replace.json?ts=' + Date.now() + '&attempt=' + attempt;
+
+    setManualRegionJsonStatus(
+      '치환 데이터: GitHub 최신본 확인 중 (' + attempt + '/' + maxAttempts + ')',
+      'warn'
+    );
+
+    return fetch(url, {
+      cache:'no-store',
+      headers:{
+        'Cache-Control':'no-cache, no-store, must-revalidate',
+        'Pragma':'no-cache',
+        'Expires':'0'
+      }
     })
-    .then(data => applyManualRegionBackupObject(data, { source:'auto', silent:true }))
-    .catch(() => {
-      setManualRegionJsonStatus('치환 데이터: region_replace.json 없음 · 개인 저장값/기본값 사용', 'warn');
-    });
+      .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.text();
+      })
+      .then(raw => {
+        const data = JSON.parse(raw);
+        const applied = applyManualRegionBackupObject(data, {
+          source:'auto',
+          silent:true,
+          replaceExisting:true
+        });
+        if (!applied) throw new Error('적용할 치환 데이터 없음');
+        return true;
+      })
+      .catch(err => {
+        if (attempt < maxAttempts) {
+          return new Promise(resolve => setTimeout(resolve, 2000))
+            .then(fetchLatestRegionReplace);
+        }
+        throw err;
+      });
+  }
+
+  fetchLatestRegionReplace().catch(() => {
+    setManualRegionJsonStatus(
+      '치환 데이터: GitHub 최신본 불러오기 실패 · 기존 저장값/기본값 사용',
+      'err'
+    );
+  });
 }
 
 function exportManualRegionBackup() {
@@ -12510,7 +12589,7 @@ window.addEventListener('load',()=>setTimeout(sync,50));
 }
 </style>
 
-<div id="customTextBoxDialog" class="custom-text-dialog" hidden>
+<div id="customTextBoxDialog" class="custom-text-dialog" hidden="">
   <div class="custom-text-card" role="dialog" aria-modal="true" aria-labelledby="customTextBoxTitle">
     <div id="customTextBoxTitle" class="custom-text-title">텍스트 입력</div>
     <input id="customTextBoxInput" type="text" maxlength="40" placeholder="텍스트를 입력하세요">
