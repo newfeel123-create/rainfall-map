@@ -2,8 +2,8 @@
   'use strict';
 
   const KMA_PRELOAD_URLS = [
-    'https://www.weather.go.kr/w/forecast/overall/short-term.do',
-    'https://www.weather.go.kr/w/forecast/notice.do'
+    'https://www.weather.go.kr/w/forecast/notice.do',
+    'https://www.weather.go.kr/w/forecast/overall/short-term.do'
   ];
   const KMA_STATIC_JSON = './kma_forecast.json';
   const KMA_STORAGE_KEY = 'kmaForecastPreloadCache_v1';
@@ -117,32 +117,32 @@ return true;
     }
     if (__kmaPreloadPromise) return __kmaPreloadPromise;
 __kmaPreloadPromise = (async () => {
-      // 1. 브라우저 저장 캐시를 즉시 사용합니다.
+      // 1. 기상청 예보통보문(notice.do)을 가장 먼저 실시간으로 확인합니다.
+      try {
+        const liveDocs = await __fetchLiveDocs();
+        __acceptDocs(liveDocs, '');
+        __saveLocalCache(liveDocs);
+        return liveDocs;
+      } catch(e) {}
+
+      // 2. 실시간 연결 실패 시 브라우저 저장 캐시를 사용합니다.
       if (!force) {
         const localDocs = __readLocalCache();
-        if (__acceptDocs(localDocs, '')) {
-          __refreshLiveInBackground();
-          return localDocs;
-        }
+        if (__acceptDocs(localDocs, '')) return localDocs;
       }
 
-      // 2. GitHub Pages의 정적 JSON을 짧게 기다려 사용합니다.
+      // 3. 마지막으로 GitHub Pages의 정적 JSON을 사용합니다.
       if (!force) {
         try {
           const staticDocs = await __fetchStaticJson();
           if (__acceptDocs(staticDocs, '')) {
             __saveLocalCache(staticDocs);
-            __refreshLiveInBackground();
             return staticDocs;
           }
         } catch(e) {}
       }
 
-      // 3. 캐시가 없을 때만 실시간 예보통보문을 불러옵니다.
-      const liveDocs = await __fetchLiveDocs();
-      __acceptDocs(liveDocs, '');
-      __saveLocalCache(liveDocs);
-      return liveDocs;
+      throw new Error('예보통보문 불러오기 실패');
     })().catch(err => {
 if (!__kmaRetryTimer) {
         __kmaRetryTimer = setTimeout(() => {
