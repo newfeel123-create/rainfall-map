@@ -2351,7 +2351,7 @@ input[type="range"] {
     <div class="sound-mini-row">
       <button id="soundToggle" type="button" class="sound-toggle-mini sound-on" title="버튼 효과음">🔊 ON</button>
     </div>
-   <div class="app-version-row"><div class="app-version">Ver.2.4.8</div><div id="kmaConnectionStatus" class="kma-connection-status loading"><span class="kma-status-dot"></span><span class="kma-status-text">기상청 연결 중</span></div></div>
+   <div class="app-version-row"><div class="app-version">Ver.2.5.0</div></div>
 
     <div class="kma-day-panel">
       <div id="kmaForecastTime" class="kma-day-title" data-cal-day="">예보 발표 시간</div>
@@ -11802,7 +11802,7 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     __kmaPreloadedDocs = docs;
     __kmaPreloadedAt = Date.now();
     try { __updateKmaForecastTimeFromRaw(docs[0].raw); } catch(e) {}
-    __setKmaConnectionStatus('ready', statusText || '기상청 연결됨');
+    __setKmaConnectionStatus('ready', statusText || '');
     return true;
   }
 
@@ -11811,7 +11811,7 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     __kmaBackgroundRefreshing = true;
     try {
       const liveDocs = await __fetchLiveDocs();
-      __acceptDocs(liveDocs, '기상청 연결됨');
+      __acceptDocs(liveDocs, '');
       __saveLocalCache(liveDocs);
     } catch(e) {
       // 캐시로 이미 준비된 경우에는 연결 실패로 바꾸지 않습니다.
@@ -11830,13 +11830,13 @@ window.addEventListener('load',()=>setTimeout(sync,50));
     }
     if (__kmaPreloadPromise) return __kmaPreloadPromise;
 
-    __setKmaConnectionStatus('loading', '기상청 연결 중');
+    __setKmaConnectionStatus('loading', '');
 
     __kmaPreloadPromise = (async () => {
       // 1. 브라우저 저장 캐시를 즉시 사용합니다.
       if (!force) {
         const localDocs = __readLocalCache();
-        if (__acceptDocs(localDocs, '기상청 연결됨')) {
+        if (__acceptDocs(localDocs, '')) {
           __refreshLiveInBackground();
           return localDocs;
         }
@@ -11846,7 +11846,7 @@ window.addEventListener('load',()=>setTimeout(sync,50));
       if (!force) {
         try {
           const staticDocs = await __fetchStaticJson();
-          if (__acceptDocs(staticDocs, '기상청 연결됨')) {
+          if (__acceptDocs(staticDocs, '')) {
             __saveLocalCache(staticDocs);
             __refreshLiveInBackground();
             return staticDocs;
@@ -11856,7 +11856,7 @@ window.addEventListener('load',()=>setTimeout(sync,50));
 
       // 3. 캐시가 없을 때만 실시간 기상청 연결을 기다립니다.
       const liveDocs = await __fetchLiveDocs();
-      __acceptDocs(liveDocs, '기상청 연결됨');
+      __acceptDocs(liveDocs, '');
       __saveLocalCache(liveDocs);
       return liveDocs;
     })().catch(err => {
